@@ -1,0 +1,107 @@
+[
+  {
+    "name": "fixedValue",
+    "categories": [ "basic" ],
+    "types": ["scalar", "vector", "tensor"],
+    "patchTypes": ["patch", "wall", "symmetryPlane", "empty"],
+    "parameters": [ "value" ]
+  },
+  {
+    "name": "zeroGradient",
+    "categories": [ "basic" ],
+    "types": ["scalar", "vector", "tensor"],
+    "patchTypes": ["patch", "wall", "symmetryPlane", "empty"],
+    "parameters": []
+  },
+  {
+    "name": "noSlip",
+    "categories": [ "wall" ],
+    "types": ["vector"],
+    "patchTypes": ["wall"],
+    "parameters": []
+  },
+  {
+    "name": "slip",
+    "categories": [ "wall" ],
+    "types": ["vector"],
+    "patchTypes": ["wall", "symmetryPlane"],
+    "parameters": []
+  },
+  {
+    "name": "inletOutlet",
+    "categories": [ "outlet" ],
+    "types": ["scalar", "vector"],
+    "patchTypes": ["patch"],
+    "parameters": [ "inletValue", "value" ]
+  },
+  {
+    "name": "pressureInletOutletVelocity",
+    "categories": [ "outlet" ],
+    "types": ["vector"],
+    "patchTypes": ["patch"],
+    "parameters": [ "value" ]
+  },
+  {
+    "name": "fixedFluxPressure",
+    "categories": [ "wall" ],
+    "types": ["scalar"],
+    "patchTypes": ["patch", "wall"],
+    "parameters": [ "value" ]
+  },
+{
+    "name": "empty",
+    "categories": [ "constraint" ],
+    "types": ["scalar", "vector", "tensor", "symmTensor"],
+    "patchTypes": ["empty"],
+    "parameters": []
+  },
+  {
+    "name": "symmetry",
+    "categories": [ "constraint" ],
+    "types": ["scalar", "vector", "tensor", "symmTensor"],
+    "patchTypes": ["symmetry", "symmetryPlane"],
+    "parameters": []
+  },
+  {
+    "name": "calculated",
+    "categories": [ "basic" ],
+    "types": ["scalar", "vector", "tensor", "symmTensor"],
+    "patchTypes": ["patch", "wall", "symmetryPlane", "empty"],
+    "parameters": [ "value" ]
+  },
+  {
+    "name": "kqRWallFunction",
+    "categories": [ "wall" ],
+    "types": ["scalar"],
+    "patchTypes": ["wall"],
+    "parameters": [ "value" ]
+  },
+  {
+    "name": "nutkWallFunction",
+    "categories": [ "wall" ],
+    "types": ["scalar"],
+    "patchTypes": ["wall"],
+    "parameters": [ "value" ]
+  },
+  {
+    "name": "epsilonWallFunction",
+    "categories": [ "wall" ],
+    "types": ["scalar"],
+    "patchTypes": ["wall"],
+    "parameters": [ "value" ]
+  },
+  {
+    "name": "omegaWallFunction",
+    "categories": [ "wall" ],
+    "types": ["scalar"],
+    "patchTypes": ["wall"],
+    "parameters": [ "value" ]
+  },
+  {
+    "name": "surfaceNormalFixedValue",
+    "categories": [ "inlet" ],
+    "types": ["vector"],
+    "patchTypes": ["patch"],
+    "parameters": [ "refValue" ]
+  }
+]

@@ -1,0 +1,56 @@
+{
+  "Reynolds-Averaged Stress (RAS)": {
+    "Two-Equation": {
+      "kOmegaSST": {
+        "description": "k-omega-SST model",
+        "fields": ["k", "omega"]
+      },
+      "kOmega": {
+        "description": "k-omega model",
+        "fields": ["k", "omega"]
+      },
+      "kEpsilon": {
+        "description": "Standard k-epsilon model",
+        "fields": ["k", "epsilon"]
+      },
+      "realizableKE": {
+        "description": "Realizable k-epsilon model.",
+        "fields": ["k", "epsilon"]
+      },
+      "RNGkEpsilon": {
+        "description": "RNG-k-epsilon model",
+        "fields": ["k", "epsilon"]
+      }
+    },
+    "One-Equation": {
+      "SpalartAllmaras": {
+        "description": "Spalart-Allmaras mixing-length model",
+        "fields": ["nuTilda"]
+      }
+    },
+    "Reynolds Stress Model (RSM)": {
+      "LRR": {
+        "description": "Launder-Reece-Rodi RSTM",
+        "fields": ["R", "epsilon"]
+      }
+    }
+  },
+  "Large-Eddy Simulation (LES)": {
+    "Algebraic": {
+      "Smagorinsky": {
+        "description": "Smagorinsky SGS model",
+        "fields": []
+      }
+    },
+    "One-Equation": {
+      "dynamicKEqn": {
+        "description": "Dynamic eddy-viscosity",
+        "fields": ["k"]
+      },
+      "dynamicLagrangian": {
+        "description": "Dynamic SGS model with Lagrangian averaging",
+        "fields": ["k"]
+      }
+    }
+  }
+}

@@ -1,0 +1,180 @@
+#include "tab_widget.h"
+// #include "main_window.h"
+
+#include <QStringBuilder>
+
+// Custom tab bar moves the close button
+class TabBar : public QTabBar {
+public:
+    using QTabBar::QTabBar;
+
+protected:
+    void tabLayoutChange() override {
+        QTabBar::tabLayoutChange();
+
+        for (int i = 0; i < count(); ++i) {
+            QWidget* btn = tabButton(i, QTabBar::RightSide);
+            if (btn) {
+                QRect r = btn->geometry();
+                r.translate(-8, 0);
+                btn->setGeometry(r);
+            }
+        }
+    }
+};
+
+TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
+
+    // Access parent
+    window = parent;
+
+    // Set the custom tab bar
+    setTabBar(new TabBar());
+
+    // Configure behavior
+    setMovable(true);
+    setTabsClosable(true);
+    connect(this, SIGNAL(tabCloseRequested(int)), this, SLOT(destroyTab(int)));
+
+    // Set style
+    setStyleSheet(
+        "QTabBar {"
+        "    background: #E6E6E6;"
+        "}"
+        "QTabBar::tab {"
+        "    background: #DCDCDC;"
+        "    font: bold;"
+        "    color: #404040;"
+        "    padding: 6px 12px;"
+        "    margin-right: 2px;"
+        "    border: 1px solid #C0C0C0;"
+        "    border-top-left-radius: 8px;"
+        "    border-top-right-radius: 8px;"
+        "    border-bottom: none;"
+        "}"
+        "QTabBar::tab:selected {"
+        "    color: #000000;"
+        "    background: #FFFFFF;"
+        "}"
+        "QTextEdit, QPlainTextEdit {"
+        "    color: black;"
+        "    background-color: white;"
+        "}"
+        "QTabWidget::pane {"
+        "    border: 1px solid #C0C0C0;"
+        "}"
+        );
+}
+
+TabWidget::~TabWidget() {}
+
+void TabWidget::destroyTab(int index) {
+    // Grab the pointer to the editor BEFORE removing the tab
+    QWidget* editorWidget = this->widget(index);
+
+    // Remove the tab from the visual UI
+    this->removeTab(index);
+
+    // Safely delete the text editor from memory
+    if (editorWidget) {
+        editorWidget->deleteLater();
+    }
+}
+void TabWidget::changeDirtyState(QWidget* editor, bool dirty) {
+
+    // Get name of tab
+    int index = indexOf(editor);
+    QString name = tabText(index);
+
+    // Add asterisk to mark editor as dirty
+    if(dirty && (name[0] != '*')) {
+        setTabText(index, name.prepend("* "));
+        return;
+    }
+
+    // Remove asterisk to mark editor as not dirty
+    if(!dirty && (name[0] == '*')) {
+        setTabText(index, name.remove(0, 2));
+        return;
+    }
+}
+
+/*
+void TabWidget::editFile(NodeData* node) {
+
+    QString path = workspacePath + "/" + node->file_path;
+    if(opened.contains(path)) {
+        setCurrentIndex(opened.indexOf(path));
+    }
+    else {
+        opened.append(path);
+        setCurrentIndex(createEditor(node->file_name, path));
+    }
+}
+
+void TabWidget::setWorkspace(QString path) {
+
+    // Read list of files to open
+    workspacePath = path;
+    QString line;
+    QString filename = workspacePath + "/.ngenie-workspace";
+    QFile file(filename);
+    if (file.open(QIODevice::ReadOnly)) {
+        QTextStream stream(&file);
+        while (!stream.atEnd() && !line.startsWith("open")) {
+            line = stream.readLine();
+        }
+        file.close();
+    }
+    if(line.startsWith("open")) {
+        opened = line.split("=").last().split(",");
+    }
+
+    for(int i=0; i<opened.count(); i++) {
+        int pos = opened[i].lastIndexOf("/");
+        QString name = opened[i].mid(pos+1);
+        setCurrentIndex(createEditor(name, opened[i]));
+    }
+}
+
+int TabWidget::createEditor(QString name, QString path) {
+
+    CodeEditor *editor = new CodeEditor(this, path);
+    connect(editor, SIGNAL(changeDirtyState(QWidget*, bool)), this, SLOT(changeDirtyState(QWidget*, bool)));
+    int index = addTab(editor, name);
+    editor->setFocus();
+    return index;
+}
+
+void TabWidget::updateWorkspace() {
+
+    QString newFile = "";
+    QString filename = workspacePath + "/.ngenie-workspace";
+    QFile file(filename);
+    if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
+        QTextStream stream(&file);
+        while (!stream.atEnd()) {
+            QString line = stream.readLine();
+            if(!line.startsWith("open")) {
+                newFile = newFile % line;
+            }
+        }
+        newFile = newFile.trimmed();
+        if(!opened.empty()) {
+            if(newFile != "")
+                newFile = newFile % "\n";
+            newFile = newFile % "open=" % opened.join(",");
+        }
+        file.resize(0);
+        stream << newFile;
+        file.close();
+    }
+    else {
+        qDebug() << "Couldn't open workspace file";
+    }
+}
+
+CodeEditor* TabWidget::getCurrentEditor() {
+    return (CodeEditor*)currentWidget();
+}
+*/

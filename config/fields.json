@@ -1,0 +1,72 @@
+{
+  "U": {
+    "class": "volVectorField",
+    "dimensions": "[0 1 -1 0 0 0 0]",
+    "default": [0, 0, 0]
+  },
+  "p": {
+    "class": "volScalarField",
+    "dimensions": "[0 2 -2 0 0 0 0]",
+    "default": 0
+  },
+  "T": {
+    "class": "volScalarField",
+    "dimensions": "[0 0 0 1 0 0 0]",
+    "default": 300
+  },
+  "k": {
+    "class": "volScalarField",
+    "dimensions": "[0 2 -2 0 0 0 0]",
+    "default": 1e-6
+  },
+  "epsilon": {
+    "class": "volScalarField",
+    "dimensions": "[0 2 -3 0 0 0 0]",
+    "default": 1e-6
+  },
+  "nut": {
+    "class": "volScalarField",
+    "dimensions": "[0 2 -1 0 0 0 0]",
+    "default": 1e-5
+  },
+  "rho": {
+    "class": "volScalarField",
+    "dimensions": "[1 -3 0 0 0 0 0]",
+    "default": 1.0
+  },
+  "alpha": {
+    "class": "volScalarField",
+    "dimensions": "[0 0 0 0 0 0 0]",
+    "default": 0.0
+  },
+  "omega": {
+    "class": "volScalarField",
+    "dimensions": "[0 0 -1 0 0 0 0]",
+    "default": 1.0
+  },
+  "phi": {
+    "class": "surfaceScalarField",
+    "dimensions": "[0 3 -1 0 0 0 0]",
+    "default": 0
+  },
+  "p_rgh": {
+    "class": "volScalarField",
+    "dimensions": "[0 2 -2 0 0 0 0]",
+    "default": 0
+  },
+  "alphat": {
+    "class": "volScalarField",
+    "dimensions": "[0 2 -1 0 0 0 0]",
+    "default": 0
+  },
+  "nuTilda": {
+    "class": "volScalarField",
+    "dimensions": "[0 2 -1 0 0 0 0]",
+    "default": 0
+  },
+  "R": {
+    "class": "volSymmTensorField",
+    "dimensions": "[0 2 -2 0 0 0 0]",
+    "default": [0, 0, 0, 0, 0, 0]
+  }  
+}

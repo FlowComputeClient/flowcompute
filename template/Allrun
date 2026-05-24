@@ -1,0 +1,13 @@
+#!/bin/sh
+cd "${0%/*}" || exit
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions
+#------------------------------------------------------------------------------
+
+# Meshing
+runApplication blockMesh
+%1
+%2
+# Run Solver
+runApplication %3
+
+#------------------------------------------------------------------------------
