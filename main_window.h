@@ -5,16 +5,11 @@
 
 #include "dialogs/new_case/wizard_new_case.h"
 #include "dialogs/mesh/wizard_mesh.h"
-#include "dialogs/selection/selection_dialog.h"
 #include "dialogs/solver/wizard_solver.h"
 #include "editors/tab_widget.h"
-#include "editors/text/text_editor.h"
-#include "editors/graphical/vulkan_window.h"
 #include "systems/wsl_system.h"
 #include "views/navigator/case_navigator.h"
 #include "views/console/console.h"
-
-#include "geometry/stl/stl_reader.h"
 
 #include <QAction>
 #include <QCoreApplication>
@@ -31,7 +26,9 @@
 
 enum class EditorType : int {
     TEXT = 0,
-    GEOMETRY,
+    MODEL,
+    MESH,
+    RESULTS,
     COUNT
 };
 
@@ -57,9 +54,7 @@ public:
     ~MainWindow() override;
 
     // Display text in the tabbar
-    void displayText(QString fileName, QString fullPath);
-    void displayGraphics(const QString& fileName, const QString& fullPath);
-    void storeTab(QString fileName, QString fullPath, EditorType type);
+    void createEditor(EditorType type, const QString& fileName, const QString& fullPath);
 
     // Create a new project
     void createCase(QString, QString, QStringList, int, QString);
@@ -70,7 +65,7 @@ public:
     static bool isWindows() { return s_isWindows; }
     static bool isWslAvailable() { return s_isWslAvailable; }
     QString getSelectedCase() { return navigator->getSelectedCase(); }
-    QMap<QString, CaseData> caseMap;
+    QMap<QString, CaseData> m_caseMap;
     QMap<QString, TabData> tabMap;
     TargetSystem* targetSystems[static_cast<int>(TargetType::COUNT)];
 
@@ -85,6 +80,18 @@ private:
     Console* console;
     TabWidget* tabWidget;
     QFont font;
+
+    // Check utilities
+    QMap<QString, QMap<QString, bool>> m_utilMap;
+    QStringList m_utilities = { "surfaceCheck", "surfacePatch", "surfaceAutoPatch", "blockMesh",
+                               "surfaceFeatureExtract", "snappyHexMesh", "simpleFoam", "pimpleFoam",
+                               "checkMesh", "decomposePar", "reconstructPar", "topoSet" };
+    QMap<QString, bool> checkUtilities(const QString& fullPath, int targetId, const QStringList& utilities);
+
+    // Keep track of utility output
+    bool m_isStarted = false;
+    QString m_utilityText;
+    std::vector<QString> m_utilityItems;
 
     // Access solvers and families
     QList<FlowCompute::SolverFamily> m_solverFamilies;
@@ -141,7 +148,6 @@ private:
 private slots:
 
     // File actions
-    void newCaseFolder();
     void saveFile();
 
     // Redo actions
@@ -149,10 +155,15 @@ private slots:
     void redo();
 
     // Mesh actions
-    void createMesh();
 
-    // Solver actions
+    // Receive output
+    void processUtilityOutput(const QString& line, UtilityType type);
+
+    // Check if utilities are available
+    void runMeshWizard();
+    void runNewCaseWizard();
     void runSolverWizard();
-
+    void runSurfacePatch(double featureAngle, const QString& fullPath, int targetId, bool isBinary);
+    void runSurfaceCheck(const QString& fullPath, int targetId, bool isBinary);
 };
 #endif // MAIN_WINDOW_H

@@ -28,8 +28,8 @@ bool MeshWizard::loadParseFiles() {
 
     // Access OpenFOAM path on server
     m_caseName = field("caseName").toString();
-    m_targetId = mainWin->caseMap[m_caseName].targetSystemId;
-    m_casePath = mainWin->caseMap[m_caseName].casePath;
+    m_targetId = mainWin->m_caseMap[m_caseName].targetSystemId;
+    m_casePath = mainWin->m_caseMap[m_caseName].casePath;
 
     // Declare variables
     QString fileName;
@@ -119,7 +119,7 @@ bool MeshWizard::showParsingErrorMessage(QString fileName) {
 
     // Determine which choice the user made
     if (errorDialog.clickedButton() == editBtn) {
-        mainWin->displayText(fileName.split('/').last(), m_caseName + "/system");
+        mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
         reject();
         return false;
     } else if (errorDialog.clickedButton() == overwriteBtn) {
@@ -132,7 +132,7 @@ bool MeshWizard::showParsingErrorMessage(QString fileName) {
 
 void MeshWizard::accept() {
 
-    QString openFoamPath = mainWin->caseMap[m_caseName].openFoamPath;
+    QString openFoamPath = mainWin->m_caseMap[m_caseName].openFoamPath;
 
     // Update or create blockMeshDict
     if (m_runBlockMesh) {

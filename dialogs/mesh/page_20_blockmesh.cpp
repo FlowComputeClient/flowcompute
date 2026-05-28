@@ -19,6 +19,7 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
         dimSpinBox[i] = new QDoubleSpinBox(this);
         dimSpinBox[i]->setRange(-1e9, 1e9);
         dimSpinBox[i]->setDecimals(4);
+        dimSpinBox[i]->setSingleStep(0.1);
         connect(dimSpinBox[i], &QDoubleSpinBox::editingFinished, this, &BlockMeshPage1::updateCellCount);
     }
 
@@ -126,8 +127,8 @@ void BlockMeshPage1::setBoundingBox() {
     QByteArray fileData;
     QVector<BoundingBox> boxes;
     MainWindow* mainWin = qobject_cast<MainWindow*>(this->wizard()->parentWidget());
-    CaseData caseData = mainWin->caseMap[caseName];
-    int targetSystemId = mainWin->caseMap[caseName].targetSystemId;
+    CaseData caseData = mainWin->m_caseMap[caseName];
+    int targetSystemId = mainWin->m_caseMap[caseName].targetSystemId;
     QString fullPath = caseData.casePath + "/" + caseName + "/constant/triSurface";
 
     // Iterate through geometry files

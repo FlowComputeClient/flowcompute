@@ -1,65 +1,6 @@
 #include "mesh_io.h"
 
-QString MeshIO::createFoamHeader(const QString& objectName, const QString& foamPath) {
-    QString headerStr;
-    QTextStream out(&headerStr);
-
-    // Default fallback values
-    bool isESI = false;
-    QString verText = "unknown";
-    QRegularExpression re("openfoam-?v?(\\d+)", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch match = re.match(foamPath);
-
-    if (match.hasMatch()) {
-        QString digits = match.captured(1);
-        int verNumber = digits.toInt();
-
-        // ESI/Keysight releases use YYMM (e.g., 2312, 2412), so the number is always > 100
-        if (verNumber > 100) {
-            isESI = true;
-            verText = "v" + digits;
-        } else {
-            // Foundation releases use sequential major versions (e.g., 11, 12, 13)
-            isESI = false;
-            verText = digits;
-        }
-    } else {
-        qWarning() << "Warning: Could not parse OpenFOAM version from path:" << foamPath;
-    }
-
-    QString line3_right, line4_right;
-
-    if (!isESI) {
-        // Foundation (.org) format
-        line3_right = "Website:  https://openfoam.org";
-        line4_right = "Version:  " + verText;
-    } else {
-        // Keysight / ESI (.com) format
-        line3_right = "Version:  " + verText;
-        line4_right = "Website:  www.openfoam.com";
-    }
-
-    // Write the banner, padding the right side to exactly 47 characters
-    out << "/*--------------------------------*- C++ -*----------------------------------*\\\n";
-    out << "| =========                 |                                                 |\n";
-    out << "| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n";
-    out << "|  \\\\    /   O peration     | " << line3_right.leftJustified(47, ' ') << "|\n";
-    out << "|   \\\\  /    A nd           | " << line4_right.leftJustified(47, ' ') << "|\n";
-    out << "|    \\\\/     M anipulation  |                                                 |\n";
-    out << "\\*---------------------------------------------------------------------------*/\n";
-
-    // Write the required FoamFile dictionary
-    out << "FoamFile\n";
-    out << "{\n";
-    out << "    version     2.0;\n";
-    out << "    format      ascii;\n";
-    out << "    class       dictionary;\n";
-    out << "    object      " << objectName << ";\n";
-    out << "}\n";
-    out << "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n\n";
-
-    return headerStr;
-}
+#include "../../utils.h"
 
 // Parse the block mesh file into a BlockMeshConfig structure
 BlockMeshConfig MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict) {
@@ -399,6 +340,7 @@ LayerControlConfig MeshIO::parseLayerControlConfig(const std::shared_ptr<OpenFoa
     return config;
 }
 
+// Update the blockMeshDict file
 QString MeshIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict, const BlockMeshConfig& config) {
     if (!dict) {
         qWarning() << "Cannot update blockMeshDict: Dictionary pointer is null.";
@@ -491,12 +433,13 @@ QString MeshIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict, co
     return dict->getRawText();
 }
 
+// Create a new blockMeshDict file
 QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config, QString openFoamPath) {
     QString dictStr;
     QTextStream out(&dictStr);
 
     // Write the standard OpenFOAM header
-    out << MeshIO::createFoamHeader("blockMeshDict", openFoamPath);
+    out << Utils::createFoamHeader("blockMeshDict", openFoamPath);
 
     // Write the scale factor
     bool isESI = false;
@@ -587,10 +530,11 @@ QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config, QString openF
     return dictStr;
 }
 
+// Update SurfaceFeatureExtractDict file
 QString MeshIO::updateSurfaceFeatureExtractDict(
     std::shared_ptr<OpenFoamDictionary> dict,
-    const std::map<QString, SurfaceFeatureExtractEntry>& entries)
-{
+    const std::map<QString, SurfaceFeatureExtractEntry>& entries) {
+
     if (!dict) {
         qWarning() << "Cannot update surfaceFeatureExtractDict: Dictionary pointer is null.";
         return QString();
@@ -637,7 +581,7 @@ QString MeshIO::createSurfaceFeatureExtractDict(
     QTextStream out(&dictStr);
 
     // Generate the standard OpenFOAM header
-    out << MeshIO::createFoamHeader("surfaceFeatureExtractDict", openFoamPath);
+    out << Utils::createFoamHeader("surfaceFeatureExtractDict", openFoamPath);
 
     // Iterate through the map to generate the configuration blocks
     for (const auto& [fileName, config] : entryMap) {
@@ -648,7 +592,7 @@ QString MeshIO::createSurfaceFeatureExtractDict(
         QString openEdgesStr = config.openEdges ? "yes" : "no";
 
         // Write the block, ensuring the filename is safely wrapped in quotes
-        out << "\"" << fileName << "\"\n"
+        out << fileName << "\n"
             << "{\n"
             << "    extractionMethod    extractFromSurface;\n"
             << "    extractFromSurfaceCoeffs\n"
@@ -661,7 +605,7 @@ QString MeshIO::createSurfaceFeatureExtractDict(
             << "}\n\n";
     }
 
-    // 3. Write the standard OpenFOAM closing separator
+    // Write the standard OpenFOAM closing separator
     out << "// ************************************************************************* //\n";
 
     return dictStr;
@@ -780,16 +724,16 @@ QString MeshIO::createSnappyHexMeshDict(
     const CastellatedMeshConfig& castConfig,
     const SnapControlConfig& snapConfig,
     const LayerControlConfig& layerConfig,
-    QString openFoamPath)
-{
+    QString openFoamPath) {
+
     QString dictStr;
     QTextStream out(&dictStr);
 
     // Helper lambda to convert booleans to OpenFOAM format
     auto boolToStr = [](bool b) { return b ? "true" : "false"; };
 
-    // 1. Write Header
-    out << MeshIO::createFoamHeader("snappyHexMeshDict", openFoamPath);
+    // Write Header
+    out << Utils::createFoamHeader("snappyHexMeshDict", openFoamPath);
 
     // 2. Global Switches
     out << "castellatedMesh    true;\n";

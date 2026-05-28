@@ -1,5 +1,12 @@
 #include "main_window.h"
 
+#include "dialogs/selection/selection_dialog.h"
+#include "dialogs/utility_output/utility_output_dialog.h"
+#include "editors/text/text_editor.h"
+#include "editors/graphical/model_editor/model_editor.h"
+#include "geometry/stl/stl_reader.h"
+#include "utils.h"
+
 bool MainWindow::s_isWindows = false;
 bool MainWindow::s_isWslAvailable = false;
 
@@ -26,7 +33,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 5px; font: bold; }"
         "QTreeWidget { background-color: white; }"
         "QTreeView { background-color: white; }"
-    );
+        );
     menuBar()->setStyleSheet("QMenuBar { color: black; }");
     setWindowTitle("FlowCompute 1.0.0");
 
@@ -37,7 +44,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Create communication systems
     targetSystems[0] = &wslSystem;
-    connect(&wslSystem, &WslSystem::newLogLineReceived, this, &MainWindow::log);
+    connect(&wslSystem, &WslSystem::newLogLineReceived, this, &MainWindow::processUtilityOutput);
 
     // Create actions, menus, and toolbars
     createActions();
@@ -60,7 +67,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Populate caseMap and navigator from settings
     QSettings settings;
-    caseMap.clear();
+    m_caseMap.clear();
     int caseCount = settings.beginReadArray("Cases");
     for (int i = 0; i < caseCount; ++i) {
         settings.setArrayIndex(i);
@@ -72,7 +79,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         data.caseFiles = settings.value("caseFiles").toStringList();
         data.targetSystemId = settings.value("targetSystemId", 0).toInt();
         data.openFoamPath = settings.value("openFoamPath").toString();
-        caseMap.insert(caseName, data);
+        m_caseMap.insert(caseName, data);
+
+        // Update utility availability
+        if (!m_utilMap.contains(data.openFoamPath)) {
+            QString path = data.casePath + "/" + caseName + "/";
+            m_utilMap[data.openFoamPath] = checkUtilities(path, data.targetSystemId, m_utilities);
+        }
 
         // Update navigator
         navigator->addCase(caseName, data.caseFiles);
@@ -93,12 +106,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         data.fullPath = settings.value("fullPath").toString();
         tabMap.insert(tabName, data);
 
-        // Update tab widget
-        if (data.type == EditorType::TEXT) {
-            displayText(tabName, data.fullPath);
-        } else if (data.type == EditorType::GEOMETRY) {
-            displayGraphics(tabName, data.fullPath);
-        }
+        // Create editor
+        createEditor(data.type, tabName, data.fullPath);
     }
     settings.endArray();
 
@@ -146,7 +155,7 @@ void MainWindow::createActions() {
     newCaseAction = new QAction(QIcon(":/images/new_case.png"), tr("&New Case Folder"), this);
     newCaseAction->setShortcuts(QKeySequence::New);
     newCaseAction->setStatusTip(tr("Create a new case folder"));
-    connect(newCaseAction, SIGNAL(triggered()), this, SLOT(newCaseFolder()));
+    connect(newCaseAction, SIGNAL(triggered()), this, SLOT(runNewCaseWizard()));
 
     // Save file
     saveFileAction = new QAction(QIcon(":/images/save.png"), tr("&Save"), this);
@@ -229,7 +238,7 @@ void MainWindow::createActions() {
     // Configure the mesh action in the Mesh menu
     meshAction = new QAction(QIcon(":/images/mesh.png"), tr("Create new &mesh"), this);
     meshAction->setStatusTip(tr("Create new mesh"));
-    connect(meshAction, SIGNAL(triggered()), this, SLOT(createMesh()));
+    connect(meshAction, SIGNAL(triggered()), this, SLOT(runMeshWizard()));
 
     // Configure the run action in the Solver menu
     runAction = new QAction(QIcon(":/images/play.png"), tr("&Launch solver"), this);
@@ -345,87 +354,108 @@ void MainWindow::createToolBar() {
     toolBar->addAction(aboutAction);
 }
 
-void MainWindow::displayText(QString fileName, QString fullPath) {
+void MainWindow::createEditor(EditorType type, const QString& fileName,
+                              const QString& fullPath) {
 
     // Get text
     QString caseName = fullPath.split('/').first();
-    CaseData caseData = caseMap[caseName];
-    int targetSystemId = caseData.targetSystemId;
-    QString path = caseData.casePath + "/" + fullPath + "/" + fileName;
-    QByteArray textData = targetSystems[targetSystemId]->getFileContent(path);
-
-    // Create new tab
-    TextEditor* textEditor = new TextEditor(this);
-    textEditor->setFont(font);
-    textEditor->setTextData(textData);
-    int tabIndex = tabWidget->addTab(textEditor, fileName);
-    tabWidget->setCurrentIndex(tabIndex);
-
-    // Enable undo and redo actions according to the editor
-    connect(textEditor->document(), &QTextDocument::undoAvailable,
-            undoAction, &QAction::setEnabled);
-    connect(textEditor->document(), &QTextDocument::redoAvailable,
-            redoAction, &QAction::setEnabled);
-
-    // Configure the text editor's event handling
-    connect(textEditor, &TextEditor::dirtyStateChanged, this, [=, this](bool isDirty) {
-        int index = tabWidget->indexOf(textEditor);
-        if (index != -1) {
-            QString tabText = fileName;
-            if (isDirty) tabText += " *";
-            tabWidget->setTabText(index, tabText);
-            if (tabWidget->currentIndex() == index) {
-                saveFileAction->setEnabled(isDirty);
-            }
-        }
-    });
-
-    // Configure the save action
-    connect(tabWidget, &QTabWidget::currentChanged, this, [=, this](int index) {
-        TextEditor* currentEditor = qobject_cast<TextEditor*>(tabWidget->widget(index));
-        if (currentEditor) {
-            saveFileAction->setEnabled(currentEditor->document()->isModified());
-        } else {
-            saveFileAction->setEnabled(false);
-        }
-    });
-}
-
-// Create new tab
-void MainWindow::displayGraphics(const QString& fileName, const QString& fullPath) {
-
-    // Get data
-    QString caseName = fullPath.split('/').first();
-    CaseData caseData = caseMap[caseName];
+    CaseData caseData = m_caseMap[caseName];
     int targetSystemId = caseData.targetSystemId;
     QString path = caseData.casePath + "/" + fullPath + "/" + fileName;
     QByteArray data = targetSystems[targetSystemId]->getFileContent(path);
+    int tabIndex;
+    TabData tabData;
+
+    // Check to see if there's already an editor
+    if (tabMap.contains(fileName)) {
+        tabData = tabMap[fileName];
+        if (tabData.fullPath == fullPath) {
+
+            // Iterate through tabs
+            for (int i = 0; i < tabWidget->count(); ++i) {
+                QString tabName = tabWidget->tabText(i);
+                QString tabPath = tabWidget->tabBar()->tabData(i).toString();
+                if (tabName == fileName && tabPath == fullPath) {
+                    tabWidget->setCurrentIndex(i);
+                    return;
+                }
+            }
+        }
+    }
+
+    // Update tabMap
+    tabData.fullPath = fullPath;
+    tabData.type = type;
+    tabMap.insert(fileName, tabData);
+
+    // Create text editor
+    if (type == EditorType::TEXT) {
+
+        // Create new tab
+        TextEditor* textEditor = new TextEditor(this);
+        textEditor->setFont(font);
+        textEditor->setTextData(data);
+        tabIndex = tabWidget->addTab(textEditor, fileName);
+        tabWidget->setCurrentIndex(tabIndex);
+        tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+
+        // Enable undo and redo actions according to the editor
+        connect(textEditor->document(), &QTextDocument::undoAvailable,
+                undoAction, &QAction::setEnabled);
+        connect(textEditor->document(), &QTextDocument::redoAvailable,
+                redoAction, &QAction::setEnabled);
+
+        // Configure the text editor's event handling
+        connect(textEditor, &TextEditor::dirtyStateChanged, this, [=, this](bool isDirty) {
+            int index = tabWidget->indexOf(textEditor);
+            if (index != -1) {
+                QString tabText = fileName;
+                if (isDirty) tabText += " *";
+                tabWidget->setTabText(index, tabText);
+                if (tabWidget->currentIndex() == index) {
+                    saveFileAction->setEnabled(isDirty);
+                }
+            }
+        });
+
+        // Configure the save action
+        connect(tabWidget, &QTabWidget::currentChanged, this, [=, this](int index) {
+            TextEditor* currentEditor = qobject_cast<TextEditor*>(tabWidget->widget(index));
+            if (currentEditor) {
+                saveFileAction->setEnabled(currentEditor->document()->isModified());
+            } else {
+                saveFileAction->setEnabled(false);
+            }
+        });
+        return;
+    }
 
     // Access mesh data
+    bool isBinary = false;
     MeshData mesh;
     if(fileName.endsWith(".stl", Qt::CaseInsensitive)) {
-        mesh = StlReader::readStlFile(fileName, data);
+        std::pair<MeshData, bool> res = StlReader::readStlFile(fileName, data);
+        mesh = res.first;
+        isBinary = res.second;
     }
     std::shared_ptr<MeshData> meshData = std::make_shared<MeshData>(std::move(mesh));
 
-    // Create Vulkan window
-    VulkanWindow* window = new VulkanWindow(meshData);
-    window->setVulkanInstance(&m_vulkanInstance);
+    // Create editor
+    if (type == EditorType::MODEL) {
 
-    // Create widget for the window
-    QWidget* wrapper = QWidget::createWindowContainer(window);
-    wrapper->setAttribute(Qt::WA_OpaquePaintEvent, true);
-    wrapper->setAttribute(Qt::WA_NoSystemBackground, true);
-    wrapper->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    wrapper->setFocusPolicy(Qt::StrongFocus);
-    wrapper->setAttribute(Qt::WA_DeleteOnClose);
+        // Create editor
+        ModelEditor* editor = new ModelEditor(meshData, path, targetSystemId,
+                                              &m_vulkanInstance, isBinary, this);
+        tabIndex = tabWidget->addTab(editor, fileName);
+        connect(editor, &ModelEditor::surfacePatchRequested,
+                this, &MainWindow::runSurfacePatch);
+        connect(editor, &ModelEditor::surfaceCheckRequested,
+                this, &MainWindow::runSurfaceCheck);
+    }
 
-    // Add widget to the QTabWidget
-    QFileInfo fileInfo(fileName);
-    int tabIndex = tabWidget->addTab(wrapper, fileInfo.fileName());
+    // Update tab widget
     tabWidget->setCurrentIndex(tabIndex);
-
-    // Disable text editor actions
+    tabWidget->tabBar()->setTabData(tabIndex, fullPath);
     undoAction->setDisabled(true);
     redoAction->setDisabled(true);
     saveFileAction->setDisabled(true);
@@ -457,35 +487,25 @@ void MainWindow::runMesh(const QString& casePath, const QString& openFoamPath, b
     QString finalCmd = commands.join(" && ");
 
     // Fire and forget - let the remote Linux shell handle the sequence
-    targetSystems[targetId]->launchUtility(finalCmd);
-}
-
-void MainWindow::storeTab(QString fileName, QString fullPath, EditorType type) {
-
-    // Add tab to tabmap
-    TabData data;
-    data.fullPath = fullPath;
-    data.type = type;
-    tabMap.insert(fileName, data);
+    QString output;
+    targetSystems[targetId]->launchShortUtility(finalCmd, output);
 }
 
 void MainWindow::createCase(QString caseName, QString casePath, QStringList caseFiles,
-                            int targetSystemId, QString openFoamPath) {
+                            int targetId, QString openFoamPath) {
 
     // Add case to map
-    caseMap.insert(caseName, CaseData{casePath, caseFiles, targetSystemId, openFoamPath});
+    m_caseMap.insert(caseName, CaseData{casePath, caseFiles, targetId, openFoamPath});
+
+    // Update utility map if necessary
+    if (!m_utilMap.contains(openFoamPath)) {
+        QString path = casePath + "/" + caseName + "/";
+        m_utilMap[openFoamPath] = checkUtilities(path, targetId, m_utilities);
+    }
 
     // Display case in navigator
     navigator->addCase(caseName, caseFiles);
     navigator->expandCase(caseName);
-}
-
-// Create new case folder
-void MainWindow::newCaseFolder() {
-
-    // Launch new case wizard
-    NewCaseWizard wizard(this);
-    wizard.exec();
 }
 
 // Create new case folder
@@ -501,8 +521,8 @@ void MainWindow::saveFile() {
         // Construct the remote path
         TabData tabData = tabMap[fileName];
         QString caseName = tabData.fullPath.split("/")[0];
-        int targetSystemId = caseMap[caseName].targetSystemId;
-        QString remotePath = caseMap[caseName].casePath + "/" + tabData.fullPath + "/" + fileName;
+        int targetSystemId = m_caseMap[caseName].targetSystemId;
+        QString remotePath = m_caseMap[caseName].casePath + "/" + tabData.fullPath + "/" + fileName;
 
         // Transfer data to the server
         if (tabData.type == EditorType::TEXT) {
@@ -514,12 +534,6 @@ void MainWindow::saveFile() {
             }
         }
     }
-}
-
-// Launch new mesh wizard
-void MainWindow::createMesh() {
-    MeshWizard wizard(this);
-    wizard.exec();
 }
 
 // Undo action in text editor
@@ -537,6 +551,175 @@ void MainWindow::redo() {
 // Write text to the log
 void MainWindow::log(const QString& text) {
     console->appendPlainText(text);
+}
+
+// Process output
+void MainWindow::processUtilityOutput(const QString& line, UtilityType type) {
+
+    switch(type) {
+    case UtilityType::SURFACE_CHECK: {
+
+        // Read surfaceCheck output
+        if (line.startsWith("// * *")) {
+            m_isStarted = true;
+            m_utilityText.clear();
+            m_utilityItems.clear();
+            return;
+        }
+        if (m_isStarted) {
+            m_utilityText += line + "\n";
+            if((line.startsWith("Surface")) || (line.startsWith("Number"))) {
+                m_utilityItems.push_back(line);
+            }
+        }
+        if (line.startsWith("End") || line.startsWith("Segmentation")) {
+            if (line.startsWith("Segmentation")) {
+                m_utilityItems.push_back(tr("Unable to check mesh file - surfaceCheck failed"));
+            }
+            m_isStarted = false;
+
+            // Generate dialog box
+            UtilityOutputDialog dlg(tr("Surface Check Results"),
+                                    tr("Here is the output of the surfaceCheck utiilty:"),
+                                    m_utilityItems, m_utilityText, this);
+            dlg.exec();
+        }
+        break;
+    }
+    case UtilityType::SURFACE_AUTO_PATCH:
+        break;
+    case UtilityType::MESH:
+        log(line);
+        break;
+    case UtilityType::SOLVER:
+        break;
+    }
+}
+
+// Launch new case wizard
+void MainWindow::runNewCaseWizard() {
+    NewCaseWizard wizard(this);
+    wizard.exec();
+}
+
+// Launch mesh wizard
+void MainWindow::runMeshWizard() {
+    MeshWizard wizard(this);
+    wizard.exec();
+}
+
+// Check if utility is available
+QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath, int targetId, const QStringList& utilities) {
+
+    QMap<QString, bool> utilMap;
+    QString path = fullPath.left(fullPath.lastIndexOf('/'));
+    QString utilityList = utilities.join(" ");
+    QString cmd = QString("cd %1; out=\"\"; for u in %2; do command -v $u >/dev/null 2>&1 && out+=\"$u:true,\""
+                  "|| out+=\"$u:false,\"; done; echo \"${out%,}\"").arg(path, utilityList);
+
+    // Get result from checking utilities
+    QString output;
+    if (targetSystems[targetId]->launchShortUtility(cmd, output) == 0) {
+        QStringList res;
+        QStringList utils = output.split(",");
+        for (const auto& util: std::as_const(utils)) {
+            res = util.split(":");
+            utilMap[res[0]] = (res[1] == "true");
+        }
+    } else {
+        for (const auto& util: utilities) {
+            utilMap[util] = false;
+        }
+    }
+    return utilMap;
+}
+
+void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isBinary) {
+
+    // Check if surfaceCheck is present
+    QStringList utils = { "surfaceCheck" };
+    QMap<QString, bool> utilMap = checkUtilities(fullPath, targetId, utils);
+    if (!utilMap["surfaceCheck"]) {
+        QMessageBox::warning(this, tr("Utility Not Found"), tr("The surfaceCheck utility could not be found."));
+        return;
+    }
+
+    // Surround path in double quotes
+    QString cmd;
+    QString safePath = QString("\"%1\"").arg(fullPath);
+    if (isBinary) {
+        QString symlinkPath = QString("\"%1b\"").arg(fullPath);
+        cmd = QString("ln -s %1 %2 && surfaceCheck %2 ; rm -f %2")
+                  .arg(safePath, symlinkPath);
+    } else {
+        cmd = QString("surfaceCheck %1").arg(safePath);
+    }
+
+    QString result;
+    targetSystems[targetId]->launchShortUtility(cmd, result);
+    qDebug() << result;
+}
+
+// Run surfacePatch
+void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
+                                 int targetId, bool isBinary) {
+
+    // Variables for command string
+    QFileInfo info(fullPath);
+    QString path = info.path();
+    QString fileName = info.fileName();
+    QString stem = info.completeBaseName();
+    QString tmpName = info.completeBaseName() + "_tmp." + info.suffix();
+    QString cmd;
+
+    // Get the OpenFOAM path
+    QString casePath, caseName, openFoamPath;
+    int index = fullPath.lastIndexOf("/constant/triSurface");
+    if (index != -1) {
+        casePath = fullPath.left(index);
+    } else {
+        qWarning() << "STL file is not located in a valid OpenFOAM triSurface directory.";
+        return;
+    }
+    caseName = QFileInfo(casePath).fileName();
+    if (m_caseMap.contains(caseName)) {
+        openFoamPath = m_caseMap[caseName].openFoamPath;
+    } else {
+        qWarning() << "Case" << caseName << "is not in case map.";
+        return;
+    }
+    QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
+
+    // Run surfaceAutoPatch if present
+    if (utilMap.value("surfaceAutoPatch", false)) {
+        if (isBinary) {
+            QString symlinkName = info.completeBaseName() + ".stlb";
+            cmd = QString("cd \"%1\" && ln -s \"%2\" \"%3\" && surfaceAutoPatch \"%3\" %4 \"%5\"; rm -f \"%3\"")
+                      .arg(path, fileName, symlinkName, QString::number(angle), tmpName);
+        } else {
+            cmd = QString("cd \"%1\" && surfaceAutoPatch \"%2\" %3 \"%4\"")
+            .arg(path, fileName, QString::number(angle), tmpName);
+        }
+
+        // Proceed to execute the cmd
+        // wslSystem->launchShortUtility(cmd, ...);
+
+    }
+    else if (utilMap.value("surfacePatch", false)) {
+
+        // Create surfacePatchDict file
+        QString dictText = Utils::createSurfacePatchDict(openFoamPath, fileName, stem, angle);
+        targetSystems[targetId]->writeData(dictText.toUtf8(), casePath + "/system/surfacePatchDict");
+
+        if (isBinary) {
+            QString symlinkName = info.completeBaseName() + ".stlb";
+            cmd = QString("cd \"%1\" && ln -s \"%2\" \"%3\" && surfacePatch \"%3\" %4 \"%5\"; rm -f \"%3\"")
+                      .arg(path, fileName, symlinkName, QString::number(angle), tmpName);
+        } else {
+            cmd = QString("cd \"%1\" && surfacePatch")
+            .arg(casePath);
+        }
+    }
 }
 
 void MainWindow::runSolverWizard() {
@@ -834,7 +1017,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     for (int i = 0; i < cases.size(); ++i) {
         settings.setArrayIndex(i);
         QString caseName = cases.at(i);
-        CaseData data = caseMap.value(caseName);
+        CaseData data = m_caseMap.value(caseName);
 
         // Save values to settings
         settings.setValue("caseName", caseName);

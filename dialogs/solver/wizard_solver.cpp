@@ -53,8 +53,8 @@ SolverWizard::SolverWizard(const QString& caseName,
 bool SolverWizard::parseFiles() {
 
     // Access OpenFOAM path on server
-    int targetId = mainWin->caseMap[m_caseName].targetSystemId;
-    QString casePath = mainWin->caseMap[m_caseName].casePath;
+    int targetId = mainWin->m_caseMap[m_caseName].targetSystemId;
+    QString casePath = mainWin->m_caseMap[m_caseName].casePath;
 
     // Declare variables
     QString fileName;
@@ -232,7 +232,7 @@ bool SolverWizard::showParsingErrorMessage(QString fileName) {
 
     // Determine which choice the user made
     if (errorDialog.clickedButton() == editBtn) {
-        mainWin->displayText(fileName.split('/').last(), m_caseName + "/system");
+        mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
         reject();
         return false;
     } else if (errorDialog.clickedButton() == overwriteBtn) {

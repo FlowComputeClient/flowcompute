@@ -76,10 +76,17 @@ void VulkanRenderer::createVertexIndexBuffers() {
     m_devFuncs->vkUnmapMemory(m_device, m_indexBufferMemory);
 
     // Create axis buffer
+    QVector3D extents = m_meshData->boundingBoxMax - m_meshData->boundingBoxMin;
+    float maxDim = std::max({extents.x(), extents.y(), extents.z()});
+    if (maxDim < 0.001f) maxDim = 1.0f;
+    float L = maxDim * 10.0f;
     std::array<float, 36> axisData = {
-        0.0, 0.0, 0.0, 1.0, 0.35, 0.35, 1.0, 0.0, 0.0, 1.0, 0.35, 0.35,
-        0.0, 0.0, 0.0, 0.35, 1.0, 0.35, 0.0, 1.0, 0.0, 0.35, 1.0, 0.35,
-        0.0, 0.0, 0.0, 0.4, 0.65, 1.0, 0.0, 0.0, 1.0, 0.4, 0.65, 1.0 };
+        0.0, 0.0, 0.0,  1.0, 0.35, 0.35,
+        L, 0.0, 0.0,  1.0, 0.35, 0.35,
+        0.0, 0.0, 0.0,  0.35, 1.0, 0.35,
+        0.0, L, 0.0,  0.35, 1.0, 0.35,
+        0.0, 0.0, 0.0,  0.4, 0.65, 1.0,
+        0.0, 0.0, L,  0.4, 0.65, 1.0 };
     VkDeviceSize axisBufferSize = axisData.size() * sizeof(axisData[0]);
     VkBufferCreateInfo axisBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,

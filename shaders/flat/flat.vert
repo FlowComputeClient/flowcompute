@@ -1,12 +1,10 @@
 #version 450
 
-// Input
 layout(location = 0) in vec3 inPosition;
 
-// Output
-layout(location = 0) out vec3 fragPosition;
+// Add the centroid qualifier to the output
+layout(location = 0) centroid out vec3 fragPosition; 
 
-// Transformation matrix
 layout(binding = 0) uniform UniformBufferObject {
     mat4 model_matrix;
     mat4 view_matrix;

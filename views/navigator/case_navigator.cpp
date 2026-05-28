@@ -174,17 +174,15 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
                 (node->nodeType == NodeType::ScriptFile) ||
                 (node->nodeType == NodeType::FieldFile)) {
 
-                // Access children at the given path
-                mainWin->displayText(node->name, node->fullPath);
-                mainWin->storeTab(node->name, node->fullPath, EditorType::TEXT);
+                // Create editor for file
+                mainWin->createEditor(EditorType::TEXT, node->name, node->fullPath);
             }
 
             // Open geometry file
             if (node->nodeType == NodeType::GeometryFile) {
 
-                // Access children at the given path
-                mainWin->displayGraphics(node->name, node->fullPath);
-                mainWin->storeTab(node->name, node->fullPath, EditorType::GEOMETRY);
+                // Create editor for file
+                mainWin->createEditor(EditorType::MODEL, node->name, node->fullPath);
             }
         }
     }
@@ -212,8 +210,8 @@ void CaseNavigator::fetchChildren(NodeData* node) {
     // Construct the full path
     int pos = node->fullPath.indexOf('/');
     QString caseName = (pos == -1) ? node->fullPath : node->fullPath.left(pos);
-    QString casePath = mainWin->caseMap[caseName].casePath;
-    int targetSystemId = mainWin->caseMap[caseName].targetSystemId;
+    QString casePath = mainWin->m_caseMap[caseName].casePath;
+    int targetSystemId = mainWin->m_caseMap[caseName].targetSystemId;
     QString nodePath = node->fullPath + "/" + node->name;
     QString fullPath = casePath + "/" + nodePath;
 

@@ -67,7 +67,7 @@ void GeometryPage::initializePage() {
     // Get cases
     meshWizard = qobject_cast<MeshWizard*>(this->wizard());
     mainWin = qobject_cast<MainWindow*>(this->wizard()->parentWidget());
-    QStringList cases = mainWin->caseMap.keys();
+    QStringList cases = mainWin->m_caseMap.keys();
     QString selectedCase = mainWin->getSelectedCase();
 
     caseBox->addItems(cases);
@@ -84,8 +84,8 @@ void GeometryPage::caseChanged(int index) {
 
     // Get case path
     caseName = caseBox->currentText();
-    int targetSystemId = mainWin->caseMap[caseName].targetSystemId;
-    QString casePath = mainWin->caseMap[caseName].casePath;
+    int targetSystemId = mainWin->m_caseMap[caseName].targetSystemId;
+    QString casePath = mainWin->m_caseMap[caseName].casePath;
 
     // Transfer geometry file
     QString path = casePath + "/" + caseName + "/constant/triSurface";

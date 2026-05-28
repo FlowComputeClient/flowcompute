@@ -41,11 +41,11 @@ public:
     QByteArray getFileContent(QString path) override;
     bool writeData(const QByteArray& payload, const QString& remoteFilePath) override;
     bool writeData(const QString& localPath, const QString& remoteFilePath) override;
-    void launchUtility(const QString& cmd) override;
+    int launchShortUtility(const QString& cmd, QString& output) override;
     bool createDirectories(QStringList dirPaths) override;
 
 signals:
-    void newLogLineReceived(QString line);
+    void newLogLineReceived(QString line, UtilityType type);
 
 private:
 

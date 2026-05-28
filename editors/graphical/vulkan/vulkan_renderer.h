@@ -1,13 +1,13 @@
 #ifndef VULKAN_RENDERER_H
 #define VULKAN_RENDERER_H
 
+#include <QFile>
+#include <QMatrix4x4>
+#include <QVector3D>
 #include <QVulkanFunctions>
 #include <QVulkanWindow>
 
-#include <QVector3D>
-#include <QMatrix4x4>
-
-#include "../../geometry/mesh_data.h"
+#include "../../../geometry/mesh_data.h"
 
 class VulkanWindow;
 
@@ -76,6 +76,7 @@ protected:
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
     VkGraphicsPipelineCreateInfo createFlatPipelineInfo();
+    VkGraphicsPipelineCreateInfo createAxisPipelineInfo();
 
     // Vertex data
     std::shared_ptr<MeshData> m_meshData;
@@ -117,9 +118,17 @@ protected:
     VkPipelineVertexInputStateCreateInfo m_flatVertexInputInfo;
     std::array<VkPipelineShaderStageCreateInfo, 2> m_flatShaderStages;
     std::array<VkShaderModule, 2> m_flatShaderModules;
+    VkPipelineLayout m_flatPipelineLayout = VK_NULL_HANDLE;
+
+    // Structures for the axis pipeline
+    VkPipelineRasterizationStateCreateInfo m_axisRasterizer;
+    VkPipelineInputAssemblyStateCreateInfo m_axisAssemblyState;
+    VkPipelineVertexInputStateCreateInfo m_axisVertexInputInfo;
+    std::array<VkPipelineShaderStageCreateInfo, 2> m_axisShaderStages;
+    std::array<VkShaderModule, 2> m_axisShaderModules;
+    VkPipelineLayout m_axisPipelineLayout = VK_NULL_HANDLE;
 
     // Pipeline objects
-    VkPipelineLayout m_flatPipelineLayout = VK_NULL_HANDLE;
     VkPipelineLayout m_colorPipelineLayout = VK_NULL_HANDLE;
     std::vector<VkPipeline> m_pipelines;
     int m_current_format = 0;

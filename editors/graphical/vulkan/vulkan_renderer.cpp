@@ -53,6 +53,24 @@ void VulkanRenderer::initResources() {
         m_device, m_pipelineCache, static_cast<uint32_t>(pipelineInfos.size()),
         pipelineInfos.data(), nullptr, m_pipelines.data());
     if (err != VK_SUCCESS) qFatal("Failed to create pipelines: %d", err);
+
+    // Destroy shader modules
+    if (m_flatShaderModules[0] != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyShaderModule(m_device, m_flatShaderModules[0], nullptr);
+        m_flatShaderModules[0] = VK_NULL_HANDLE;
+    }
+    if (m_flatShaderModules[1] != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyShaderModule(m_device, m_flatShaderModules[1], nullptr);
+        m_flatShaderModules[1] = VK_NULL_HANDLE;
+    }
+    if (m_axisShaderModules[0] != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyShaderModule(m_device, m_axisShaderModules[0], nullptr);
+        m_axisShaderModules[0] = VK_NULL_HANDLE;
+    }
+    if (m_axisShaderModules[1] != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyShaderModule(m_device, m_axisShaderModules[1], nullptr);
+        m_axisShaderModules[1] = VK_NULL_HANDLE;
+    }
 }
 
 void VulkanRenderer::startNextFrame() {
@@ -156,7 +174,7 @@ void VulkanRenderer::startNextFrame() {
     };
     m_devFuncs->vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
-    // Check the format
+    // Draw the mesh
     switch(m_meshData->format) {
     case VertexFormat::Flat:
         m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[0]);
@@ -193,6 +211,16 @@ void VulkanRenderer::startNextFrame() {
     default:
         break;
     }
+
+    // Draw the axes
+    VkDeviceSize axisOffset = 0;
+    m_devFuncs->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m_axisBuffer, &axisOffset);
+
+    // Bind pipeline
+    m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[1]);
+
+    // Draw the axes
+    m_devFuncs->vkCmdDraw(cmdBuf, 6, 1, 0, 0);
 
     m_devFuncs->vkCmdEndRenderPass(cmdBuf);
     m_window->frameReady();
@@ -462,59 +490,60 @@ VkGraphicsPipelineCreateInfo VulkanRenderer::createAxisPipelineInfo() {
     // Set axis binding and attributes
     static const VkVertexInputBindingDescription axisVertexBindingDesc = {
         .binding = 0,
-        .stride = 3 * sizeof(float),
+        .stride = 6 * sizeof(float),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
-    static const VkVertexInputAttributeDescription flatVertexAttrDesc = {
-        .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0
+    static const VkVertexInputAttributeDescription axisVertexAttrDescs[2] = {
+        { .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0 },
+        { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 3 * sizeof(float) }
     };
 
-    m_flatVertexInputInfo = {
+    m_axisVertexInputInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &flatVertexBindingDesc,
-        .vertexAttributeDescriptionCount = 1,
-        .pVertexAttributeDescriptions = &flatVertexAttrDesc
+        .pVertexBindingDescriptions = &axisVertexBindingDesc,
+        .vertexAttributeDescriptionCount = 2,
+        .pVertexAttributeDescriptions = axisVertexAttrDescs
     };
 
-    m_flatShaderModules[0] = createShader(QStringLiteral(":/shaders/flat/vert.spv"));
-    m_flatShaderModules[1] = createShader(QStringLiteral(":/shaders/flat/frag.spv"));
+    m_axisShaderModules[0] = createShader(QStringLiteral(":/shaders/axis/vert.spv"));
+    m_axisShaderModules[1] = createShader(QStringLiteral(":/shaders/axis/frag.spv"));
 
-    m_flatShaderStages[0] = {
+    m_axisShaderStages[0] = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
-        .module = m_flatShaderModules[0],
+        .module = m_axisShaderModules[0],
         .pName = "main"
     };
-    m_flatShaderStages[1] = {
+    m_axisShaderStages[1] = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
-        .module = m_flatShaderModules[1],
+        .module = m_axisShaderModules[1],
         .pName = "main"
     };
 
-    m_flatAssemblyState = {
+    m_axisAssemblyState = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+        .topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST
     };
 
-    // Rasterization: Filled polygons
-    m_flatRasterizer = {
+    // Rasterization
+    m_axisRasterizer = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .polygonMode = VK_POLYGON_MODE_FILL,
         .cullMode = VK_CULL_MODE_NONE,
         .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-        .lineWidth = 1.0f
+        .lineWidth = 2.0f
     };
 
     return {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = 2,
-        .pStages = m_flatShaderStages.data(),
-        .pVertexInputState = &m_flatVertexInputInfo,
-        .pInputAssemblyState = &m_flatAssemblyState,
+        .pStages = m_axisShaderStages.data(),
+        .pVertexInputState = &m_axisVertexInputInfo,
+        .pInputAssemblyState = &m_axisAssemblyState,
         .pViewportState = &m_viewportState,
-        .pRasterizationState = &m_flatRasterizer,
+        .pRasterizationState = &m_axisRasterizer,
         .pMultisampleState = &m_multisampling,
         .pDepthStencilState = &m_depthStencil,
         .pColorBlendState = &m_colorBlending,
@@ -589,31 +618,35 @@ void VulkanRenderer::releaseResources() {
         m_descPool = VK_NULL_HANDLE;
     }
 
-    // Unmap/destroy vertex buffer
-    if (m_vertexBufferMemory != VK_NULL_HANDLE) {
-        // ->vkUnmapMemory(m_device, m_vertexBufferMemory);
-        m_devFuncs->vkFreeMemory(m_device, m_vertexBufferMemory, nullptr);
-        m_vertexBufferMemory = VK_NULL_HANDLE;
+    // Destroy axis buffer
+    if (m_axisBuffer != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyBuffer(m_device, m_axisBuffer, nullptr);
+        m_axisBuffer = VK_NULL_HANDLE;
     }
-    if (m_vertexBuffer != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyBuffer(m_device, m_vertexBuffer, nullptr);
-        m_vertexBuffer = VK_NULL_HANDLE;
+    if (m_axisBufferMemory != VK_NULL_HANDLE) {
+        m_devFuncs->vkFreeMemory(m_device, m_axisBufferMemory, nullptr);
+        m_axisBufferMemory = VK_NULL_HANDLE;
     }
 
-    // Unmap/destroy index buffer
-    if (m_indexBufferMemory != VK_NULL_HANDLE) {
-        // m_devFuncs->vkUnmapMemory(m_device, m_indexBufferMemory);
-        m_devFuncs->vkFreeMemory(m_device, m_indexBufferMemory, nullptr);
-        m_indexBufferMemory = VK_NULL_HANDLE;
-    }
+    // Destroy index buffer
     if (m_indexBuffer != VK_NULL_HANDLE) {
         m_devFuncs->vkDestroyBuffer(m_device, m_indexBuffer, nullptr);
         m_indexBuffer = VK_NULL_HANDLE;
     }
+    if (m_indexBufferMemory != VK_NULL_HANDLE) {
+        m_devFuncs->vkFreeMemory(m_device, m_indexBufferMemory, nullptr);
+        m_indexBufferMemory = VK_NULL_HANDLE;
+    }
 
-    // Destroy shader modules
-    m_devFuncs->vkDestroyShaderModule(m_device, m_flatShaderModules[0], nullptr);
-    m_devFuncs->vkDestroyShaderModule(m_device, m_flatShaderModules[1], nullptr);
+    // Destroy vertex buffer
+    if (m_vertexBuffer != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyBuffer(m_device, m_vertexBuffer, nullptr);
+        m_vertexBuffer = VK_NULL_HANDLE;
+    }
+    if (m_vertexBufferMemory != VK_NULL_HANDLE) {
+        m_devFuncs->vkFreeMemory(m_device, m_vertexBufferMemory, nullptr);
+        m_vertexBufferMemory = VK_NULL_HANDLE;
+    }
 
     // Unmap/destroy uniform buffer
     if (m_uniformBufferMemory != VK_NULL_HANDLE) {
@@ -645,5 +678,4 @@ void VulkanRenderer::initSwapChainResources() {
     m_window->setProjMatrix(projMatrix);
 }
 
-void VulkanRenderer::releaseSwapChainResources() {
-}
+void VulkanRenderer::releaseSwapChainResources() {}

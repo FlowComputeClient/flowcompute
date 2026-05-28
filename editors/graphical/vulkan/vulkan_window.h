@@ -1,15 +1,18 @@
 #ifndef VULKAN_WINDOW_H
 #define VULKAN_WINDOW_H
 
+#include <QMatrix4x4>
 #include <QVulkanWindow>
+#include <QVulkanWindowRenderer>
+#include <QVector3D>
+#include <QWheelEvent>
 
 #include <memory>
 #include <mutex>
 
 #include "vulkan_renderer.h"
 
-#include "../../geometry/mesh_data.h"
-#include "../../geometry/stl/stl_reader.h"
+#include "../../../geometry/mesh_data.h"
 
 struct TransformMatrices {
     QMatrix4x4 model;
@@ -34,7 +37,24 @@ public:
     bool isUboDirty()  { return m_isUboDirty; };
     void clearUboDirty();
 
+protected:
+    void wheelEvent(QWheelEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+
 private:
+    // New camera state variables
+    QPoint m_lastMousePos;
+
+    // Start with an isometric-style viewing angle
+    float m_yaw = -45.0f;
+    float m_pitch = 45.0f;
+
+    void updateViewMatrix();
+
+    // Persistent camera state
+    float m_cameraDistance = 1.0f;
+    QVector3D m_centroid;
     std::shared_ptr<MeshData> m_meshData;
     std::mutex m_mutex;
     TransformMatrices m_matrices;

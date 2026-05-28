@@ -47,11 +47,11 @@ bool NewCaseWizard::validateCurrentPage() {
         // Check if case name is in the case map
         int count = 0;
         QString newName;
-        if (mainWin->caseMap.contains(m_caseName)) {
+        if (mainWin->m_caseMap.contains(m_caseName)) {
             count = 1;
             while (true) {
                 newName = m_caseName + "_" + QString::number(count++);
-                if (!mainWin->caseMap.contains(newName)) {
+                if (!mainWin->m_caseMap.contains(newName)) {
                     break;
                 }
             }

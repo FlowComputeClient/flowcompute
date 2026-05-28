@@ -12,9 +12,6 @@
 
 namespace MeshIO {
 
-    // Header string
-    QString createFoamHeader(const QString& objectName, const QString& openFoamPath);
-
     // Parse functions
     BlockMeshConfig parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict);
     std::map<QString, SurfaceFeatureExtractEntry> parseSurfaceFeatureData(

@@ -54,25 +54,14 @@ QJsonObject WslSystem::contactServer(QString action, QString message) {
 }
 
 // Launch a utility in the server
-void WslSystem::launchUtility(const QString& cmd) {
-
-    QJsonObject result = contactServer("launchUtility", cmd);
-    QString status = result["status"].toString();
-    int exitCode = result["exitCode"].toInt();
-    QJsonArray jsonArray = result["message"].toArray();
-
-    // Iterate through the array and print to the application log
-    for (const QJsonValue& value : std::as_const(jsonArray)) {
-        QString line = value.toString().trimmed();
-        if (!line.isEmpty()) {
-            emit newLogLineReceived(line);
-        }
-    }
-
-    if (status != "success") {
-        qWarning() << "OpenFOAM Utility failed with exit code:" << exitCode;
+int WslSystem::launchShortUtility(const QString& cmd, QString& output) {
+    QJsonObject result = contactServer("launchShortUtility", cmd);
+    output = result["message"].toString().remove('\n');
+    if (result["status"].toString() == "success") {
+        return 0;
     } else {
-        qInfo() << "OpenFOAM Utility completed successfully.";
+        int code = result["exitCode"].toInt();
+        return (code == 0) ? -1 : code;
     }
 }
 

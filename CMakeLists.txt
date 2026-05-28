@@ -23,9 +23,12 @@ qt_add_executable(FlowCompute
     dialogs/new_case/page_10_intro.cpp
     dialogs/new_case/page_20_tutorial.h
     dialogs/new_case/page_20_tutorial.cpp
+    dialogs/new_case/page_30_interactive.h 
+    dialogs/new_case/page_30_interactive.cpp    
     dialogs/new_case/page_40_project.cpp
     dialogs/new_case/page_40_project.h
-
+    dialogs/new_case/template_strings.h
+    
     dialogs/mesh/mesh_structs.h
     dialogs/mesh/mesh_io.h
     dialogs/mesh/mesh_io.cpp    
@@ -70,6 +73,9 @@ qt_add_executable(FlowCompute
     dialogs/solver/page_50_parallel.cpp
     dialogs/solver/page_50_parallel.h
 
+    dialogs/utility_output/utility_output_dialog.h
+    dialogs/utility_output/utility_output_dialog.cpp
+
     editors/tab_widget.h
     editors/tab_widget.cpp
     editors/text/text_editor.h
@@ -77,10 +83,16 @@ qt_add_executable(FlowCompute
     editors/text/tree_sitter_highlighter.h
     editors/text/tree_sitter_highlighter.cpp
 
-    editors/graphical/vulkan_window.h
-    editors/graphical/vulkan_window.cpp
-    editors/graphical/vulkan_renderer.h
-    editors/graphical/vulkan_renderer.cpp
+    editors/graphical/vulkan/vulkan_window.h
+    editors/graphical/vulkan/vulkan_window.cpp
+    editors/graphical/vulkan/vulkan_renderer.h
+    editors/graphical/vulkan/vulkan_renderer.cpp
+    editors/graphical/vulkan/vulkan_renderer_resources.cpp
+
+    editors/graphical/model_editor/model_editor.cpp
+    editors/graphical/model_editor/model_editor.h    
+    editors/graphical/model_editor/left_pane.h
+    editors/graphical/model_editor/left_pane.cpp
 
     geometry/stl/stl_reader.h
     geometry/stl/stl_reader.cpp
@@ -105,9 +117,7 @@ qt_add_executable(FlowCompute
     views/navigator/case_navigator.h
     views/navigator/case_navigator.cpp
     views/navigator/node_data.cpp
-    dialogs/new_case/page_30_interactive.h dialogs/new_case/page_30_interactive.cpp
-    dialogs/new_case/template_strings.h
-    editors/graphical/vulkan_renderer_resources.cpp
+    utils.h utils.cpp
 )
 
 set_source_files_properties(

@@ -5,6 +5,14 @@
 #include <QString>
 #include <QStringList>
 
+enum class UtilityType {
+    UTILITY_CHECK = 1,
+    SURFACE_CHECK,
+    SURFACE_AUTO_PATCH,
+    MESH,
+    SOLVER
+};
+
 // Abstract class that represents a target running OpenFOAM
 class TargetSystem: public QObject {
     Q_OBJECT
@@ -21,7 +29,7 @@ public:
     virtual QByteArray getFileContent(QString path) = 0;
     virtual bool writeData(const QByteArray& payload, const QString& remoteFilePath) = 0;
     virtual bool writeData(const QString& localPath, const QString& remoteFilePath) = 0;
-    virtual void launchUtility(const QString& cmd) = 0;
+    virtual int launchShortUtility(const QString& cmd, QString& output) = 0;
     virtual bool createDirectories(QStringList dirPaths) = 0;
 };
 

@@ -33,6 +33,8 @@
         <file>shaders/wireframe/frag.spv</file>
         <file>shaders/color/vert.spv</file>
         <file>shaders/color/frag.spv</file>
+        <file>shaders/axis/vert.spv</file>
+        <file>shaders/axis/frag.spv</file>        
         <file>template/Allclean</file>
         <file>template/Allrun</file>
         <file>template/blockMeshDict</file>

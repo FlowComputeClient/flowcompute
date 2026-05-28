@@ -31,10 +31,10 @@ struct VertexEqual {
     }
 };
 
-MeshData StlReader::readStlFile(const QString& fileName, const QByteArray& fileData) {
+std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const QByteArray& fileData) {
     MeshData mesh;
     mesh.format = VertexFormat::Flat;
-    if (fileData.isEmpty()) return mesh;
+    if (fileData.isEmpty()) return std::make_pair(mesh, false);
 
     // Initialize bounding box to extreme limits
     mesh.boundingBoxMin = QVector3D(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
@@ -124,6 +124,8 @@ MeshData StlReader::readStlFile(const QString& fileName, const QByteArray& fileD
             mesh.patches.push_back(patch);
         }
 
+        return std::make_pair(mesh, true);
+
     } else {
         // ASCII Parsing
         QTextStream stream(fileData);
@@ -169,8 +171,8 @@ MeshData StlReader::readStlFile(const QString& fileName, const QByteArray& fileD
         if (inSolid && currentPatch.indexCount > 0) {
             mesh.patches.push_back(currentPatch);
         }
+        return std::make_pair(mesh, false);
     }
-    return mesh;
 }
 
 // Read the bounding box and
