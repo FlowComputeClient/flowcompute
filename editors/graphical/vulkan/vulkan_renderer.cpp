@@ -30,7 +30,9 @@ void VulkanRenderer::initResources() {
     m_uboDirty.assign(m_concurrentFrameCount, true);
 
     // Create general resources
-    createVertexIndexBuffers();
+    createVertexBuffer();
+    createIndexBuffer();
+    createAxisBuffer();
     createUniformBuffer();
     if (m_meshData->format == VertexFormat::Color) {
         createTexture();
@@ -82,28 +84,34 @@ void VulkanRenderer::startNextFrame() {
         return;
     }
 
-    // Check if vertex data has changed
-    /*
+    // Check if mesh data has changed
     if (m_window->isDirty()) {
+
+        // Wait for the GPU to finish rendering
+        m_devFuncs->vkDeviceWaitIdle(m_window->device());
+
+        // Access new mesh data
         m_meshData = m_window->getMeshData();
-        if (m_meshData) {
 
-            // Calculate the byte size of the incoming data
-            VkDeviceSize dataSize = m_meshData->data.size() * sizeof(float);
-            if (dataSize > MAX_VERTEX_BUFFER_SIZE) {
-                qWarning("Data exceeds allocated buffer size!");
-                m_window->clearDirty();
-                m_currentVertexCount = 0;
+        // Recreate buffers when new data is present
+        if (m_meshData && !m_meshData->data.empty() && !m_meshData->indices.empty()) {
+            createVertexBuffer();
+            createIndexBuffer();
+        } else {
+            if (!m_meshData) {
+                qDebug() << "0";
             }
-
-            // Copy data to the vertex buffer
-            memcpy(m_mappedVertexData, m_meshData->data.data(), dataSize);
+            if (m_meshData->data.empty()) {
+                qDebug() << "1";
+            }
+            if (m_meshData->indices.empty()) {
+                qDebug() << "2";
+            }
         }
 
         // Clear dirty status
         m_window->clearDirty();
     }
-    */
 
     // Check if the uniform buffer has changed
     if (m_window->isUboDirty()) {
@@ -185,7 +193,7 @@ void VulkanRenderer::startNextFrame() {
 
             // Set push constants
             m_devFuncs->vkCmdPushConstants(cmdBuf, m_flatPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
-                0, 4 * sizeof(float), &(flatColors[i]));
+                0, 4 * sizeof(float), &(patchColors[i]));
 
             // Execute draw
             const auto& patch = m_meshData->patches[i];
@@ -458,11 +466,11 @@ VkGraphicsPipelineCreateInfo VulkanRenderer::createFlatPipelineInfo() {
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
     };
 
-    // Rasterization: Filled polygons
+    // Rasterization
     m_flatRasterizer = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .polygonMode = VK_POLYGON_MODE_FILL,
-        .cullMode = VK_CULL_MODE_NONE,
+        .cullMode = VK_CULL_MODE_BACK_BIT,
         .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .lineWidth = 1.0f
     };

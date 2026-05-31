@@ -2,17 +2,12 @@
 #define MODEL_EDITOR_H
 
 #include <QHBoxLayout>
-#include <QSplitter>
 #include <QVulkanInstance>
 #include <QWidget>
 
-#include "left_pane.h"
+#include "model_left_pane.h"
 #include "../vulkan/vulkan_window.h"
 #include "../../../geometry/mesh_data.h"
-
-class QSplitter;
-class QTextEdit;
-class QListWidget;
 
 class ModelEditor : public QWidget {
     Q_OBJECT
@@ -20,17 +15,24 @@ class ModelEditor : public QWidget {
 public:
     explicit ModelEditor(std::shared_ptr<MeshData> meshData, const QString& fullPath, int targetId,
                          QVulkanInstance* instance, bool isBinary, QWidget* parent = nullptr);
+    std::vector<std::pair<std::string, std::string>> getPatchChanges();
+    void updateModel(std::shared_ptr<MeshData> newMesh);
+    bool isSurfacePatched() { return m_isSurfaceChanged; };
+    void setSurfaceChanged(bool val) { m_isSurfaceChanged = val; };
 
 signals:
     void surfacePatchRequested(double featureAngle, const QString&, int, bool);
     void surfaceCheckRequested(const QString&, int, bool);
+    void dirtyStateChanged(bool isDirty);
 
 private:
-    bool m_isBinary;
+    bool m_isBinary, m_isSurfaceChanged = false;
     int m_targetId;
     QString m_fullPath;
-    QSplitter* m_splitter;
-    LeftPane* m_leftPane;
+    std::vector<std::string> m_patchNames;
+
+    ModelLeftPane* m_leftPane;
+    VulkanWindow* m_vulkanWindow;
     QVulkanInstance* m_vulkanInstance;
     std::shared_ptr<MeshData> m_meshData;
 

@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Concurrent)
+add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 qt_standard_project_setup()
 
@@ -89,14 +90,21 @@ qt_add_executable(FlowCompute
     editors/graphical/vulkan/vulkan_renderer.cpp
     editors/graphical/vulkan/vulkan_renderer_resources.cpp
 
+    editors/graphical/mesh_editor/mesh_editor.h 
+    editors/graphical/mesh_editor/mesh_editor.cpp
+    editors/graphical/mesh_editor/mesh_left_pane.h 
+    editors/graphical/mesh_editor/mesh_left_pane.cpp
+
     editors/graphical/model_editor/model_editor.cpp
     editors/graphical/model_editor/model_editor.h    
-    editors/graphical/model_editor/left_pane.h
-    editors/graphical/model_editor/left_pane.cpp
-
+    editors/graphical/model_editor/model_left_pane.h
+    editors/graphical/model_editor/model_left_pane.cpp
+    
+    geometry/mesh_data.h    
+    geometry/mesh/mesh_reader.h
+    geometry/mesh/mesh_reader.cpp       
     geometry/stl/stl_reader.h
-    geometry/stl/stl_reader.cpp
-    geometry/mesh_data.h
+    geometry/stl/stl_reader.cpp 
 
     parser/open_foam_dictionary.h
     parser/open_foam_dictionary.cpp

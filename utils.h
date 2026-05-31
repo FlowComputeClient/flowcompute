@@ -11,6 +11,6 @@ namespace Utils {
 QString createFoamHeader(const QString& objectName, const QString& foamPath);
 QString createFoamFooter();
 QString createSurfacePatchDict(const QString& openFoamPath, const QString& fileName,
-                               const QString& stem, double featureAngle);
+                               double featureAngle);
 };
 #endif // UTILS_H

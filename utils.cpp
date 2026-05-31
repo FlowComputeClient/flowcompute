@@ -62,11 +62,11 @@ QString Utils::createFoamHeader(const QString& objectName, const QString& foamPa
 }
 
 QString Utils::createFoamFooter() {
-    return QString("// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n\n");
+    return QString("// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n");
 }
 
 QString Utils::createSurfacePatchDict(const QString& openFoamPath, const QString& fileName,
-                                      const QString& stem, double featureAngle) {
+                                      double featureAngle) {
 
     QString dictContent = QString(R"(geometry
 {
@@ -85,12 +85,12 @@ surfaces
             ".*"
             {
                 type            autoPatch;
-                featureAngle    %3;
+                featureAngle    %2;
             }
         }
     }
 }
-)").arg(fileName, stem, QString::number(featureAngle));
+)").arg(fileName, QString::number(featureAngle));
 
     // Combine everything
     return createFoamHeader("surfacePatchDict", openFoamPath) +

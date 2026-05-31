@@ -448,6 +448,7 @@ QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config, QString openF
     if (match.hasMatch()) {
         QString digits = match.captured(1);
         int verNumber = digits.toInt();
+
         if (verNumber > 100) {
             out << "scale " << config.convertToMeters << ";\n\n";
         } else {

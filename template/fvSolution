@@ -17,7 +17,7 @@ FoamFile
 solvers
 {
 %3
-    (U|k|omega|epsilon)
+    "(U|k|omega|epsilon)"
     {
         solver          smoothSolver;
         smoother        symGaussSeidel;

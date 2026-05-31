@@ -91,9 +91,13 @@ void GeometryPage::caseChanged(int index) {
     QString path = casePath + "/" + caseName + "/constant/triSurface";
     QStringList geometryFiles = mainWin->targetSystems[targetSystemId]->getFiles(path);
     QListWidgetItem *item;
-    for (int i = geometryFiles.size() - 1; i >= 0; --i) {
+    for (int i = geometryFiles.size() - 1; i >= 0; --i) {        
         if (geometryFiles[i].endsWith('|')) {
             geometryFiles[i].chop(1);
+
+            if (geometryFiles[i].endsWith("eMesh")) {
+                continue;
+            }
 
             // Add list item
             item = new QListWidgetItem(geometryFiles[i], listWidget);

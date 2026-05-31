@@ -22,19 +22,6 @@ struct UniformBufferObject {
     float proj[16];
 };
 
-const std::array<std::array<float, 4>, 10> flatColors = {{
-    {0.3686274509803922, 0.20784313725490197, 0.6941176470588235, 1.0 },
-    {0.9372549019607843, 0.3254901960784314, 0.3137254901960784, 1.0 },
-    {0.39215686274509803, 0.7098039215686275, 0.9647058823529412, 1.0 },
-    {0.984313725490196, 0.5490196078431373, 0.0, 1.0 },
-    {1.0, 0.9333333333333333, 0.34509803921568627, 1.0 },
-    {0.2196078431372549, 0.5568627450980392, 0.23529411764705882, 1.0 },
-    {0.9568627450980393, 0.5607843137254902, 0.6941176470588235, 1.0 },
-    {0.4627450980392157, 1.0, 0.011764705882352941, 1.0 },
-    {0.6313725490196078, 0.5333333333333333, 0.4980392156862745, 1.0 },
-    {0.5019607843137255, 0.796078431372549, 0.7686274509803922, 1.0 },
-}};
-
 static const int UNIFORM_DATA_SIZE = 16 * sizeof(float);
 static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign) {
     return (v + byteAlign - 1) & ~(byteAlign - 1);
@@ -64,7 +51,9 @@ protected:
     std::vector<bool> m_uboDirty;
 
     // Called by initResources
-    void createVertexIndexBuffers();
+    void createVertexBuffer();
+    void createIndexBuffer();
+    void createAxisBuffer();
     void createUniformBuffer();
     void createTexture();
     void createPipelineStorage();

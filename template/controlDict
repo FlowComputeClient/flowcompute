@@ -25,5 +25,6 @@ deltaT          %5;
 
 writeControl    %6;
 writeInterval   %7;
+writeFormat     binary;
 
 // ************************************************************************* //

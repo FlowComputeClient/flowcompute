@@ -32,6 +32,7 @@ public:
     void setViewMatrix(const QMatrix4x4& viewMatrix);
     void setProjMatrix(const QMatrix4x4& projMatrix);
     std::shared_ptr<MeshData> getMeshData();
+    void setMeshData(std::shared_ptr<MeshData> meshData);
     bool isDirty() { return m_isDataDirty; };
     void clearDirty();
     bool isUboDirty()  { return m_isUboDirty; };
@@ -58,7 +59,7 @@ private:
     std::shared_ptr<MeshData> m_meshData;
     std::mutex m_mutex;
     TransformMatrices m_matrices;
-    bool m_isDataDirty = true;
+    bool m_isDataDirty = false;
     bool m_isUboDirty = true;
 };
 

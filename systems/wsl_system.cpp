@@ -56,7 +56,7 @@ QJsonObject WslSystem::contactServer(QString action, QString message) {
 // Launch a utility in the server
 int WslSystem::launchShortUtility(const QString& cmd, QString& output) {
     QJsonObject result = contactServer("launchShortUtility", cmd);
-    output = result["message"].toString().remove('\n');
+    output = result["message"].toString();
     if (result["status"].toString() == "success") {
         return 0;
     } else {
@@ -289,13 +289,13 @@ QByteArray WslSystem::getFileContent(QString path) {
         return QByteArray();
     }
 
-    // 1. Send the JSON Request
+    // Send the JSON Request
     QJsonObject request;
     request["action"] = "getFileContent";
     request["message"] = path;
     socket.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
 
-    // 2. Wait for and Read the JSON Header
+    // Read the JSON Header
     QJsonObject header;
     bool headerRead = false;
 
@@ -320,7 +320,7 @@ QByteArray WslSystem::getFileContent(QString path) {
         return QByteArray();
     }
 
-    // 3. Extract Size and Prepare Buffer
+    // Extract Size and Prepare Buffer
     qint64 byteSize = header["byteSize"].toInt();
     QByteArray payload;
 
@@ -337,7 +337,6 @@ QByteArray WslSystem::getFileContent(QString path) {
             break;
         }
     }
-
     return payload;
 }
 

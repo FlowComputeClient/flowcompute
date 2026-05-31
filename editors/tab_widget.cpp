@@ -1,6 +1,7 @@
 #include "tab_widget.h"
 // #include "main_window.h"
 
+#include <QMessageBox>
 #include <QStringBuilder>
 
 // Custom tab bar moves the close button
@@ -34,7 +35,7 @@ TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
     // Configure behavior
     setMovable(true);
     setTabsClosable(true);
-    connect(this, SIGNAL(tabCloseRequested(int)), this, SLOT(destroyTab(int)));
+    connect(this, &QTabWidget::tabCloseRequested, this, &TabWidget::destroyTab);
 
     // Set style
     setStyleSheet(
@@ -63,13 +64,44 @@ TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
         "QTabWidget::pane {"
         "    border: 1px solid #C0C0C0;"
         "}"
+        "QMessageBox { color: #000000; }"
         );
 }
 
 TabWidget::~TabWidget() {}
 
+void TabWidget::closeAllTabs() {
+    for (int i = this->count() - 1; i >= 0; --i) {
+        destroyTab(i);
+    }
+}
+
 void TabWidget::destroyTab(int index) {
-    // Grab the pointer to the editor BEFORE removing the tab
+
+    // Check if the tab indicates unsaved changes
+    QString fileName = tabText(index);
+    if (fileName.endsWith('*')) {
+
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Unsaved Changes");
+        msgBox.setText(QString("The file in '%1' has been modified.\nDo you want to save your changes?").arg(fileName.remove('*').trimmed()));
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+        msgBox.setDefaultButton(QMessageBox::Save);
+
+        // Apply a style sheet to force the text color to black for both labels and buttons
+        msgBox.setStyleSheet("QLabel { color: black; } QPushButton { color: black; }");
+
+        int resBtn = msgBox.exec();
+
+        if (resBtn == QMessageBox::Save) {
+            emit saveTab();
+        } else if (resBtn == QMessageBox::Cancel) {
+            return;
+        }
+    }
+
+    // Access the tab's editor
     QWidget* editorWidget = this->widget(index);
 
     // Remove the tab from the visual UI
@@ -80,6 +112,7 @@ void TabWidget::destroyTab(int index) {
         editorWidget->deleteLater();
     }
 }
+
 void TabWidget::changeDirtyState(QWidget* editor, bool dirty) {
 
     // Get name of tab

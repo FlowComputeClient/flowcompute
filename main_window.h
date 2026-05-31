@@ -154,6 +154,9 @@ private slots:
     void undo();
     void redo();
 
+    // Dirty state changed
+    void onDirtyStateChanged(bool isDirty, QWidget* widget);
+
     // Mesh actions
 
     // Receive output

@@ -4,8 +4,12 @@
 #include "dialogs/utility_output/utility_output_dialog.h"
 #include "editors/text/text_editor.h"
 #include "editors/graphical/model_editor/model_editor.h"
+#include "editors/graphical/mesh_editor/mesh_editor.h"
+#include "geometry/mesh/mesh_reader.h"
 #include "geometry/stl/stl_reader.h"
 #include "utils.h"
+
+#include <QShortcut>
 
 bool MainWindow::s_isWindows = false;
 bool MainWindow::s_isWslAvailable = false;
@@ -139,6 +143,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         }
     });
 
+    // Configure tab save
+    connect(tabWidget, &TabWidget::saveTab, this, &MainWindow::saveFile);
+
     // Load data from solvers.json
     loadSolverFamilies();
     loadTurbulenceModels();
@@ -151,17 +158,17 @@ MainWindow::~MainWindow() = default;
 /* Create QActions for file operations */
 void MainWindow::createActions() {
 
-    // Create new project
+    // Create new case
     newCaseAction = new QAction(QIcon(":/images/new_case.png"), tr("&New Case Folder"), this);
     newCaseAction->setShortcuts(QKeySequence::New);
     newCaseAction->setStatusTip(tr("Create a new case folder"));
-    connect(newCaseAction, SIGNAL(triggered()), this, SLOT(runNewCaseWizard()));
+    connect(newCaseAction, &QAction::triggered, this, &MainWindow::runNewCaseWizard);
 
     // Save file
     saveFileAction = new QAction(QIcon(":/images/save.png"), tr("&Save"), this);
     saveFileAction->setShortcuts(QKeySequence::Save);
     saveFileAction->setStatusTip(tr("Save the file"));
-    connect(saveFileAction, SIGNAL(triggered()), this, SLOT(saveFile()));
+    connect(saveFileAction, &QAction::triggered, this, &MainWindow::saveFile);
     saveFileAction->setDisabled(true);
 
     /*
@@ -169,60 +176,60 @@ void MainWindow::createActions() {
     new_fileAction = new QAction(QIcon(image_dir + "new.png"), tr("New &File"), this);
     new_fileAction->setShortcuts(QKeySequence::New);
     new_fileAction->setStatusTip(tr("Create a new file"));
-    connect(new_fileAction, SIGNAL(triggered()), this, SLOT(NewFile()));
+    connect(new_fileAction, &QAction::triggered, this, SLOT(NewFile()));
 
     // Open file
     open_fileAction = new QAction(QIcon(image_dir + "open.png"), tr("&Open..."), this);
     open_fileAction->setShortcuts(QKeySequence::Open);
     open_fileAction->setStatusTip(tr("Open an existing project"));
-    connect(open_fileAction, SIGNAL(triggered()), this, SLOT(Open()));
+    connect(open_fileAction, &QAction::triggered, this, SLOT(Open()));
 
     // Save as
     save_asAction = new QAction(tr("Save &As..."), this);
     save_asAction->setShortcuts(QKeySequence::SaveAs);
     save_asAction->setStatusTip(tr("Save the document under a new name"));
-    connect(save_asAction, SIGNAL(triggered()), this, SLOT(SaveAs()));
+    connect(save_asAction, &QAction::triggered, this, SLOT(SaveAs()));
 
     // Print
     printAction = new QAction(QIcon(image_dir + "print.png"), tr("&Print"), this);
     printAction->setShortcuts(QKeySequence::Print);
     printAction->setStatusTip(tr("Send the document to a printer"));
-    connect(printAction, SIGNAL(triggered()), this, SLOT(Print()));
+    connect(printAction, &QAction::triggered, this, SLOT(Print()));
 
     // Exit
     exitAction = new QAction(tr("E&xit"), this);
     exitAction->setShortcuts(QKeySequence::Quit);
     exitAction->setStatusTip(tr("Exit the application"));
-    connect(exitAction, SIGNAL(triggered()), this, SLOT(close()));
+    connect(exitAction, &QAction::triggered, this, SLOT(close()));
 
     // Cut
     cutAction = new QAction(QIcon(image_dir + "cut.png"), tr("Cut"), this);
     cutAction->setStatusTip(tr("Cut"));
-    connect(cutAction, SIGNAL(triggered()), this, SLOT(Cut()));
+    connect(cutAction, &QAction::triggered, this, SLOT(Cut()));
 
     // Copy
     copyAction = new QAction(QIcon(image_dir + "copy.png"), tr("Copy"), this);
     copyAction->setStatusTip(tr("Copy"));
-    //connect(copyAction, SIGNAL(triggered()), this, SLOT(copy()));
+    //connect(copyAction, &QAction::triggered, this, SLOT(copy()));
 
     // Paste
     pasteAction = new QAction(QIcon(image_dir + "paste.png"), tr("Paste"), this);
     pasteAction->setStatusTip(tr("Paste"));
-    connect(pasteAction, SIGNAL(triggered()), this, SLOT(Paste()));
+    connect(pasteAction, &QAction::triggered, this, SLOT(Paste()));
     */
 
     // Create undo action
     undoAction = new QAction(QIcon(":/images/undo.png"), tr("Undo"), this);
     undoAction->setShortcuts(QKeySequence::Undo);
     undoAction->setStatusTip(tr("Zoom in"));
-    connect(undoAction, SIGNAL(triggered()), this, SLOT(undo()));
+    connect(undoAction, &QAction::triggered, this, &MainWindow::undo);
     undoAction->setDisabled(true);
 
     // Create redo action
     redoAction = new QAction(QIcon(":/images/redo.png"), tr("Redo"), this);
     redoAction->setShortcuts(QKeySequence::Redo);
     redoAction->setStatusTip(tr("Zoom out"));
-    connect(redoAction, SIGNAL(triggered()), this, SLOT(redo()));
+    connect(redoAction, &QAction::triggered, this, &MainWindow::redo);
     redoAction->setDisabled(true);
 
     // Create zoom in action
@@ -238,28 +245,28 @@ void MainWindow::createActions() {
     // Configure the mesh action in the Mesh menu
     meshAction = new QAction(QIcon(":/images/mesh.png"), tr("Create new &mesh"), this);
     meshAction->setStatusTip(tr("Create new mesh"));
-    connect(meshAction, SIGNAL(triggered()), this, SLOT(runMeshWizard()));
+    connect(meshAction, &QAction::triggered, this, &MainWindow::runMeshWizard);
 
     // Configure the run action in the Solver menu
     runAction = new QAction(QIcon(":/images/play.png"), tr("&Launch solver"), this);
     runAction->setStatusTip(tr("Launch solver"));
-    connect(runAction, SIGNAL(triggered()), this, SLOT(runSolverWizard()));
+    connect(runAction, &QAction::triggered, this, &MainWindow::runSolverWizard);
 
     // Configure the stop action in the Solver menu
     stopAction = new QAction(QIcon(":/images/stop.png"), tr("&Stop solver"), this);
     stopAction->setStatusTip(tr("Stop solver"));
     stopAction->setEnabled(false);
-    // connect(meshAction, SIGNAL(triggered()), this, SLOT(About()));
+    // connect(meshAction, &QAction::triggered, this, SLOT(About()));
 
     // Configure the mesh action in the Mesh menu
     postProcessAction = new QAction(QIcon(":/images/post_process.png"), tr("&Post-process"), this);
     postProcessAction->setStatusTip(tr("Launch post-processing"));
-    // connect(meshAction, SIGNAL(triggered()), this, SLOT(About()));
+    // connect(meshAction, &QAction::triggered, this, SLOT(About()));
 
     // Configure the About action in the help menu
     aboutAction = new QAction(QIcon(":/images/help.png"), tr("&Help"), this);
     aboutAction->setStatusTip(tr("Provide assistance"));
-    // connect(aboutAction, SIGNAL(triggered()), this, SLOT(About()));
+    // connect(aboutAction, &QAction::triggered, this, SLOT(About()));
 }
 
 // Assemble actions within main menu
@@ -357,14 +364,22 @@ void MainWindow::createToolBar() {
 void MainWindow::createEditor(EditorType type, const QString& fileName,
                               const QString& fullPath) {
 
-    // Get text
+    // Compute paths
     QString caseName = fullPath.split('/').first();
     CaseData caseData = m_caseMap[caseName];
     int targetSystemId = caseData.targetSystemId;
     QString path = caseData.casePath + "/" + fullPath + "/" + fileName;
-    QByteArray data = targetSystems[targetSystemId]->getFileContent(path);
     int tabIndex;
     TabData tabData;
+    QByteArray data;
+
+    // Read data
+    if (type != EditorType::MESH) {
+        data = targetSystems[targetSystemId]->getFileContent(path);
+    } else {
+        data = targetSystems[targetSystemId]->getFileContent(caseData.casePath + "/" + caseName);
+        qDebug() << "Data size: " << data.size();
+    }
 
     // Check to see if there's already an editor
     if (tabMap.contains(fileName)) {
@@ -405,17 +420,10 @@ void MainWindow::createEditor(EditorType type, const QString& fileName,
         connect(textEditor->document(), &QTextDocument::redoAvailable,
                 redoAction, &QAction::setEnabled);
 
-        // Configure the text editor's event handling
-        connect(textEditor, &TextEditor::dirtyStateChanged, this, [=, this](bool isDirty) {
-            int index = tabWidget->indexOf(textEditor);
-            if (index != -1) {
-                QString tabText = fileName;
-                if (isDirty) tabText += " *";
-                tabWidget->setTabText(index, tabText);
-                if (tabWidget->currentIndex() == index) {
-                    saveFileAction->setEnabled(isDirty);
-                }
-            }
+        // Configure event handling
+        connect(textEditor, &TextEditor::dirtyStateChanged,
+                this, [this, textEditor](bool isDirty) {
+            onDirtyStateChanged(isDirty, textEditor);
         });
 
         // Configure the save action
@@ -433,10 +441,12 @@ void MainWindow::createEditor(EditorType type, const QString& fileName,
     // Access mesh data
     bool isBinary = false;
     MeshData mesh;
-    if(fileName.endsWith(".stl", Qt::CaseInsensitive)) {
+    if(fileName.endsWith(".stl", Qt::CaseInsensitive)) {        
         std::pair<MeshData, bool> res = StlReader::readStlFile(fileName, data);
         mesh = res.first;
         isBinary = res.second;
+    } else if (type == EditorType::MESH) {
+        mesh = MeshReader::readMesh(data);
     }
     std::shared_ptr<MeshData> meshData = std::make_shared<MeshData>(std::move(mesh));
 
@@ -444,13 +454,22 @@ void MainWindow::createEditor(EditorType type, const QString& fileName,
     if (type == EditorType::MODEL) {
 
         // Create editor
-        ModelEditor* editor = new ModelEditor(meshData, path, targetSystemId,
+        ModelEditor* modelEditor = new ModelEditor(meshData, path, targetSystemId,
                                               &m_vulkanInstance, isBinary, this);
-        tabIndex = tabWidget->addTab(editor, fileName);
-        connect(editor, &ModelEditor::surfacePatchRequested,
+        tabIndex = tabWidget->addTab(modelEditor, fileName);
+        connect(modelEditor, &ModelEditor::surfacePatchRequested,
                 this, &MainWindow::runSurfacePatch);
-        connect(editor, &ModelEditor::surfaceCheckRequested,
+        connect(modelEditor, &ModelEditor::surfaceCheckRequested,
                 this, &MainWindow::runSurfaceCheck);
+        connect(modelEditor, &ModelEditor::dirtyStateChanged,
+                this, [this, modelEditor](bool isDirty) {
+                    onDirtyStateChanged(isDirty, modelEditor);
+        });
+    }
+    if (type == EditorType::MESH) {
+        MeshEditor* meshEditor = new MeshEditor(meshData, path, targetSystemId,
+                                                &m_vulkanInstance, isBinary, this);
+        tabIndex = tabWidget->addTab(meshEditor, fileName);
     }
 
     // Update tab widget
@@ -487,8 +506,8 @@ void MainWindow::runMesh(const QString& casePath, const QString& openFoamPath, b
     QString finalCmd = commands.join(" && ");
 
     // Fire and forget - let the remote Linux shell handle the sequence
-    QString output;
-    targetSystems[targetId]->launchShortUtility(finalCmd, output);
+    // QString output;
+    // targetSystems[targetId]->launchShortUtility(finalCmd, output);
 }
 
 void MainWindow::createCase(QString caseName, QString casePath, QStringList caseFiles,
@@ -521,17 +540,62 @@ void MainWindow::saveFile() {
         // Construct the remote path
         TabData tabData = tabMap[fileName];
         QString caseName = tabData.fullPath.split("/")[0];
-        int targetSystemId = m_caseMap[caseName].targetSystemId;
-        QString remotePath = m_caseMap[caseName].casePath + "/" + tabData.fullPath + "/" + fileName;
+        int targetId = m_caseMap[caseName].targetSystemId;
+        QString fullPath = m_caseMap[caseName].casePath + "/" + tabData.fullPath + "/" + fileName;
 
-        // Transfer data to the server
+        // Save data for text editor
         if (tabData.type == EditorType::TEXT) {
             TextEditor* editor = qobject_cast<TextEditor*>(tabWidget->currentWidget());
             if (editor) {
-                bool save = targetSystems[targetSystemId]->writeData(editor->toPlainText().toUtf8(),
-                                                                     remotePath);
+                bool save = targetSystems[targetId]->writeData(editor->toPlainText().toUtf8(),
+                                                                     fullPath);
                 if (save) editor->document()->setModified(false);
             }
+            return;
+        }
+
+        // Save data for model editor
+        if (tabData.type == EditorType::MODEL) {
+            ModelEditor* editor = qobject_cast<ModelEditor*>(tabWidget->currentWidget());
+            if (editor) {
+
+                QString output;
+                QFileInfo info(fullPath);
+                QString path = info.path();
+                QString fileName = info.fileName();
+
+                // Delete patched file when saved
+                if(editor->isSurfacePatched()) {
+
+                    // Delete xyz.stl and rename xyz_patched.stl to xyz.stl
+                    QString patchName = info.completeBaseName() + "_patched." + info.suffix();
+                    QString cmd = QString("cd %1; rm %2; mv %3 %2; ").arg(path, fileName, patchName);
+                    if (targetSystems[targetId]->launchShortUtility(cmd, output) == 0) {
+                        editor->setSurfaceChanged(false);
+                        onDirtyStateChanged(false, editor);
+                    }
+                }
+
+                // Check if patch names have changed
+                std::vector<std::pair<std::string, std::string>> vec = editor->getPatchChanges();
+                if (!vec.empty()) {
+
+                    // Create command to replace old patch names with new patch names
+                    QString cmd = QString("cd %1; sed -i ").arg(path);
+                    for(const auto& change: vec) {
+                        QString oldStr = QString::fromStdString(change.first);
+                        QString newStr = QString::fromStdString(change.second);
+                        cmd += QString("-e 's#%1#%2#g' ").arg(oldStr, newStr);
+                    }
+                    cmd += fileName;
+
+                    // Perform text replacement
+                    if (targetSystems[targetId]->launchShortUtility(cmd, output) == 0) {
+                        onDirtyStateChanged(false, editor);
+                    }
+                }
+            }
+            return;
         }
     }
 }
@@ -551,6 +615,37 @@ void MainWindow::redo() {
 // Write text to the log
 void MainWindow::log(const QString& text) {
     console->appendPlainText(text);
+}
+
+void MainWindow::onDirtyStateChanged(bool isDirty, QWidget* widget) {
+
+    // Get the index of the editor
+    // QWidget* senderWidget = qobject_cast<QWidget*>(sender());
+    if (!widget) return;
+    int index = tabWidget->indexOf(widget);
+
+    if (index != -1) {
+
+        // Get the current tab text
+        QString tabText = tabWidget->tabText(index);
+
+        // Remove trailing " *"
+        if (tabText.endsWith(" *")) {
+            tabText.chop(2);
+        }
+
+        // Append the asterisk if the state is dirty
+        if (isDirty) {
+            tabText += " *";
+        }
+
+        tabWidget->setTabText(index, tabText);
+
+        // 4. Update the save action if the modified file is currently being viewed
+        if (tabWidget->currentIndex() == index) {
+            saveFileAction->setEnabled(isDirty);
+        }
+    }
 }
 
 // Process output
@@ -620,6 +715,7 @@ QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath, int targ
     // Get result from checking utilities
     QString output;
     if (targetSystems[targetId]->launchShortUtility(cmd, output) == 0) {
+        output.remove("\n");
         QStringList res;
         QStringList utils = output.split(",");
         for (const auto& util: std::as_const(utils)) {
@@ -701,23 +797,44 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
             .arg(path, fileName, QString::number(angle), tmpName);
         }
 
-        // Proceed to execute the cmd
-        // wslSystem->launchShortUtility(cmd, ...);
-
+        // Run surfacePatch
+        QString result;
+        targetSystems[targetId]->launchShortUtility(cmd, result);
+        qDebug() << result;
     }
     else if (utilMap.value("surfacePatch", false)) {
 
-        // Create surfacePatchDict file
-        QString dictText = Utils::createSurfacePatchDict(openFoamPath, fileName, stem, angle);
+        // Create surfacePatchDict
+        QString dictText = Utils::createSurfacePatchDict(openFoamPath, fileName, angle);
         targetSystems[targetId]->writeData(dictText.toUtf8(), casePath + "/system/surfacePatchDict");
 
-        if (isBinary) {
-            QString symlinkName = info.completeBaseName() + ".stlb";
-            cmd = QString("cd \"%1\" && ln -s \"%2\" \"%3\" && surfacePatch \"%3\" %4 \"%5\"; rm -f \"%3\"")
-                      .arg(path, fileName, symlinkName, QString::number(angle), tmpName);
-        } else {
-            cmd = QString("cd \"%1\" && surfacePatch")
-            .arg(casePath);
+        // Run surfacePatch
+        cmd = QString("cd \"%1\" && surfacePatch").arg(casePath);
+        QString result;
+        targetSystems[targetId]->launchShortUtility(cmd, result);
+
+        // Check if a new file has been created
+        if (result.contains("Writing repatched surface")) {
+
+            // Read patched file content
+            QString newPath = path + "/" + stem + "_patched.stl";
+            QByteArray newData = targetSystems[targetId]->getFileContent(newPath);
+
+            if (newData.size() > 0) {
+
+                // Create new MeshData
+                std::pair<MeshData, bool> res = StlReader::readStlFile(fileName, newData);
+                MeshData mesh = res.first;
+                std::shared_ptr<MeshData> meshData = std::make_shared<MeshData>(std::move(mesh));
+
+                // Pass data to ModelEditor
+                ModelEditor* editor = qobject_cast<ModelEditor*>(tabWidget->currentWidget());
+                editor->updateModel(meshData);
+            }
+        } else if (result.contains("unchanged")) {
+            QMessageBox::warning(this, tr("No Patches Generated"),
+                tr("The surfacePatch utility didn't generate any patches.\n\n"
+                   "You may want to reduce the featureAngle or update surfacePatchDict."));
         }
     }
 }
@@ -1004,6 +1121,13 @@ void MainWindow::loadBoundaryConditions() {
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
+
+    // Close tabs
+    tabWidget->closeAllTabs();
+    if (tabWidget->count() > 0) {
+        event->ignore();
+        return;
+    }
 
     // Access settings
     QSettings settings;

@@ -97,7 +97,7 @@ void CaseNavigator::addCase(QString caseName, QStringList caseFiles) {
 NodeType CaseNavigator::checkType(QString name, QString fullPath) {
 
     // Check for dictionary files
-    if (name.endsWith("Dict") || name.endsWith("Properties") ||
+    if (name.endsWith("Dict") || name.endsWith("Properties") || name.endsWith(".eMesh") ||
         name == "fvSchemes" || name.startsWith("fvSolution") || name.endsWith(".log")) {
         return NodeType::DictionaryFile;
     }
@@ -109,7 +109,7 @@ NodeType CaseNavigator::checkType(QString name, QString fullPath) {
     }
 
     // Check for geometry files
-    if (name.endsWith(".stl") || name.endsWith(".obj") || name.endsWith(".eMesh")) {
+    if (name.endsWith(".stl") || name.endsWith(".obj")) {
         return NodeType::GeometryFile;
     }
 
@@ -183,6 +183,13 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
 
                 // Create editor for file
                 mainWin->createEditor(EditorType::MODEL, node->name, node->fullPath);
+            }
+
+            // Open mesh file
+            if (node->nodeType == NodeType::MeshFile) {
+
+                // Create editor for file
+                mainWin->createEditor(EditorType::MESH, node->name, node->fullPath);
             }
         }
     }

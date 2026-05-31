@@ -14,7 +14,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-convertToMeters 1;
+scale 1.0;
 
 // Define the 8 corners of the bounding box
 vertices
@@ -42,14 +42,6 @@ edges
 // Define the 6 outer faces of the box
 boundary
 (
-    xMin
-    {
-        type patch;
-        faces
-        (
-            (0 4 7 3)
-        );
-    }
     xMax
     {
         type patch;
@@ -58,36 +50,44 @@ boundary
             (1 2 6 5)
         );
     }
-    yMin
+    xMin
     {
-        type wall;
+        type patch;
         faces
         (
-            (0 1 5 4)
+            (0 4 7 3)
         );
     }
     yMax
     {
-        type wall;
+        type patch;
         faces
         (
             (3 7 6 2)
         );
     }
-    zMin
+    yMin
     {
-        type empty;
+        type patch;
         faces
         (
-            (0 3 2 1)
+            (0 1 5 4)
         );
     }
     zMax
     {
-        type empty; 
+        type patch;
         faces
         (
             (4 5 6 7)
+        );
+    }
+    zMin
+    {
+        type patch;
+        faces
+        (
+            (0 3 2 1)
         );
     }
 );

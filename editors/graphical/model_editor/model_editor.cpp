@@ -5,42 +5,88 @@ ModelEditor::ModelEditor(std::shared_ptr<MeshData> meshData, const QString& full
     QWidget(parent), m_meshData(meshData), m_fullPath(fullPath), m_targetId(targetId),
     m_isBinary(isBinary), m_vulkanInstance(instance) {
 
-    // Create the splitter
-    m_splitter = new QSplitter(Qt::Horizontal, this);
+    // Get list of patch names
+    for(const auto& patch: m_meshData->patches) {
+        m_patchNames.push_back(std::string(patch.name));
+    }
 
-    // Create widgets for each pane
-    m_leftPane = new LeftPane(this);
-    m_leftPane->setFixedWidth(120);
+    // Create widgets for the left pane
+    m_leftPane = new ModelLeftPane(this);
+    m_leftPane->setPatchNames(m_patchNames);
+    m_leftPane->setFixedWidth(160);
 
     // Create Vulkan window
-    VulkanWindow* window = new VulkanWindow(meshData);
-    window->setVulkanInstance(m_vulkanInstance);
+    QWidget* rightPane;
+    if(!meshData->data.empty()) {
+        m_vulkanWindow = new VulkanWindow(m_meshData);
+        m_vulkanWindow->setVulkanInstance(m_vulkanInstance);
 
-    // Create widget for the window
-    QWidget* rightPane = QWidget::createWindowContainer(window);
-    rightPane->setAttribute(Qt::WA_OpaquePaintEvent, true);
-    rightPane->setAttribute(Qt::WA_NoSystemBackground, true);
-    rightPane->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    rightPane->setFocusPolicy(Qt::StrongFocus);
-    rightPane->setAttribute(Qt::WA_DeleteOnClose);
+        // Create widget for the Vulkan window
+        rightPane = QWidget::createWindowContainer(m_vulkanWindow);
+        rightPane->setAttribute(Qt::WA_OpaquePaintEvent, true);
+        rightPane->setAttribute(Qt::WA_NoSystemBackground, true);
+        rightPane->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        rightPane->setFocusPolicy(Qt::StrongFocus);
+        rightPane->setAttribute(Qt::WA_DeleteOnClose);
+    } else {
+        rightPane = new QWidget(this);
+    }
 
-    // Fix size of left widget, let right widget grow as needed
-    m_splitter->addWidget(m_leftPane);
-    m_splitter->addWidget(rightPane);
-    m_splitter->setStretchFactor(0, 0);
-    m_splitter->setStretchFactor(1, 1);
-
-    // Layout for the widget
+    // Layout for the main widget
     auto* layout = new QHBoxLayout(this);
-    layout->addWidget(m_splitter);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addWidget(m_leftPane);
+    layout->addWidget(rightPane, 1);
+
     setLayout(layout);
 
-    // Process events
-    connect(m_leftPane, &LeftPane::autoPatchRequested,
+    // Handle events from the left pane
+    connect(m_leftPane, &ModelLeftPane::surfacePatchRequested,
             this, &ModelEditor::onSurfacePatchRequest);
-    connect(m_leftPane, &LeftPane::surfaceCheckRequested,
+    connect(m_leftPane, &ModelLeftPane::surfaceCheckRequested,
             this, &ModelEditor::onSurfaceCheckRequest);
+    connect(m_leftPane, &ModelLeftPane::dirtyStateChanged,
+            this, &ModelEditor::dirtyStateChanged);
+}
+
+// Update surface data
+void ModelEditor::updateModel(std::shared_ptr<MeshData> newMesh) {
+
+    // Update data
+    m_meshData = newMesh;
+
+    // Render new mesh data
+    m_vulkanWindow->setMeshData(m_meshData);
+
+    // Update patch names in left pane
+    m_patchNames.clear();
+    for(const auto& patch: m_meshData->patches) {
+        m_patchNames.push_back(patch.name);
+    }
+    m_leftPane->setPatchNames(m_patchNames);
+
+    // Set dirty state
+    m_isSurfaceChanged = true;
+    emit dirtyStateChanged(true);
+}
+
+// Access changes to the patch names
+std::vector<std::pair<std::string, std::string>> ModelEditor::getPatchChanges() {
+
+    std::vector<std::pair<std::string, std::string>> differences;
+    std::vector<std::string> newPatchNames = m_leftPane->getPatchNames();
+
+    const int maxSize = std::max(newPatchNames.size(), m_patchNames.size());
+
+    for (int i = 0; i < maxSize; ++i) {
+        const std::string left = (i < m_patchNames.size()) ? m_patchNames[i] : "";
+        const std::string right  = (i < newPatchNames.size()) ? newPatchNames[i] : "";
+        if (left != right) {
+            differences.emplace_back(left, right);
+        }
+    }
+    return differences;
 }
 
 void ModelEditor::onSurfacePatchRequest(double featureAngle) {

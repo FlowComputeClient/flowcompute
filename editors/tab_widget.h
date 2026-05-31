@@ -22,6 +22,12 @@ public:
     void setWorkspace(QString);
     void updateWorkspace();
 
+public slots:
+    void closeAllTabs();
+
+signals:
+    void saveTab();
+
 private:
     QMainWindow* window;
     QTabBar* tabbar;

@@ -1,5 +1,6 @@
 #include "stl_reader.h"
 
+#include <cstring>
 #include <limits>
 #include <algorithm>
 
@@ -16,51 +17,43 @@ struct StlTriangle {
 
 // Custom hasher for QVector3D to use in std::unordered_map
 struct VertexHasher {
-    std::size_t operator()(const QVector3D& v) const {
-        std::size_t h1 = std::hash<float>{}(v.x());
-        std::size_t h2 = std::hash<float>{}(v.y());
-        std::size_t h3 = std::hash<float>{}(v.z());
-        // Combine hashes (simple bitwise XOR and shift)
+    std::size_t operator()(const std::array<float, 3>& v) const {
+        std::size_t h1 = std::hash<float>{}(v[0]);
+        std::size_t h2 = std::hash<float>{}(v[1]);
+        std::size_t h3 = std::hash<float>{}(v[2]);
         return h1 ^ (h2 << 1) ^ (h3 << 2);
     }
 };
 
-struct VertexEqual {
-    bool operator()(const QVector3D& a, const QVector3D& b) const {
-        return a.x() == b.x() && a.y() == b.y() && a.z() == b.z();
-    }
-};
-
 std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const QByteArray& fileData) {
+
     MeshData mesh;
     mesh.format = VertexFormat::Flat;
     if (fileData.isEmpty()) return std::make_pair(mesh, false);
 
     // Initialize bounding box to extreme limits
-    mesh.boundingBoxMin = QVector3D(std::numeric_limits<float>::max(), std::numeric_limits<float>::max(), std::numeric_limits<float>::max());
-    mesh.boundingBoxMax = QVector3D(std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest());
+    mesh.boundingBoxMin = { std::numeric_limits<float>::max(),
+                           std::numeric_limits<float>::max(),
+                           std::numeric_limits<float>::max() };
+    mesh.boundingBoxMax = { std::numeric_limits<float>::lowest(),
+                           std::numeric_limits<float>::lowest(),
+                           std::numeric_limits<float>::lowest() };
 
-    std::unordered_map<std::string, int> nameTracker;
-    std::unordered_map<QVector3D, uint32_t, VertexHasher, VertexEqual> vertexCache;
+    std::unordered_map<std::array<float, 3>, uint32_t, VertexHasher> vertexCache;
 
-    // Lambda to handle the name resolution logic
+    // Set patch name (keeps std::string for intermediate logic)
     auto resolvePatchName = [&](std::string name) -> std::string {
         if (name.empty()) {
-            name = fileName.toStdString();
+            return fileName.toStdString();
         }
-
-        if (nameTracker.find(name) == nameTracker.end()) {
-            nameTracker[name] = 0; // First time seeing this name
-            return name;
-        } else {
-            std::string resolvedName = name + std::to_string(nameTracker[name]);
-            nameTracker[name]++;
-            return resolvedName;
-        }
+        return name;
     };
 
     // Lambda to handle vertex deduplication and bounding box calculations
-    auto addVertex = [&](const QVector3D& v) -> uint32_t {
+    auto addVertex = [&](float px, float py, float pz) -> uint32_t {
+        // Create the standard array for caching
+        std::array<float, 3> v = {px, py, pz};
+
         auto it = vertexCache.find(v);
         if (it != vertexCache.end()) {
             return it->second; // Return existing index
@@ -69,18 +62,20 @@ std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const 
         // Assuming PositionOnly format: 3 floats per vertex
         uint32_t index = static_cast<uint32_t>(mesh.data.size() / 3);
 
-        mesh.data.push_back(v.x());
-        mesh.data.push_back(v.y());
-        mesh.data.push_back(v.z());
+        mesh.data.push_back(px);
+        mesh.data.push_back(py);
+        mesh.data.push_back(pz);
         vertexCache[v] = index;
 
-        // Update bounding box
-        mesh.boundingBoxMin.setX(std::min(mesh.boundingBoxMin.x(), v.x()));
-        mesh.boundingBoxMin.setY(std::min(mesh.boundingBoxMin.y(), v.y()));
-        mesh.boundingBoxMin.setZ(std::min(mesh.boundingBoxMin.z(), v.z()));
-        mesh.boundingBoxMax.setX(std::max(mesh.boundingBoxMax.x(), v.x()));
-        mesh.boundingBoxMax.setY(std::max(mesh.boundingBoxMax.y(), v.y()));
-        mesh.boundingBoxMax.setZ(std::max(mesh.boundingBoxMax.z(), v.z()));
+        // Update bounding box using array indices
+        mesh.boundingBoxMin[0] = std::min(mesh.boundingBoxMin[0], px);
+        mesh.boundingBoxMin[1] = std::min(mesh.boundingBoxMin[1], py);
+        mesh.boundingBoxMin[2] = std::min(mesh.boundingBoxMin[2], pz);
+
+        mesh.boundingBoxMax[0] = std::max(mesh.boundingBoxMax[0], px);
+        mesh.boundingBoxMax[1] = std::max(mesh.boundingBoxMax[1], py);
+        mesh.boundingBoxMax[2] = std::max(mesh.boundingBoxMax[2], pz);
+
         return index;
     };
 
@@ -96,7 +91,12 @@ std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const 
 
     if (isBinary) {
         MeshPatch patch;
-        patch.name = resolvePatchName("");
+
+        // Safely copy the resolved name into the char[64] array
+        std::string resolvedName = resolvePatchName("");
+        std::strncpy(patch.name, resolvedName.c_str(), sizeof(patch.name) - 1);
+        patch.name[sizeof(patch.name) - 1] = '\0'; // Guarantee null-termination
+
         patch.firstIndex = 0;
         patch.indexCount = 0;
 
@@ -113,7 +113,7 @@ std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const 
                 float z = *reinterpret_cast<const float*>(ptr + 8);
                 ptr += 12;
 
-                uint32_t index = addVertex(QVector3D(x, y, z));
+                uint32_t index = addVertex(x, y, z);
                 mesh.indices.push_back(index);
                 patch.indexCount++;
             }
@@ -127,13 +127,19 @@ std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const 
         return std::make_pair(mesh, true);
 
     } else {
-        // ASCII Parsing
+
+        // ASCII Parsing with Bucketing
         QTextStream stream(fileData);
         QString line;
-        MeshPatch currentPatch;
+
+        std::string currentPatchName;
         bool inSolid = false;
 
-        // QRegularExpression is safer/faster for arbitrary whitespace than splitting by a single space
+        // Use a vector to maintain the order patches were discovered
+        std::vector<std::string> patchOrder;
+        // Use a map to bucket indices belonging to the same patch
+        std::unordered_map<std::string, std::vector<uint32_t>> patchBuckets;
+
         static const QRegularExpression wsRe("\\s+");
 
         while (stream.readLineInto(&line)) {
@@ -142,34 +148,48 @@ std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const 
 
             if (line.startsWith("solid", Qt::CaseInsensitive)) {
                 QString namePart = line.mid(5).trimmed();
-                currentPatch.name = resolvePatchName(namePart.toStdString());
-                currentPatch.firstIndex = static_cast<uint32_t>(mesh.indices.size());
-                currentPatch.indexCount = 0;
+                currentPatchName = resolvePatchName(namePart.toStdString());
+
+                // If this is the first time seeing this patch name, record its order
+                if (patchBuckets.find(currentPatchName) == patchBuckets.end()) {
+                    patchOrder.push_back(currentPatchName);
+                }
                 inSolid = true;
             }
             else if (line.startsWith("endsolid", Qt::CaseInsensitive)) {
-                if (inSolid && currentPatch.indexCount > 0) {
-                    mesh.patches.push_back(currentPatch);
-                }
                 inSolid = false;
             }
-            else if (line.startsWith("vertex", Qt::CaseInsensitive)) {
+            else if (inSolid && line.startsWith("vertex", Qt::CaseInsensitive)) {
                 QStringList parts = line.split(wsRe, Qt::SkipEmptyParts);
                 if (parts.size() >= 4) {
                     float x = parts[1].toFloat();
                     float y = parts[2].toFloat();
                     float z = parts[3].toFloat();
 
-                    uint32_t index = addVertex(QVector3D(x, y, z));
-                    mesh.indices.push_back(index);
-                    currentPatch.indexCount++;
+                    uint32_t index = addVertex(x, y, z);
+                    patchBuckets[currentPatchName].push_back(index);
                 }
             }
         }
 
-        // Catch the edge case where an ASCII file lacks a final 'endsolid' statement
-        if (inSolid && currentPatch.indexCount > 0) {
-            mesh.patches.push_back(currentPatch);
+        // Flatten the buckets into the final contiguous mesh data
+        for (const std::string& name : patchOrder) {
+            const std::vector<uint32_t>& bucketIndices = patchBuckets[name];
+
+            if (!bucketIndices.empty()) {
+                MeshPatch patch;
+
+                // Safely copy the bucket name into the char[64] array
+                std::strncpy(patch.name, name.c_str(), sizeof(patch.name) - 1);
+                patch.name[sizeof(patch.name) - 1] = '\0'; // Guarantee null-termination
+
+                patch.firstIndex = static_cast<uint32_t>(mesh.indices.size());
+                patch.indexCount = static_cast<uint32_t>(bucketIndices.size());
+
+                // Append the entire bucket to the final indices vector
+                mesh.indices.insert(mesh.indices.end(), bucketIndices.begin(), bucketIndices.end());
+                mesh.patches.push_back(patch);
+            }
         }
         return std::make_pair(mesh, false);
     }

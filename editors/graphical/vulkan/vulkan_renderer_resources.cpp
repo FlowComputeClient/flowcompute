@@ -2,13 +2,23 @@
 
 #include "vulkan_window.h"
 
-// Create vertex and index buffers
-void VulkanRenderer::createVertexIndexBuffers() {
+// Create vertex buffer
+void VulkanRenderer::createVertexBuffer() {
 
     // Check mesh data
     if (!m_meshData || m_meshData->data.empty() || m_meshData->indices.empty()) {
         qWarning("Mesh data is empty. Skipping buffer creation.");
         return;
+    }
+
+    // Delete buffer if it exists
+    if (m_vertexBuffer != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyBuffer(m_device, m_vertexBuffer, nullptr);
+        m_vertexBuffer = VK_NULL_HANDLE;
+    }
+    if (m_vertexBufferMemory != VK_NULL_HANDLE) {
+        m_devFuncs->vkFreeMemory(m_device, m_vertexBufferMemory, nullptr);
+        m_vertexBufferMemory = VK_NULL_HANDLE;
     }
 
     // Create vertex buffer
@@ -42,6 +52,19 @@ void VulkanRenderer::createVertexIndexBuffers() {
     if (err != VK_SUCCESS) qFatal("Failed to map vertex memory: %d", err);
     memcpy(vertexData, m_meshData->data.data(), (size_t)vertexBufferSize);
     m_devFuncs->vkUnmapMemory(m_device, m_vertexBufferMemory);
+}
+
+void VulkanRenderer::createIndexBuffer() {
+
+    // Delete buffer if it already exists
+    if (m_indexBuffer != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyBuffer(m_device, m_indexBuffer, nullptr);
+        m_indexBuffer = VK_NULL_HANDLE;
+    }
+    if (m_indexBufferMemory != VK_NULL_HANDLE) {
+        m_devFuncs->vkFreeMemory(m_device, m_indexBufferMemory, nullptr);
+        m_indexBufferMemory = VK_NULL_HANDLE;
+    }
 
     // Create index buffer
     VkDeviceSize indexBufferSize = m_meshData->indices.size() * sizeof(m_meshData->indices[0]);
@@ -51,7 +74,7 @@ void VulkanRenderer::createVertexIndexBuffers() {
         .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
-    err = m_devFuncs->vkCreateBuffer(m_device, &indexBufferInfo, nullptr, &m_indexBuffer);
+    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &indexBufferInfo, nullptr, &m_indexBuffer);
     if (err != VK_SUCCESS) qFatal("Failed to create index buffer: %d", err);
 
     VkMemoryRequirements indexMemReqs;
@@ -74,10 +97,15 @@ void VulkanRenderer::createVertexIndexBuffers() {
     if (err != VK_SUCCESS) qFatal("Failed to map index memory: %d", err);
     memcpy(indexData, m_meshData->indices.data(), (size_t)indexBufferSize);
     m_devFuncs->vkUnmapMemory(m_device, m_indexBufferMemory);
+}
+
+void VulkanRenderer::createAxisBuffer() {
 
     // Create axis buffer
-    QVector3D extents = m_meshData->boundingBoxMax - m_meshData->boundingBoxMin;
-    float maxDim = std::max({extents.x(), extents.y(), extents.z()});
+    float xDiff = m_meshData->boundingBoxMax[0] - m_meshData->boundingBoxMin[0];
+    float yDiff = m_meshData->boundingBoxMax[1] - m_meshData->boundingBoxMin[1];
+    float zDiff = m_meshData->boundingBoxMax[2] - m_meshData->boundingBoxMin[2];
+    float maxDim = std::max({xDiff, yDiff, zDiff});
     if (maxDim < 0.001f) maxDim = 1.0f;
     float L = maxDim * 10.0f;
     std::array<float, 36> axisData = {
@@ -94,7 +122,7 @@ void VulkanRenderer::createVertexIndexBuffers() {
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
-    err = m_devFuncs->vkCreateBuffer(m_device, &axisBufferInfo, nullptr, &m_axisBuffer);
+    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &axisBufferInfo, nullptr, &m_axisBuffer);
     if (err != VK_SUCCESS) qFatal("Failed to create vertex buffer: %d", err);
 
     VkMemoryRequirements axisMemReqs;
