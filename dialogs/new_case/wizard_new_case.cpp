@@ -98,9 +98,17 @@ QString NewCaseWizard::createSelectionDialog(const QStringList& paths) {
 
     // Layout for the dialog
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
+    layout->setSpacing(15);
+    layout->setContentsMargins(10, 10, 10, 10);
 
     // Add label
-    layout->addWidget(new QLabel(tr("Select one of the following OpenFOAM paths:"), &dialog));
+    layout->addWidget(new QLabel(tr("Select one of the following OpenFOAM installations:"), &dialog));
+
+    // Create sub-layout
+    QVBoxLayout *subLayout = new QVBoxLayout();
+    subLayout->setContentsMargins(12, 5, 0, 0);
+    subLayout->setSpacing(15);
+    layout->addLayout(subLayout);
 
     // Button group to manage exclusivity and retrieval
     QButtonGroup buttonGroup(&dialog);
@@ -108,17 +116,22 @@ QString NewCaseWizard::createSelectionDialog(const QStringList& paths) {
     // Create radio buttons
     for (int i = 0; i < paths.size(); ++i) {
         QRadioButton *rb = new QRadioButton(paths[i], &dialog);
-        layout->addWidget(rb);
+        subLayout->addWidget(rb);
         buttonGroup.addButton(rb, i);
         if (i == 0) {
             rb->setChecked(true);
         }
     }
 
+    layout->addSpacing(5);
+
     // OK/Cancel buttons
     QDialogButtonBox *buttonBox =
         new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    buttonBox->setCenterButtons(true);
     layout->addWidget(buttonBox);
+
+    layout->addSpacing(5);
 
     QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
@@ -173,7 +186,7 @@ void NewCaseWizard::accept() {
         }
         else if (caseCreationType == CaseCreationType::INTERACTIVE) {
             if (createCase(newCasePath)) {
-                files = { "system",  "constant", "0.orig", "Allclean|", "Allrun|" };
+                files = { "0.orig", "constant", "system", "Allclean|", "Allrun|" };
             } else {
                 QMessageBox::critical(this, tr("Case Creation Issue"), tr("Failed to create case folder"));
                 return;

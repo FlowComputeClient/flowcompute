@@ -2,9 +2,11 @@
 
 #include "wizard_solver.h"
 
+#include "solver_structs.h"
+
 // Introduction page asks for the case name and platform
-BoundaryPage::BoundaryPage(const QHash<QString, FlowCompute::FieldData>& fieldData,
-                           const QList<FlowCompute::BoundaryCondition>& boundaryConditions,
+BoundaryPage::BoundaryPage(const QHash<QString, FlowCompute::FieldDef>& fieldData,
+                           const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
                            QWidget *parent): QWizardPage(parent), m_fieldData(fieldData),
     m_boundaryConditions(boundaryConditions) {
 
@@ -39,40 +41,7 @@ BoundaryPage::BoundaryPage(const QHash<QString, FlowCompute::FieldData>& fieldDa
     m_boundaryTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_boundaryTable->verticalHeader()->setVisible(false);
     m_boundaryTable->setSelectionMode(QAbstractItemView::NoSelection);
-    m_boundaryTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     groupLayout->addRow(m_boundaryTable);
-}
-
-QString getBaseMathType(FlowCompute::FieldClass foamClass) {
-    switch (foamClass) {
-    case FlowCompute::FieldClass::VolScalarField:
-    case FlowCompute::FieldClass::SurfaceScalarField:
-    case FlowCompute::FieldClass::PointScalarField:
-        return "scalar";
-
-    case FlowCompute::FieldClass::VolVectorField:
-    case FlowCompute::FieldClass::SurfaceVectorField:
-    case FlowCompute::FieldClass::PointVectorField:
-        return "vector";
-
-    case FlowCompute::FieldClass::VolSymmTensorField:
-    case FlowCompute::FieldClass::SurfaceSymmTensorField:
-    case FlowCompute::FieldClass::PointSymmTensorField:
-        return "symmTensor";
-
-    case FlowCompute::FieldClass::VolTensorField:
-    case FlowCompute::FieldClass::SurfaceTensorField:
-    case FlowCompute::FieldClass::PointTensorField:
-        return "tensor";
-
-    case FlowCompute::FieldClass::VolSphericalTensorField:
-    case FlowCompute::FieldClass::SurfaceSphericalTensorField:
-    case FlowCompute::FieldClass::PointSphericalTensorField:
-        return "sphericalTensor";
-
-    default:
-        return "unknown";
-    }
 }
 
 void BoundaryPage::initializePage() {
@@ -83,7 +52,7 @@ void BoundaryPage::initializePage() {
     m_turbFields = solverWizard->getTurbulenceFields();
     m_boundaryPatches = solverWizard->getBoundaries();
 
-    // 1. Combine and deduplicate fields
+    // Combine and deduplicate fields
     QSet<QString> combinedFields;
     for (const QString& f : std::as_const(m_solverFields)) combinedFields.insert(f);
     for (const QString& f : std::as_const(m_turbFields)) combinedFields.insert(f);
@@ -93,12 +62,13 @@ void BoundaryPage::initializePage() {
     // 2. Initialize the backend state map with defaults
     m_fieldEditorMap.clear();
     for (const QString& f : std::as_const(fieldsList)) {
-        FieldEditor editor;
+
+        FlowCompute::FieldData editor;
         editor.dimension = m_fieldData[f].dimensions;
         editor.internalField = m_fieldData[f].defaultValue;
 
         for (const auto& patch : std::as_const(m_boundaryPatches)) {
-            editor.patchStates[patch.name] = PatchState();
+            editor.bcs[patch.name] = FlowCompute::BoundaryCondition();
         }
         m_fieldEditorMap.insert(f, editor);
     }
@@ -130,11 +100,11 @@ void BoundaryPage::initializePage() {
             if (m_currentField.isEmpty()) return;
 
             QString patchName = m_boundaryPatches[i].name;
-            FieldEditor& currentEditor = m_fieldEditorMap[m_currentField];
-            QString currentBc = currentEditor.patchStates[patchName].bcName;
+            FlowCompute::FieldData& currentEditor = m_fieldEditorMap[m_currentField];
+            QString currentBc = currentEditor.bcs[patchName].type;
 
             // Pass the parameters map by reference so the dialog can modify it
-            if (setParams(currentBc, currentEditor.patchStates[patchName].parameters)) {
+            if (setParams(currentBc, currentEditor.bcs[patchName].parameters)) {
                 QPushButton* btn = qobject_cast<QPushButton*>(m_boundaryTable->cellWidget(i, 2));
                 if (btn) btn->setText(tr("Parameters Set ✓"));
             }
@@ -148,9 +118,19 @@ void BoundaryPage::initializePage() {
     m_fieldBox->blockSignals(false);
 
     if (!fieldsList.isEmpty()) {
-        m_currentField = ""; // Force a full refresh
+        m_currentField = "";
         fieldChanged();
     }
+
+    // Update the table size
+    m_boundaryTable->updateGeometry();
+    int totalHeight = m_boundaryTable->horizontalHeader()->height();
+    for (int i = 0; i < m_boundaryTable->rowCount(); ++i) {
+        totalHeight += m_boundaryTable->rowHeight(i);
+    }
+    totalHeight += m_boundaryTable->frameWidth() * 2;
+    m_boundaryTable->setFixedHeight(totalHeight);
+    m_boundaryTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 }
 
 bool BoundaryPage::validatePage() {
@@ -185,7 +165,7 @@ void BoundaryPage::fieldChanged() {
     // Update tracker
     m_currentField = newField;
     QString fieldClassName = getBaseMathType(m_fieldData[m_currentField].fieldClass);
-    FieldEditor& currentEditor = m_fieldEditorMap[m_currentField];
+    FlowCompute::FieldData& currentEditor = m_fieldEditorMap[m_currentField];
 
     // Update text for new field
     m_dimensionEdit->setText(currentEditor.dimension);
@@ -213,30 +193,50 @@ void BoundaryPage::fieldChanged() {
         bcBox->addItems(validBcNames);
 
         // Restore saved selection
-        QString savedBc = currentEditor.patchStates[patchName].bcName;
+        QString savedBc = currentEditor.bcs[patchName].type;
         int index = bcBox->findText(savedBc);
 
         if (index >= 0) {
             bcBox->setCurrentIndex(index);
-        } else if (bcBox->count() > 0) {
+            bcBox->blockSignals(false);
+
+            // Manually update the shared button UI when restoring a previously saved field
+            QPushButton* paramButton = qobject_cast<QPushButton*>(m_boundaryTable->cellWidget(i, 2));
+            if (paramButton) {
+                if (currentEditor.bcs[patchName].parameters.empty()) {
+                    paramButton->setText(tr("No parameters"));
+                    paramButton->setEnabled(false);
+                } else {
+                    paramButton->setEnabled(true);
+
+                    // Check if the user has already entered values to show the checkmark
+                    bool isSet = false;
+                    for (const auto& [key, val] : currentEditor.bcs[patchName].parameters) {
+                        if (!val.isEmpty()) { isSet = true; break; }
+                    }
+                    paramButton->setText(isSet ? tr("Parameters Set ✓") : tr("Set parameters..."));
+                }
+            }
+        } else {
             bcBox->setCurrentIndex(0);
-            currentEditor.patchStates[patchName].bcName = bcBox->currentText();
-            currentEditor.patchStates[patchName].parameters.clear();
+            bcBox->blockSignals(false);
+            currentEditor.bcs[patchName].type = "";
+            bcChanged(i, bcBox->currentText());
         }
-        bcBox->blockSignals(false);
     }
 }
 
 void BoundaryPage::bcChanged(int row, const QString& text) {
+
     if (m_currentField.isEmpty() || row < 0 || row >= m_boundaryPatches.size()) return;
 
     QString patchName = m_boundaryPatches[row].name;
-    FieldEditor& currentEditor = m_fieldEditorMap[m_currentField];
+    FlowCompute::FieldData& currentEditor = m_fieldEditorMap[m_currentField];
 
     // Only wipe data if the BC actually changed
-    if (currentEditor.patchStates[patchName].bcName != text) {
-        currentEditor.patchStates[patchName].bcName = text;
-        currentEditor.patchStates[patchName].parameters.clear();
+    if (currentEditor.bcs[patchName].type != text) {
+        currentEditor.bcs[patchName].type = text;
+        currentEditor.bcs[patchName].parameters.clear();
 
         QPushButton* paramButton = qobject_cast<QPushButton*>(m_boundaryTable->cellWidget(row, 2));
         bool hasParams = false;
@@ -246,7 +246,7 @@ void BoundaryPage::bcChanged(int row, const QString& text) {
                 if (bc.parameters.size() > 0) {
                     hasParams = true;
                     for (auto const& paramName: std::as_const(bc.parameters)) {
-                        currentEditor.patchStates[patchName].parameters[paramName] = "";
+                        currentEditor.bcs[patchName].parameters[paramName] = "";
                     }
                 }
                 break;
@@ -264,12 +264,12 @@ void BoundaryPage::bcChanged(int row, const QString& text) {
     }
 }
 
-bool BoundaryPage::setParams(const QString& bcName, QHash<QString, QString>& params) {
+bool BoundaryPage::setParams(const QString& bcName, std::unordered_map<QString, QString>& params) {
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Parameter Settings"));
     dialog.setMinimumWidth(300);
 
-    QFormLayout* formLayout = new QFormLayout(&dialog);
+    QFormLayout* formLayout = new QFormLayout();
     formLayout->setSpacing(15);
     formLayout->addRow(new QLabel(tr("Configure the '%1' boundary condition:").arg(bcName)));
 
@@ -277,11 +277,11 @@ bool BoundaryPage::setParams(const QString& bcName, QHash<QString, QString>& par
     QHash<QString, QLineEdit*> editMap;
 
     // Create a label and edit box for each pointer
-    for(const QString& param : params.keys()) {
+    for (const auto& [paramName, paramValue] : params) {
         QLineEdit* lineEdit = new QLineEdit(&dialog);
-        lineEdit->setText(params.value(param));
-        formLayout->addRow(param + ":", lineEdit);
-        editMap.insert(param, lineEdit);
+        lineEdit->setText(paramValue);
+        formLayout->addRow(paramName + ":", lineEdit);
+        editMap.insert(paramName, lineEdit);
     }
 
     // Connect standard dialog buttons
@@ -289,6 +289,9 @@ bool BoundaryPage::setParams(const QString& bcName, QHash<QString, QString>& par
     formLayout->addRow(buttonBox);
     connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    dialog.setLayout(formLayout);
+    dialog.adjustSize();
 
     // Block until the dialog is closed
     if (dialog.exec() == QDialog::Accepted) {

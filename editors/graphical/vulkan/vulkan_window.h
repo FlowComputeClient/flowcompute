@@ -12,7 +12,7 @@
 
 #include "vulkan_renderer.h"
 
-#include "../../../geometry/mesh_data.h"
+#include "../../../geometry/graphic_data.h"
 
 struct TransformMatrices {
     QMatrix4x4 model;
@@ -24,15 +24,15 @@ class VulkanWindow : public QVulkanWindow {
     Q_OBJECT
 
 public:
-    VulkanWindow(std::shared_ptr<MeshData> data, QWindow *parent = nullptr);
+    VulkanWindow(std::shared_ptr<RenderData> data, QWindow *parent = nullptr);
     QVulkanWindowRenderer *createRenderer() override;
     void renderGeometry();
     TransformMatrices getMatrices();
     void setModelMatrix(const QMatrix4x4& modelMatrix);
     void setViewMatrix(const QMatrix4x4& viewMatrix);
     void setProjMatrix(const QMatrix4x4& projMatrix);
-    std::shared_ptr<MeshData> getMeshData();
-    void setMeshData(std::shared_ptr<MeshData> meshData);
+    std::shared_ptr<RenderData> getRenderData();
+    void setRenderData(std::shared_ptr<RenderData> meshData);
     bool isDirty() { return m_isDataDirty; };
     void clearDirty();
     bool isUboDirty()  { return m_isUboDirty; };
@@ -56,7 +56,7 @@ private:
     // Persistent camera state
     float m_cameraDistance = 1.0f;
     QVector3D m_centroid;
-    std::shared_ptr<MeshData> m_meshData;
+    std::shared_ptr<RenderData> m_renderData;
     std::mutex m_mutex;
     TransformMatrices m_matrices;
     bool m_isDataDirty = false;

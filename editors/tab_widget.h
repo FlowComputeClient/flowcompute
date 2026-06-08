@@ -21,6 +21,7 @@ public:
     ~TabWidget();
     void setWorkspace(QString);
     void updateWorkspace();
+    bool promptToSave(int index);
 
 public slots:
     void closeAllTabs();
@@ -38,7 +39,7 @@ private:
 
 private slots:
     // void editFile(NodeData*);
-    void destroyTab(int);
+    void destroyTab(int index);
     void changeDirtyState(QWidget*, bool);
 };
 

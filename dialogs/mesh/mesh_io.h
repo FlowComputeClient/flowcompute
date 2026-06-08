@@ -29,7 +29,8 @@ namespace MeshIO {
                                             QString openFoamPath);
     QString updateSnappyHexMeshDict(std::shared_ptr<OpenFoamDictionary> dict,
         const CastellatedMeshConfig&, const SnapControlConfig&, const LayerControlConfig&);
-    QString createSnappyHexMeshDict(const CastellatedMeshConfig&, const SnapControlConfig&,
+    QString createSnappyHexMeshDict(const std::map<QString, SurfaceFeatureExtractEntry>& entryMap,
+        const CastellatedMeshConfig&, const SnapControlConfig&,
         const LayerControlConfig&, QString openFoamPath);
 
 };

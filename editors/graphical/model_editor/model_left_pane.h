@@ -21,20 +21,26 @@ public:
     // Get and set patch names
     std::vector<std::string> getPatchNames() const;
     void setPatchNames(const std::vector<std::string>& patchNames);
+    void setBounds(std::array<float, 3> bounds);
+    void changeBounds(double scaleFactor);
 
 signals:
-    void surfacePatchRequested(double featureAngle);
     void surfaceCheckRequested();
+    void surfaceScaleRequested(double scaleFactor);
+    void surfacePatchRequested(double featureAngle);
     void dirtyStateChanged(bool isDirty);
 
 private:
     bool m_isBinary;
-    QDoubleSpinBox* m_angleSpin;
-    QPushButton *m_checkButton, *m_patchButton;
+    std::array<float, 3> m_bounds;
+    QDoubleSpinBox *m_angleSpin, *m_scaleSpin;
+    QLabel* m_boundsLabel;
+    QPushButton *m_checkButton, *m_patchButton, *m_scaleButton;
     QTableWidget *m_patchTable;
 
 private slots:
     void onCheckButtonClicked();
+    void onScaleButtonClicked();
     void onPatchButtonClicked();
 };
 

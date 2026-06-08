@@ -65,7 +65,12 @@ CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
 // Create actions for the context menu
 void CaseNavigator::createActions() {
 
-    // Create new project
+    // View mesh
+    m_viewMeshAction = new QAction(QIcon(":/images/view_mesh.png"), tr("&View Mesh"), this);
+    m_viewMeshAction->setStatusTip(tr("View Mesh"));
+    connect(m_viewMeshAction, &QAction::triggered, this, &CaseNavigator::viewMesh);
+
+    // Delete action
     m_deleteAction = new QAction(QIcon(":/images/delete.png"), tr("&Delete"), this);
     m_deleteAction->setShortcuts(QKeySequence::Delete);
     m_deleteAction->setStatusTip(tr("Delete"));
@@ -172,7 +177,8 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
             // Open dictionary file
             if ((node->nodeType == NodeType::DictionaryFile) ||
                 (node->nodeType == NodeType::ScriptFile) ||
-                (node->nodeType == NodeType::FieldFile)) {
+                (node->nodeType == NodeType::FieldFile) ||
+                (node->nodeType == NodeType::MeshFile)) {
 
                 // Create editor for file
                 mainWin->createEditor(EditorType::TEXT, node->name, node->fullPath);
@@ -182,14 +188,7 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
             if (node->nodeType == NodeType::GeometryFile) {
 
                 // Create editor for file
-                mainWin->createEditor(EditorType::MODEL, node->name, node->fullPath);
-            }
-
-            // Open mesh file
-            if (node->nodeType == NodeType::MeshFile) {
-
-                // Create editor for file
-                mainWin->createEditor(EditorType::MESH, node->name, node->fullPath);
+                mainWin->createEditor(EditorType::SURFACE, node->name, node->fullPath);
             }
         }
     }
@@ -226,16 +225,137 @@ void CaseNavigator::fetchChildren(NodeData* node) {
     QStringList items = mainWin->targetSystems[targetSystemId]->getFiles(fullPath);
 
     // Create a node for each child
+    QList<NodeData*> childFolders, childFiles;
     for(QString item : std::as_const(items)) {
         NodeData* childNode;
         if (!item.endsWith('|')) {
             childNode = new NodeData(item, nodePath, NodeType::Folder);
+            childFolders.push_back(childNode);
         } else {
             item.chop(1);
             NodeType type = checkType(item, nodePath);
             childNode = new NodeData(item, nodePath, type);
+            childFiles.push_back(childNode);
         }
-        node->appendRow(childNode);
+    }
+
+    // Lambda to compare nodes
+    auto sortAlphabetically = [](const NodeData* a, const NodeData* b) {
+        return a->name.compare(b->name, Qt::CaseInsensitive) < 0;
+    };
+
+    // Sort folders and files
+    std::sort(childFolders.begin(), childFolders.end(), sortAlphabetically);
+    std::sort(childFiles.begin(), childFiles.end(), sortAlphabetically);
+
+    // Display folders, then files
+    for(auto const& child: childFolders) {
+        node->appendRow(child);
+    }
+    for(auto const& child: childFiles) {
+        node->appendRow(child);
+    }
+}
+
+void CaseNavigator::updatePath(QString path, QStringList children) {
+    if (!root || path.isEmpty()) return;
+
+    // Traverse the tree to find the target node
+    QStringList pathParts = path.split('/');
+    NodeData* currentNode = nullptr;
+
+    // Find the top-level case node
+    for (int i = 0; i < root->rowCount(); ++i) {
+        NodeData* node = static_cast<NodeData*>(root->child(i));
+        if (node && node->text() == pathParts[0]) {
+            currentNode = node;
+            break;
+        }
+    }
+
+    if (!currentNode) return;
+
+    // Traverse down the rest of the path components, creating them if missing
+    for (int i = 1; i < pathParts.size(); ++i) {
+        QString part = pathParts[i];
+        bool found = false;
+
+        for (int j = 0; j < currentNode->rowCount(); ++j) {
+            NodeData* child = static_cast<NodeData*>(currentNode->child(j));
+            if (child && child->name == part) {
+                currentNode = child;
+                found = true;
+                break;
+            }
+        }
+
+        // If the intermediate folder node does not exist, create it
+        if (!found) {
+            QString parentPath;
+            if (currentNode->nodeType == NodeType::CaseFolder) {
+                parentPath = currentNode->name;
+            } else {
+                parentPath = currentNode->fullPath + "/" + currentNode->name;
+            }
+
+            NodeData* newFolder = new NodeData(part, parentPath, NodeType::Folder);
+            currentNode->appendRow(newFolder);
+            currentNode = newFolder; // Step into the newly created folder
+        }
+    }
+
+    // Clear existing children of the target node to prepare for the update
+    if (currentNode->rowCount() > 0) {
+        currentNode->removeRows(0, currentNode->rowCount());
+    }
+
+    // Determine the base path for the new children
+    QString nodePath;
+    if (currentNode->nodeType == NodeType::CaseFolder) {
+        nodePath = currentNode->name;
+    } else {
+        nodePath = currentNode->fullPath + "/" + currentNode->name;
+    }
+
+    // Parse children, create nodes, and sort them
+    QList<NodeData*> childFolders, childFiles;
+    for(QString item : std::as_const(children)) {
+        NodeData* childNode;
+        if (!item.endsWith('|')) {
+            childNode = new NodeData(item, nodePath, NodeType::Folder);
+            childFolders.push_back(childNode);
+        } else {
+            item.chop(1);
+            NodeType type = checkType(item, nodePath);
+            childNode = new NodeData(item, nodePath, type);
+            childFiles.push_back(childNode);
+        }
+    }
+
+    // Lambda to compare nodes alphabetically
+    auto sortAlphabetically = [](const NodeData* a, const NodeData* b) {
+        return a->name.compare(b->name, Qt::CaseInsensitive) < 0;
+    };
+
+    std::sort(childFolders.begin(), childFolders.end(), sortAlphabetically);
+    std::sort(childFiles.begin(), childFiles.end(), sortAlphabetically);
+
+    // Append folders first, then files
+    for(auto const& child: childFolders) {
+        currentNode->appendRow(child);
+    }
+    for(auto const& child: childFiles) {
+        currentNode->appendRow(child);
+    }
+
+    // Expand the tree to ensure the updated node is visible
+    this->expand(currentNode->index());
+
+    // Walk up the tree and expand all ancestors
+    QModelIndex parentIndex = currentNode->index().parent();
+    while (parentIndex.isValid()) {
+        this->expand(parentIndex);
+        parentIndex = parentIndex.parent();
     }
 }
 
@@ -289,7 +409,18 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
     NodeData* node = model->nodeFromIndex(index);
     if (!node) return;
 
-    // Create the menu
+    // Add actions based on type
+    switch(node->nodeType) {
+    case NodeType::CaseFolder:
+        m_viewMeshAction->setData(QVariant::fromValue(node));
+        m_contextMenu->addAction(m_viewMeshAction);
+        break;
+    default:
+        break;
+    }
+
+    // Add delete action
+    m_deleteAction->setData(QVariant::fromValue(node));
     m_contextMenu->addAction(m_deleteAction);
 
     // Execute the menu at the given location
@@ -298,4 +429,18 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
 
 void CaseNavigator::deleteNode() {
     qDebug() << "Deleted!";
+}
+
+void CaseNavigator::viewMesh() {
+
+    // Access node
+    QVariant data = m_deleteAction->data();
+    NodeData* node = data.value<NodeData*>();
+    if (!node) { return; }
+
+    // Create editor for mesh
+    mainWin->createEditor(EditorType::MESH, node->name, node->fullPath);
+
+    // Clear data
+    m_deleteAction->setData(QVariant());
 }

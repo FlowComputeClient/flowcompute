@@ -18,6 +18,9 @@ qt_add_executable(FlowCompute
     resources.qrc
     core_types.h
 
+    dialogs/boundary/boundary_dialog.h
+    dialogs/boundary/boundary_dialog.cpp
+
     dialogs/new_case/wizard_new_case.h
     dialogs/new_case/wizard_new_case.cpp
     dialogs/new_case/page_10_intro.h
@@ -51,6 +54,9 @@ qt_add_executable(FlowCompute
     dialogs/mesh/page_70_layercontrol.cpp
     dialogs/mesh/page_80_execution.h
     dialogs/mesh/page_80_execution.cpp
+
+    dialogs/run_mesh/run_mesh_dialog.h
+    dialogs/run_mesh/run_mesh_dialog.cpp
 
     dialogs/selection/selection_dialog.h
     dialogs/selection/selection_dialog.cpp
@@ -100,7 +106,7 @@ qt_add_executable(FlowCompute
     editors/graphical/model_editor/model_left_pane.h
     editors/graphical/model_editor/model_left_pane.cpp
     
-    geometry/mesh_data.h    
+    geometry/graphic_data.h
     geometry/mesh/mesh_reader.h
     geometry/mesh/mesh_reader.cpp       
     geometry/stl/stl_reader.h
@@ -154,10 +160,10 @@ endif()
 set(SHADER_SOURCES
     "shaders/axis/axis.vert"
     "shaders/axis/axis.frag"
-    "shaders/flat/flat.vert"
-    "shaders/flat/flat.frag"
-    "shaders/wireframe/wireframe.vert"
-    "shaders/wireframe/wireframe.frag"
+    "shaders/model/model.vert"
+    "shaders/model/model.frag"
+    "shaders/mesh/mesh.vert"
+    "shaders/mesh/mesh.frag"
     "shaders/color/color.vert"
     "shaders/color/color.frag"
 )

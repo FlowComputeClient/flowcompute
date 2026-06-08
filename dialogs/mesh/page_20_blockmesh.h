@@ -19,8 +19,7 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "../../geometry/mesh_data.h"
-#include "../../geometry/stl/stl_reader.h"
+#include "../../geometry/graphic_data.h"
 #include "mesh_structs.h"
 
 class MainWindow;
@@ -39,22 +38,25 @@ protected:
 private:
     BlockMeshConfig* m_cfg;
     MeshWizard* meshWizard;
+    BoundingBox m_rawGeomBox;
     QComboBox *scaleFactorBox;
     QLabel* geometryLabel;
-    std::array<QDoubleSpinBox*, 6> dimSpinBox;
-    std::array<double, 3> minGeometry;
-    std::array<double, 3> maxGeometry;
+    std::array<QDoubleSpinBox*, 6> dimSpin;
+    std::array<double, 3> minGeometry, maxGeometry;
     void setBoundingBox();
     void updateCellCount();
     double m_cellSize = -1.0;
-    QDoubleSpinBox *targetCellSizeBox;
-    QLineEdit* cellCountX;
-    QLineEdit* cellCountY;
-    QLineEdit* cellCountZ;
-    QLineEdit* cellCountTotal;
+    QDoubleSpinBox *targetCellSizeSpin;
+    std::array<QLineEdit*, 3> cellCountEdits, actualSizeEdits;
+    QLineEdit *cellCountTotalEdit, *maxAspectRatioEdit;
+
+    double m_previousScaleFactor = 1.0;
+    // double getCurrentScaleFactor() const;
+    double getCurrentScaleFactor(const QString& text) const;
 
 private slots:
     void fitBoundsPressed();
+    void onScaleFactorChanged(const QString& text);
 };
 
 #endif  // PAGE_20_BLOCKMESH_H

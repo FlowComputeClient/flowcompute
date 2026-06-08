@@ -20,7 +20,7 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "../../geometry/mesh_data.h"
+#include "../../geometry/graphic_data.h"
 #include "../../geometry/stl/stl_reader.h"
 #include "mesh_structs.h"
 

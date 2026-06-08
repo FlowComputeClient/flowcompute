@@ -24,7 +24,6 @@
 #include <QWizardPage>
 
 #include "../../core_types.h"
-#include "solver_structs.h"
 
 class SolverWizard;
 
@@ -32,8 +31,8 @@ class BoundaryPage : public QWizardPage {
     Q_OBJECT
 
 public:
-    explicit BoundaryPage(const QHash<QString, FlowCompute::FieldData>&,
-                          const QList<FlowCompute::BoundaryCondition>&,
+    explicit BoundaryPage(const QHash<QString, FlowCompute::FieldDef>&,
+                          const std::vector<FlowCompute::BoundaryConditionDef>&,
                           QWidget *parent);
     // int nextId() const override;
 
@@ -45,12 +44,13 @@ private:
     SolverWizard* solverWizard;
     QListWidget* m_fieldsListWidget;
     QString m_currentField;
+    QHash<QString, FlowCompute::FieldData> m_fieldEditorMap;
 
     // Data from wizard
-    QHash<QString, FlowCompute::FieldData> m_fieldData;
-    QList<FlowCompute::BoundaryCondition> m_boundaryConditions;
-    QList<FlowCompute::BoundaryCondition> m_finalList;
-    QList<FlowCompute::BoundaryPatch> m_boundaryPatches;
+    QHash<QString, FlowCompute::FieldDef> m_fieldData;
+    std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
+    std::vector<FlowCompute::BoundaryConditionDef> m_finalList;
+    std::vector<FlowCompute::MeshPatch> m_boundaryPatches;
     QStringList m_solverFields;
     QStringList m_turbFields;
 
@@ -60,23 +60,10 @@ private:
     QLineEdit* m_internalFieldEdit;
     QTableWidget* m_boundaryTable;
 
-    // Store entered results
-    struct PatchState {
-        QString bcName;
-        QHash<QString, QString> parameters; // Maps parameter name (e.g., "value") to typed text
-    };
-
-    struct FieldEditor {
-        QString dimension;
-        QString internalField;
-        QHash<QString, PatchState> patchStates; // Stores the user's data
-    };
-    QHash<QString, FieldEditor> m_fieldEditorMap;
-
 private slots:
     void fieldChanged();
     void bcChanged(int row, const QString& text);
-    bool setParams(const QString& bcName, QHash<QString, QString>& params);
+    bool setParams(const QString& bcName, std::unordered_map<QString, QString>& params);
 };
 
 #endif  // PAGE_30_BOUNDARY_H

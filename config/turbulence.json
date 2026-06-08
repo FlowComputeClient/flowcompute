@@ -3,35 +3,35 @@
     "Two-Equation": {
       "kOmegaSST": {
         "description": "k-omega-SST model",
-        "fields": ["k", "omega"]
+        "fields": ["k", "omega", "nut"]
       },
       "kOmega": {
         "description": "k-omega model",
-        "fields": ["k", "omega"]
+        "fields": ["k", "omega", "nut"]
       },
       "kEpsilon": {
         "description": "Standard k-epsilon model",
-        "fields": ["k", "epsilon"]
+        "fields": ["k", "epsilon", "nut"]
       },
       "realizableKE": {
-        "description": "Realizable k-epsilon model.",
-        "fields": ["k", "epsilon"]
+        "description": "Realizable k-epsilon model",
+        "fields": ["k", "epsilon", "nut"]
       },
       "RNGkEpsilon": {
         "description": "RNG-k-epsilon model",
-        "fields": ["k", "epsilon"]
+        "fields": ["k", "epsilon", "nut"]
       }
     },
     "One-Equation": {
       "SpalartAllmaras": {
         "description": "Spalart-Allmaras mixing-length model",
-        "fields": ["nuTilda"]
+        "fields": ["nuTilda", "nut"]
       }
     },
     "Reynolds Stress Model (RSM)": {
       "LRR": {
         "description": "Launder-Reece-Rodi RSTM",
-        "fields": ["R", "epsilon"]
+        "fields": ["k", "epsilon", "R", "nut"]
       }
     }
   },
@@ -39,17 +39,17 @@
     "Algebraic": {
       "Smagorinsky": {
         "description": "Smagorinsky SGS model",
-        "fields": []
+        "fields": ["nut"]
       }
     },
     "One-Equation": {
       "dynamicKEqn": {
         "description": "Dynamic eddy-viscosity",
-        "fields": ["k"]
+        "fields": ["k", "nut"]
       },
       "dynamicLagrangian": {
         "description": "Dynamic SGS model with Lagrangian averaging",
-        "fields": ["k"]
+        "fields": ["k", "nut"]
       }
     }
   }

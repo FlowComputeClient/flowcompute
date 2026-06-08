@@ -248,6 +248,86 @@ QStringList OpenFoamDictionary::getSubDictKeys(const QString& path) const {
     return keys;
 }
 
+// In open_foam_dictionary.cpp
+void OpenFoamDictionary::renameKey(const QString& path, const QString& newName) {
+    if (!m_tree || path.isEmpty()) {
+        qWarning() << "Cannot rename key. Invalid tree or empty path.";
+        return;
+    }
+
+    QStringList parts = path.split('/', Qt::SkipEmptyParts);
+    TSNode currentNode = ts_tree_root_node(m_tree.get());
+
+    for (int i = 0; i < parts.size(); ++i) {
+        const QString& currentKey = parts[i];
+        bool isLastPart = (i == parts.size() - 1);
+        bool foundNextLevel = false;
+
+        uint32_t childCount = ts_node_child_count(currentNode);
+
+        for (uint32_t j = 0; j < childCount; ++j) {
+            TSNode child = ts_node_child(currentNode, j);
+
+            if (QString(ts_node_type(child)) == "entry") {
+                // "key" is 3 characters long
+                TSNode keyNode = ts_node_child_by_field_name(child, "key", 3);
+
+                if (ts_node_is_null(keyNode)) continue;
+
+                QString rawKeyText = getNodeText(keyNode, m_sourceText);
+                QString extractedKey = unquote(rawKeyText);
+
+                if (extractedKey == currentKey) {
+                    if (isLastPart) {
+                        // Target reached. Get byte offsets for the key specifically.
+                        uint32_t startByte = ts_node_start_byte(keyNode);
+                        uint32_t endByte = ts_node_end_byte(keyNode);
+                        uint32_t length = endByte - startByte;
+
+                        // Smart Replacement: Preserve quotes if the original key used them
+                        QString replacement = newName;
+                        if (rawKeyText.startsWith('"') && rawKeyText.endsWith('"')) {
+                            replacement = "\"" + newName + "\"";
+                        }
+
+                        // Mutate the raw text
+                        m_sourceText.replace(startByte, length, replacement.toUtf8());
+
+                        // Re-parse immediately to keep the AST and byte offsets synchronized
+                        TSTree* newTree = ts_parser_parse_string(
+                            m_parser,
+                            nullptr,
+                            m_sourceText.constData(),
+                            m_sourceText.size()
+                            );
+                        m_tree.reset(newTree);
+
+                        return; // Success
+                    } else {
+                        // Not the last part, drill down into the dictionary
+                        for (uint32_t k = 0; k < ts_node_child_count(child); ++k) {
+                            TSNode dictCandidate = ts_node_child(child, k);
+                            if (QString(ts_node_type(dictCandidate)) == "dict") {
+                                currentNode = dictCandidate;
+                                foundNextLevel = true;
+                                break; // Break dictionary search loop
+                            }
+                        }
+                        break; // Break entry search loop, proceed to next path part
+                    }
+                }
+            }
+        }
+
+        if (!isLastPart && !foundNextLevel) {
+            qWarning() << "Cannot rename key. Path broken at:" << currentKey;
+            return;
+        }
+    }
+
+    qWarning() << "Cannot rename key. Key not found:" << path;
+}
+
 bool OpenFoamDictionary::hasSyntaxErrors() const {
     // If the tree failed to generate entirely, treat it as an error state
     if (!m_tree) {

@@ -1,6 +1,7 @@
 #include "wizard_mesh.h"
 
 #include "../../main_window.h"
+#include "mesh_io.h"
 
 // Function declarations
 MeshWizard::MeshWizard(QWidget *parent): QWizard(parent) {
@@ -20,7 +21,6 @@ MeshWizard::MeshWizard(QWidget *parent): QWizard(parent) {
     setPage(Page_Castellation, new CastellationPage(this));
     setPage(Page_SnapControl, new SnapControlPage(this));
     setPage(Page_LayerControl, new LayerControlPage(this));
-    setPage(Page_Execution, new ExecutionPage(this));
     setOption(QWizard::NoBackButtonOnStartPage);
 }
 
@@ -132,10 +132,13 @@ bool MeshWizard::showParsingErrorMessage(QString fileName) {
 
 void MeshWizard::accept() {
 
+    QWizard::accept();
+
     QString openFoamPath = mainWin->m_caseMap[m_caseName].openFoamPath;
 
     // Update or create blockMeshDict
     if (m_runBlockMesh) {
+
         QString blockMeshDictText;
         if (m_dictMap.contains("system/blockMeshDict")) {
             blockMeshDictText = MeshIO::updateBlockMeshDict(m_dictMap["system/blockMeshDict"], m_blockMeshConfig);
@@ -146,17 +149,12 @@ void MeshWizard::accept() {
         // Update file
         mainWin->targetSystems[m_targetId]->writeData(blockMeshDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/blockMeshDict");
-
-        // Launch utility
-        QString cmd = QString("cd %1; source %2/etc/bashrc && blockMesh").arg(m_casePath + "/" + m_caseName, openFoamPath);
-        QString output;
-        if (mainWin->targetSystems[m_targetId]->launchShortUtility(cmd, output) == 0) {
-            mainWin->log(output);
-        }
     }
 
     // Update or create surfaceFeatureExtractDict
     if (m_runExtract) {
+
+        /*
         QString surfaceFeatureExtractDictText;
         if (m_dictMap.contains("system/surfaceFeatureExtractDict")) {
             surfaceFeatureExtractDictText =
@@ -165,47 +163,58 @@ void MeshWizard::accept() {
             surfaceFeatureExtractDictText =
                 MeshIO::createSurfaceFeatureExtractDict(m_surfaceFeatureMap, openFoamPath);
         }
+        */
+
+        QString surfaceFeatureExtractDictText =
+            MeshIO::createSurfaceFeatureExtractDict(m_surfaceFeatureMap, openFoamPath);
 
         // Update file
         mainWin->targetSystems[m_targetId]->writeData(surfaceFeatureExtractDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/surfaceFeatureExtractDict");
 
+        /*
         // Launch utility
         QString cmd = QString("cd %1; source %2/etc/bashrc && surfaceFeatureExtract").arg(m_casePath + "/" + m_caseName, openFoamPath);
         QString output;
         if (mainWin->targetSystems[m_targetId]->launchShortUtility(cmd, output) == 0) {
             mainWin->log(output);
         }
+        */
     }
 
     // Update or create snappyHexMeshDict
     if ((m_runCastellated) || (m_runSnap) || (m_runLayers)) {
+
         QString snappyHexMeshDictText;
+        /*
         if (m_dictMap.contains("system/snappyHexMeshDict")) {
             snappyHexMeshDictText =
                 MeshIO::updateSnappyHexMeshDict(m_dictMap["system/snappyHexMeshDict"],
                     m_castellatedMeshConfig, m_snapControlConfig, m_layerControlConfig);
         } else {
             snappyHexMeshDictText =
-                MeshIO::createSnappyHexMeshDict(m_castellatedMeshConfig,
+                MeshIO::createSnappyHexMeshDict(m_surfaceFeatureMap, m_castellatedMeshConfig,
                     m_snapControlConfig, m_layerControlConfig, openFoamPath);
         }
+        */
+
+        snappyHexMeshDictText =
+            MeshIO::createSnappyHexMeshDict(m_surfaceFeatureMap, m_castellatedMeshConfig,
+                                            m_snapControlConfig, m_layerControlConfig, openFoamPath);
 
         // Update file
         mainWin->targetSystems[m_targetId]->writeData(snappyHexMeshDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/snappyHexMeshDict");
 
+        /*
         // Launch utility
         QString cmd = QString("cd %1; source %2/etc/bashrc && snappyHexMesh").arg(m_casePath + "/" + m_caseName, openFoamPath);
         QString output;
         if (mainWin->targetSystems[m_targetId]->launchShortUtility(cmd, output) == 0) {
             mainWin->log(output);
         }
+        */
     }
 
-    // Launch mesh utilities
-    // mainWin->runMesh(m_casePath + "/" + m_caseName, openFoamPath, m_runBlockMesh, m_runExtract,
-    //                 m_runCastellated || m_runSnap || m_runLayers, m_targetId);
-
-    QWizard::accept();
+    mainWin->updatePath(m_caseName, "system", m_targetId);
 }

@@ -27,7 +27,7 @@ class ControlPage : public QWizardPage {
     Q_OBJECT
 
 public:
-    explicit ControlPage(const QList<FlowCompute::SolverFamily>& families, QWidget *parent);
+    explicit ControlPage(const std::vector<FlowCompute::SolverFamily>& families, QWidget *parent);
     // int nextId() const override;
 
 protected:
@@ -38,7 +38,7 @@ private:
     SolverWizard* solverWizard;
     ControlConfig* m_cfg;
 
-    QList<FlowCompute::SolverFamily> m_families;
+    std::vector<FlowCompute::SolverFamily> m_families;
 
     QComboBox *familyBox, *solverBox, *startFromBox, *stopAtBox, *writeControlBox;
     QDoubleSpinBox *startTimeBox, *endTimeBox, *maxCourantBox, *writeIntervalBox, *deltaTBox;

@@ -36,11 +36,12 @@ protected:
     bool validatePage() override;
 
 private:
-    LayerControlConfig* m_cfg;
-    MeshWizard* meshWizard;
-    QCheckBox *relativeSizesBox;
-    QDoubleSpinBox *expansionRatioBox, *finalLayerBox, *minThicknessBox, *featureAngleBox;
-    QSpinBox *layerIterBox, *normalSmoothingBox;
+    LayerControlConfig *m_cfg;
+    MeshWizard *meshWizard;
+
+    QCheckBox *relativeSizesCheck;
+    QDoubleSpinBox *expansionRatioSpin, *finalLayerSpin, *minThicknessSpin, *featureAngleSpin;
+    QSpinBox *layerIterSpin, *surfaceSmoothingSpin, *internalSmoothingSpin, *thicknessSmoothingSpin;
     QTableWidget* surfaceLayerTable;
 };
 

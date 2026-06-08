@@ -7,22 +7,24 @@
 
 #include "model_left_pane.h"
 #include "../vulkan/vulkan_window.h"
-#include "../../../geometry/mesh_data.h"
+#include "../../../geometry/graphic_data.h"
 
 class ModelEditor : public QWidget {
     Q_OBJECT
 
 public:
-    explicit ModelEditor(std::shared_ptr<MeshData> meshData, const QString& fullPath, int targetId,
+    explicit ModelEditor(std::shared_ptr<RenderData> renderData, const QString& fullPath, int targetId,
                          QVulkanInstance* instance, bool isBinary, QWidget* parent = nullptr);
     std::vector<std::pair<std::string, std::string>> getPatchChanges();
-    void updateModel(std::shared_ptr<MeshData> newMesh);
+    void updateModel(std::shared_ptr<RenderData> newMesh);
     bool isSurfacePatched() { return m_isSurfaceChanged; };
     void setSurfaceChanged(bool val) { m_isSurfaceChanged = val; };
+    void changeBounds(double scaleFactor);
 
 signals:
-    void surfacePatchRequested(double featureAngle, const QString&, int, bool);
-    void surfaceCheckRequested(const QString&, int, bool);
+    void surfaceCheckRequested(const QString& fullPath, int targetId, bool isBinary);
+    void surfacePatchRequested(double featureAngle, const QString& fullPath, int targetId, bool isBinary);
+    void surfaceScaleRequested(double scaleFactor, const QString& fullPath, int targetId);
     void dirtyStateChanged(bool isDirty);
 
 private:
@@ -34,11 +36,12 @@ private:
     ModelLeftPane* m_leftPane;
     VulkanWindow* m_vulkanWindow;
     QVulkanInstance* m_vulkanInstance;
-    std::shared_ptr<MeshData> m_meshData;
+    std::shared_ptr<RenderData> m_renderData;
 
 private slots:
-    void onSurfacePatchRequest(double featureAngle);
     void onSurfaceCheckRequest();
+    void onSurfacePatchRequest(double featureAngle);
+    void onSurfaceScaleRequest(double scaleFactor);
 };
 
 #endif // MODEL_EDITOR_H

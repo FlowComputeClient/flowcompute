@@ -65,6 +65,60 @@ int WslSystem::launchShortUtility(const QString& cmd, QString& output) {
     }
 }
 
+void WslSystem::launchLongUtility(const QString& cmd) {
+
+    // 1. Allocate socket on the heap so it survives after the function returns
+    QTcpSocket* socket = new QTcpSocket(this);
+
+    // 2. Connect the socket's connection signal to trigger the request
+    connect(socket, &QTcpSocket::connected, this, [socket, cmd]() {
+        QJsonObject request;
+        request["action"] = "launchLongUtility";
+        request["message"] = cmd;
+        socket->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
+    });
+
+    // Connect the readyRead signal to process streaming chunks
+    connect(socket, &QTcpSocket::readyRead, this, [this, socket]() {
+        while (socket->canReadLine()) {
+            QByteArray data = socket->readLine();
+
+            QJsonParseError parseError;
+            QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+
+            if (parseError.error != QJsonParseError::NoError) {
+                emit longUtilityError("JSON Parse Error: " + parseError.errorString());
+                continue;
+            }
+
+            QJsonObject result = doc.object();
+            QString status = result["status"].toString();
+
+            // Handle the streaming state
+            if (status == "running") {
+                emit longUtilityOutputReceived(result["output"].toString().trimmed());
+            }
+            // Handle the completion states
+            else if (status == "success" || status == "error") {
+                emit longUtilityFinished(status);
+                socket->disconnectFromHost();
+            }
+        }
+    });
+
+    // Handle network errors
+    connect(socket, &QTcpSocket::errorOccurred, this, [this, socket](QTcpSocket::SocketError socketError) {
+        emit longUtilityError("Socket Error: " + socket->errorString());
+        socket->disconnectFromHost();
+    });
+
+    // Clean up the socket memory automatically when it disconnects
+    connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+
+    // Initiate the connection
+    socket->connectToHost(QHostAddress::LocalHost, 8080);
+}
+
 QStringList WslSystem::findOpenFoam() {
 
     QStringList results;

@@ -1,20 +1,24 @@
 #include "vulkan_window.h"
 
-VulkanWindow::VulkanWindow(std::shared_ptr<MeshData> meshData, QWindow *parent)
-    : QVulkanWindow(parent), m_meshData(std::move(meshData)) {
+VulkanWindow::VulkanWindow(std::shared_ptr<RenderData> meshData, QWindow *parent)
+    : QVulkanWindow(parent), m_renderData(std::move(meshData)) {
 
     // Make sure resources aren't released when the window loses visibility
     setFlags(QVulkanWindow::PersistentResources);
 
     // Check data
-    if (!m_meshData) {
+    if (!m_renderData) {
         qWarning("VulkanWindow initialized with null MeshData.");
         return;
     }
 
     // Compute geometry and store in member variables
-    QVector3D min(m_meshData->boundingBoxMin[0], m_meshData->boundingBoxMin[1], m_meshData->boundingBoxMin[2]);
-    QVector3D max(m_meshData->boundingBoxMax[0], m_meshData->boundingBoxMax[1], m_meshData->boundingBoxMax[2]);
+    QVector3D min(m_renderData->boundingBoxMin[0],
+                  m_renderData->boundingBoxMin[1],
+                  m_renderData->boundingBoxMin[2]);
+    QVector3D max(m_renderData->boundingBoxMax[0],
+                  m_renderData->boundingBoxMax[1],
+                  m_renderData->boundingBoxMax[2]);
     m_centroid = (min + max) / 2.0f;
 
     // Set initial model matrix to the identity matrix
@@ -140,19 +144,19 @@ void VulkanWindow::mouseMoveEvent(QMouseEvent *event) {
 }
 
 QVulkanWindowRenderer* VulkanWindow::createRenderer() {
-    return new VulkanRenderer(this, m_meshData);
+    return new VulkanRenderer(this, m_renderData);
 }
 
-void VulkanWindow::setMeshData(std::shared_ptr<MeshData> meshData) {
+void VulkanWindow::setRenderData(std::shared_ptr<RenderData> meshData) {
     std::lock_guard<std::mutex> lock(m_mutex);
-    m_meshData = meshData;
+    m_renderData = meshData;
     m_isDataDirty = true;
     requestUpdate();
 }
 
-std::shared_ptr<MeshData> VulkanWindow::getMeshData() {
+std::shared_ptr<RenderData> VulkanWindow::getRenderData() {
     std::lock_guard<std::mutex> lock(m_mutex);
-    return m_meshData;
+    return m_renderData;
 }
 
 TransformMatrices VulkanWindow::getMatrices() {

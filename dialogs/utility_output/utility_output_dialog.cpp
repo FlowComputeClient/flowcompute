@@ -19,28 +19,32 @@ UtilityOutputDialog::UtilityOutputDialog(const QString& title,
     // Create layout
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setSizeConstraint(QLayout::SetFixedSize);
+    mainLayout->setSpacing(15);
 
     // Set appearance
     setWindowTitle(title);
     setStyleSheet(R"(
-        QLabel      { color: black; }
+        QLabel      { color: black; font-size: 14px; }
         QPushButton { color: black; }
         QTextEdit   { color: black; }
     )");
 
     // Set description
     if (!description.isEmpty()) {
-        QLabel* descLabel = new QLabel(description, this);
+        mainLayout->addSpacing(10);
+        QLabel* descLabel = new QLabel("<b>" + description + "</b>", this);
         descLabel->setWordWrap(true);
+        QFont f = descLabel->font();
+        f.setPointSize(f.pointSize() + 2);
+        descLabel->setFont(f);
         mainLayout->addWidget(descLabel);
     }
-    mainLayout->addSpacing(10);
 
     // Display Summary Items
     for (const auto& item : summaryItems) {
         QHBoxLayout* itemLayout = new QHBoxLayout();
-
         QLabel* textLabel = new QLabel(item, this);
+        textLabel->setIndent(15);
         itemLayout->addWidget(textLabel);
         itemLayout->addStretch();
         mainLayout->addLayout(itemLayout);

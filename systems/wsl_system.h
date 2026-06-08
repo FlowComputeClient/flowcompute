@@ -42,10 +42,18 @@ public:
     bool writeData(const QByteArray& payload, const QString& remoteFilePath) override;
     bool writeData(const QString& localPath, const QString& remoteFilePath) override;
     int launchShortUtility(const QString& cmd, QString& output) override;
+    void launchLongUtility(const QString& cmd) override;
     bool createDirectories(QStringList dirPaths) override;
 
 signals:
-    void newLogLineReceived(QString line, UtilityType type);
+    // Emitted every time a chunk of console output arrives
+    void longUtilityOutputReceived(const QString& outputChunk);
+
+    // Emitted when the process finally completes or fails
+    void longUtilityFinished(const QString& status);
+
+    // Emitted if there is a network or parsing failure
+    void longUtilityError(const QString& errorMessage);
 
 private:
 

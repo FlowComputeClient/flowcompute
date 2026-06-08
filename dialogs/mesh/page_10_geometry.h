@@ -37,6 +37,8 @@ private:
     MainWindow* mainWin;
     MeshWizard* meshWizard;
 
+    QCheckBox *m_blockMeshCheck, *m_extractCheck, *m_castellatedCheck, *m_snapCheck, *m_layersCheck;
+
     QString caseName;
     QStringList geometryFiles;
     QComboBox* caseBox;

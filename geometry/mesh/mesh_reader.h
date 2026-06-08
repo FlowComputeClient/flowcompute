@@ -8,10 +8,10 @@
 #include <QRegularExpression>
 #include <QTextStream>
 
-#include "../mesh_data.h"
+#include "../graphic_data.h"
 
 namespace MeshReader {
-    MeshData readMesh(const QByteArray& fileData);
+    RenderData readMesh(const QString& fileName, const QByteArray& fileData);
 };
 
 #endif // MESH_READER_H

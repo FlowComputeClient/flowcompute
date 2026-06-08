@@ -7,7 +7,7 @@
 #include <QVulkanFunctions>
 #include <QVulkanWindow>
 
-#include "../../../geometry/mesh_data.h"
+#include "../../../geometry/graphic_data.h"
 
 class VulkanWindow;
 
@@ -30,7 +30,7 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign) {
 class VulkanRenderer : public QVulkanWindowRenderer {
 
 public:
-    VulkanRenderer(VulkanWindow *w, std::shared_ptr<MeshData> meshData);
+    VulkanRenderer(VulkanWindow *w, std::shared_ptr<RenderData> meshData);
 
     void initResources() override;
     void startNextFrame() override;
@@ -58,17 +58,12 @@ protected:
     void createTexture();
     void createPipelineStorage();
     void createDescriptorSets();
-    void createPipelineLayouts();
-    void createSharedPipelineStructs();
     void createPipelines();
     VkShaderModule createShader(const QString &name);
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-    VkGraphicsPipelineCreateInfo createFlatPipelineInfo();
-    VkGraphicsPipelineCreateInfo createAxisPipelineInfo();
-
-    // Vertex data
-    std::shared_ptr<MeshData> m_meshData;
+    // Vertex/index buffers
+    std::shared_ptr<RenderData> m_renderData;
     VkDeviceMemory m_vertexBufferMemory = VK_NULL_HANDLE;
     VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_indexBufferMemory = VK_NULL_HANDLE;
@@ -76,7 +71,7 @@ protected:
     VkDeviceMemory m_axisBufferMemory = VK_NULL_HANDLE;
     VkBuffer m_axisBuffer = VK_NULL_HANDLE;
 
-    // Uniform data
+    // Uniform buffer data
     VkDeviceMemory m_uniformBufferMemory = VK_NULL_HANDLE;
     VkBuffer m_uniformBuffer = VK_NULL_HANDLE;
     std::array<VkDescriptorBufferInfo, QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_uniformBufferInfo;
@@ -85,42 +80,16 @@ protected:
 
     // Descriptor pool objects
     VkDescriptorPool m_descPool = VK_NULL_HANDLE;
-    VkDescriptorSetLayout m_globalDescSetLayout = VK_NULL_HANDLE;
-    VkDescriptorSetLayout m_colorDescSetLayout = VK_NULL_HANDLE;
-    std::array<VkDescriptorSet, QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_globalDescSet;
-    std::array<VkDescriptorSet, QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_colorDescriptorSets;
+    VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
+    std::array<VkDescriptorSet, QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_descriptorSets;
 
     // Texture data
     VkDescriptorImageInfo m_colorMapImageInfo;
 
     // Pipeline structs
     VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
-    VkPipelineDynamicStateCreateInfo m_dynamicState;
-    VkPipelineViewportStateCreateInfo m_viewportState;
-    VkPipelineMultisampleStateCreateInfo m_multisampling;
-    VkPipelineDepthStencilStateCreateInfo m_depthStencil;
-    VkPipelineColorBlendStateCreateInfo m_colorBlending;
-
-    // Structures for the flat pipeline
-    VkPipelineRasterizationStateCreateInfo m_flatRasterizer;
-    VkPipelineInputAssemblyStateCreateInfo m_flatAssemblyState;
-    VkPipelineVertexInputStateCreateInfo m_flatVertexInputInfo;
-    std::array<VkPipelineShaderStageCreateInfo, 2> m_flatShaderStages;
-    std::array<VkShaderModule, 2> m_flatShaderModules;
-    VkPipelineLayout m_flatPipelineLayout = VK_NULL_HANDLE;
-
-    // Structures for the axis pipeline
-    VkPipelineRasterizationStateCreateInfo m_axisRasterizer;
-    VkPipelineInputAssemblyStateCreateInfo m_axisAssemblyState;
-    VkPipelineVertexInputStateCreateInfo m_axisVertexInputInfo;
-    std::array<VkPipelineShaderStageCreateInfo, 2> m_axisShaderStages;
-    std::array<VkShaderModule, 2> m_axisShaderModules;
-    VkPipelineLayout m_axisPipelineLayout = VK_NULL_HANDLE;
-
-    // Pipeline objects
-    VkPipelineLayout m_colorPipelineLayout = VK_NULL_HANDLE;
-    std::vector<VkPipeline> m_pipelines;
-    int m_current_format = 0;
+    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
+    std::array<VkPipeline, 2> m_pipelines = { VK_NULL_HANDLE, VK_NULL_HANDLE };
 };
 
 #endif // VULKAN_RENDERER_H

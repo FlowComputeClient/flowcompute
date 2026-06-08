@@ -12,11 +12,9 @@
 #include "page_50_castellation.h"
 #include "page_60_snapcontrol.h"
 #include "page_70_layercontrol.h"
-#include "page_80_execution.h"
 
 #include "../../parser/open_foam_dictionary.h"
 #include "mesh_structs.h"
-#include "mesh_io.h"
 
 class MainWindow;
 
@@ -28,8 +26,7 @@ enum {
     Page_SurfaceExtraction,
     Page_Castellation,
     Page_SnapControl,
-    Page_LayerControl,
-    Page_Execution
+    Page_LayerControl
 };
 
 class MeshWizard : public QWizard {
@@ -51,7 +48,7 @@ public:
 
     // Identify which stages should be executed
     bool m_runBlockMesh, m_runExtract, m_runCastellated;
-    bool m_runSnap, m_runLayers, m_runCheck;
+    bool m_runSnap, m_runLayers;
 
 protected:
     void accept() override;

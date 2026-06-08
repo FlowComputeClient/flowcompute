@@ -8,11 +8,11 @@
 #include <QRegularExpression>
 #include <QTextStream>
 
-#include "../mesh_data.h"
+#include "../graphic_data.h"
 
 namespace StlReader {
 
-    std::pair<MeshData, bool> readStlFile(const QString& fileName, const QByteArray& fileData);
+    std::pair<RenderData, bool> readStlFile(const QString& fileName, const QByteArray& fileData);
     GeometryMetrics readMetrics(const QByteArray& fileData);
 };
 

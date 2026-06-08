@@ -2,50 +2,106 @@
 
 #include <cstring>
 
-MeshData MeshReader::readMesh(const QByteArray& fileData) {
-    
-    MeshData mesh;    
-    if (fileData.size() < static_cast<int>(sizeof(MeshHeader))) {
-        qWarning() << "Received payload is too small to contain a MeshHeader.";
-        return mesh;
+RenderData MeshReader::readMesh(const QString& fileName, const QByteArray& fileData) {
+
+    RenderData mesh;
+    mesh.format = RenderType::Mesh;
+    if (fileData.isEmpty()) return mesh;
+    mesh.boundingBoxMin = { std::numeric_limits<float>::max(),
+                           std::numeric_limits<float>::max(),
+                           std::numeric_limits<float>::max() };
+    mesh.boundingBoxMax = { std::numeric_limits<float>::lowest(),
+                           std::numeric_limits<float>::lowest(),
+                           std::numeric_limits<float>::lowest() };
+
+    auto resolvePatchName = [&](const std::string& name) -> std::string {
+        if (name.empty()) {
+            return fileName.toStdString();
+        }
+        return name;
+    };
+
+    QTextStream stream(fileData);
+    QString line;
+    std::string currentPatchName;
+    bool inSolid = false;
+    std::vector<std::string> patchOrder;
+    std::unordered_map<std::string, std::vector<float>> patchBuckets;
+    static const QRegularExpression wsRe("\\s+");
+
+    while (stream.readLineInto(&line)) {
+        line = line.trimmed();
+        if (line.isEmpty()) continue;
+
+        if (line.startsWith("solid", Qt::CaseInsensitive)) {
+            QString namePart = line.mid(5).trimmed();
+            currentPatchName = resolvePatchName(namePart.toStdString());
+
+            // If this is the first time seeing this patch name, record its order
+            if (patchBuckets.find(currentPatchName) == patchBuckets.end()) {
+                patchOrder.push_back(currentPatchName);
+            }
+            inSolid = true;
+        }
+        else if (line.startsWith("endsolid", Qt::CaseInsensitive)) {
+            inSolid = false;
+        }
+        else if (inSolid && line.startsWith("vertex", Qt::CaseInsensitive)) {
+            QStringList parts = line.split(wsRe, Qt::SkipEmptyParts);
+            if (parts.size() >= 4) {
+                float x = parts[1].toFloat();
+                float y = parts[2].toFloat();
+                float z = parts[3].toFloat();
+
+                auto& bucket = patchBuckets[currentPatchName];
+                size_t vertexIndex = bucket.size() / 6;
+                int triVert = vertexIndex % 3;
+
+                float bx = (triVert == 0) ? 1.0f : 0.0f;
+                float by = (triVert == 1) ? 1.0f : 0.0f;
+                float bz = (triVert == 2) ? 1.0f : 0.0f;
+
+                // Push position
+                bucket.push_back(x);
+                bucket.push_back(y);
+                bucket.push_back(z);
+
+                // Push barycentric coordinates
+                bucket.push_back(bx);
+                bucket.push_back(by);
+                bucket.push_back(bz);
+
+                // Update bounding box
+                mesh.boundingBoxMin[0] = std::min(mesh.boundingBoxMin[0], x);
+                mesh.boundingBoxMin[1] = std::min(mesh.boundingBoxMin[1], y);
+                mesh.boundingBoxMin[2] = std::min(mesh.boundingBoxMin[2], z);
+
+                mesh.boundingBoxMax[0] = std::max(mesh.boundingBoxMax[0], x);
+                mesh.boundingBoxMax[1] = std::max(mesh.boundingBoxMax[1], y);
+                mesh.boundingBoxMax[2] = std::max(mesh.boundingBoxMax[2], z);
+            }
+        }
     }
 
-    const char* ptr = fileData.constData();
+    // Flatten the buckets into the final contiguous mesh data
+    for (const std::string& name : patchOrder) {
+        const std::vector<float>& bucketData = patchBuckets[name];
 
-    // Read Header
-    const MeshHeader* meshHeader = reinterpret_cast<const MeshHeader*>(ptr);
-    ptr += sizeof(MeshHeader);
+        if (!bucketData.empty()) {
+            RenderPatch patch;
 
-    // Verify payload size matches expected byte sizes in the header
-    size_t expectedSize = sizeof(MeshHeader) + meshHeader->dataByteSize +
-      meshHeader->indexByteSize + (meshHeader->patchCount * sizeof(MeshPatch));
+            // Safely copy the bucket name into the char[64] array
+            std::strncpy(patch.name, name.c_str(), sizeof(patch.name) - 1);
+            patch.name[sizeof(patch.name) - 1] = '\0'; // Guarantee null-termination
 
-    if (static_cast<size_t>(fileData.size()) < expectedSize) {
-        qWarning() << "Payload size mismatch. Expected at least:" << expectedSize << "Got:" << fileData.size();
-        return mesh;
+            // Calculate vertex counts based on 6 floats per vertex
+            patch.first = static_cast<uint32_t>(mesh.data.size() / 6);
+            patch.count = static_cast<uint32_t>(bucketData.size() / 6);
+
+            // Append the entire bucket to the final data vector
+            mesh.data.insert(mesh.data.end(), bucketData.begin(), bucketData.end());
+            mesh.patches.push_back(patch);
+        }
     }
-
-    // Assign Header Metadata
-    mesh.format = static_cast<VertexFormat>(meshHeader->vertexFormat);
-    mesh.boundingBoxMin = { meshHeader->bounds[0], meshHeader->bounds[1], meshHeader->bounds[2] };
-    mesh.boundingBoxMax = { meshHeader->bounds[3], meshHeader->bounds[4], meshHeader->bounds[5] };
-
-    // Copy Vertex Data (Floats)
-    uint32_t numFloats = meshHeader->dataByteSize / sizeof(float);
-    mesh.data.resize(numFloats);
-    std::memcpy(mesh.data.data(), ptr, meshHeader->dataByteSize);
-    ptr += meshHeader->dataByteSize;
-
-    // Copy Index Data (Uint32)
-    uint32_t numIndices = meshHeader->indexByteSize / sizeof(uint32_t);
-    mesh.indices.resize(numIndices);
-    std::memcpy(mesh.indices.data(), ptr, meshHeader->indexByteSize);
-    ptr += meshHeader->indexByteSize;
-
-    // 5.Copy Patch Data
-    mesh.patches.resize(meshHeader->patchCount);
-    std::memcpy(mesh.patches.data(), ptr, meshHeader->patchCount * sizeof(MeshPatch));
-    // ptr += meshHeader->patchCount * sizeof(MeshPatch); // (Optional, just for pointer correctness)
-
     return mesh;
 }

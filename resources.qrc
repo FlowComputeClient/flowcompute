@@ -15,10 +15,12 @@
         <file>images/play.png</file>
         <file>images/post_process.png</file>
         <file>images/redo.png</file>
+        <file>images/run_mesh.png</file>
         <file>images/save.png</file>
         <file>images/stop.png</file>
         <file>images/time.png</file>
         <file>images/undo.png</file>
+        <file>images/view_mesh.png</file>
         <file>images/zoom_in.png</file>
         <file>images/zoom_out.png</file>
         <file>images/flowcompute.ico</file>
@@ -27,14 +29,14 @@
         <file>images/viridis_map.png</file>
         <file>images/arrow_down.png</file>
         <file>images/arrow_right.png</file>
-        <file>shaders/flat/vert.spv</file>
-        <file>shaders/flat/frag.spv</file>
-        <file>shaders/wireframe/vert.spv</file>
-        <file>shaders/wireframe/frag.spv</file>
+        <file>shaders/model/vert.spv</file>
+        <file>shaders/model/frag.spv</file>
+        <file>shaders/mesh/vert.spv</file>
+        <file>shaders/mesh/frag.spv</file>
         <file>shaders/color/vert.spv</file>
         <file>shaders/color/frag.spv</file>
         <file>shaders/axis/vert.spv</file>
-        <file>shaders/axis/frag.spv</file>        
+        <file>shaders/axis/frag.spv</file>
         <file>template/Allclean</file>
         <file>template/Allrun</file>
         <file>template/blockMeshDict</file>
@@ -47,5 +49,7 @@
         <file>template/U</file>
         <file>template/g</file>
         <file>template/p_rgh</file>
+        <file>template/nut</file>
+        <file>template/epsilon</file>
     </qresource>
 </RCC>

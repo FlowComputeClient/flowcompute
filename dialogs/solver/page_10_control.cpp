@@ -3,7 +3,7 @@
 #include "wizard_solver.h"
 
 // Introduction page asks for the case name and platform
-ControlPage::ControlPage(const QList<FlowCompute::SolverFamily>& families,
+ControlPage::ControlPage(const std::vector<FlowCompute::SolverFamily>& families,
                          QWidget *parent): QWizardPage(parent), m_families(families) {
 
     // Set title and style

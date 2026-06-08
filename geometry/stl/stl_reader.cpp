@@ -1,8 +1,8 @@
 #include "stl_reader.h"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
-#include <algorithm>
 
 static_assert(true);
 #pragma pack(push, 1)
@@ -25,10 +25,10 @@ struct VertexHasher {
     }
 };
 
-std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const QByteArray& fileData) {
+std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName, const QByteArray& fileData) {
 
-    MeshData mesh;
-    mesh.format = VertexFormat::Flat;
+    RenderData mesh;
+    mesh.format = RenderType::Surface;
     if (fileData.isEmpty()) return std::make_pair(mesh, false);
 
     // Initialize bounding box to extreme limits
@@ -90,15 +90,15 @@ std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const 
     }
 
     if (isBinary) {
-        MeshPatch patch;
+        RenderPatch patch;
 
         // Safely copy the resolved name into the char[64] array
         std::string resolvedName = resolvePatchName("");
         std::strncpy(patch.name, resolvedName.c_str(), sizeof(patch.name) - 1);
         patch.name[sizeof(patch.name) - 1] = '\0'; // Guarantee null-termination
 
-        patch.firstIndex = 0;
-        patch.indexCount = 0;
+        patch.first = 0;
+        patch.count = 0;
 
         const char* ptr = fileData.constData();
         uint32_t numTriangles = *reinterpret_cast<const uint32_t*>(ptr + 80);
@@ -115,12 +115,12 @@ std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const 
 
                 uint32_t index = addVertex(x, y, z);
                 mesh.indices.push_back(index);
-                patch.indexCount++;
+                patch.count++;
             }
             ptr += 2;
         }
 
-        if (patch.indexCount > 0) {
+        if (patch.count > 0) {
             mesh.patches.push_back(patch);
         }
 
@@ -177,14 +177,14 @@ std::pair<MeshData, bool> StlReader::readStlFile(const QString& fileName, const 
             const std::vector<uint32_t>& bucketIndices = patchBuckets[name];
 
             if (!bucketIndices.empty()) {
-                MeshPatch patch;
+                RenderPatch patch;
 
                 // Safely copy the bucket name into the char[64] array
                 std::strncpy(patch.name, name.c_str(), sizeof(patch.name) - 1);
                 patch.name[sizeof(patch.name) - 1] = '\0'; // Guarantee null-termination
 
-                patch.firstIndex = static_cast<uint32_t>(mesh.indices.size());
-                patch.indexCount = static_cast<uint32_t>(bucketIndices.size());
+                patch.first = static_cast<uint32_t>(mesh.indices.size());
+                patch.count = static_cast<uint32_t>(bucketIndices.size());
 
                 // Append the entire bucket to the final indices vector
                 mesh.indices.insert(mesh.indices.end(), bucketIndices.begin(), bucketIndices.end());
@@ -220,6 +220,7 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
 
     qint64 fileSize = buffer.size();
     bool hasData = false;
+    QRegularExpression ws("\\s+"); // Used for whitespace splitting
 
     // --- Binary STL Parsing ---
     if (fileSize >= 84) {
@@ -231,6 +232,21 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
             // If the file size matches the expected binary size
             if (fileSize == expectedSize) {
                 const char* dataPtr = fileData.constData() + 84;
+
+                // --- NEW: Parse the 80-byte header for a patch name ---
+                char header[81] = {0};
+                std::memcpy(header, fileData.constData(), 80);
+                QString headerStr = QString::fromLocal8Bit(header).trimmed();
+                QString patchName = "solid"; // Default for binary
+
+                if (headerStr.startsWith("solid", Qt::CaseInsensitive)) {
+                    QString extracted = headerStr.mid(5).trimmed();
+                    if (!extracted.isEmpty()) {
+                        // Take the first word after "solid"
+                        patchName = extracted.split(ws, Qt::SkipEmptyParts).first();
+                    }
+                }
+                metrics.patches.push_back(patchName.toStdString());
 
                 auto updateBoundingBox = [&](const float v[3]) {
                     metrics.bbox.min.setX(std::min(metrics.bbox.min.x(), v[0]));
@@ -256,8 +272,7 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
 
                         firstTriangleCentroid = (p1 + p2 + p3) / 3.0f;
 
-                        // Extract normal from binary struct (assuming tri->normal exists)
-                        // Fallback to cross product if normal is strictly (0,0,0)
+                        // Extract normal from binary struct
                         QVector3D explicitNormal(tri->normal[0], tri->normal[1], tri->normal[2]);
                         if (explicitNormal.isNull()) {
                             firstTriangleNormal = QVector3D::crossProduct(p2 - p1, p3 - p1).normalized();
@@ -279,13 +294,28 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
         buffer.seek(0);
         QTextStream in(&buffer);
         QString line;
-        QRegularExpression ws("\\s+");
 
         QVector<QVector3D> currentFaceVertices;
 
         while (in.readLineInto(&line)) {
             line = line.trimmed();
             if (line.isEmpty()) continue;
+
+            // --- NEW: Check for solid names (patches) ---
+            if (line.startsWith("solid", Qt::CaseInsensitive)) {
+                QString patchName = line.mid(5).trimmed(); // Extract everything after "solid"
+                if (patchName.isEmpty()) {
+                    patchName = "solid"; // Fallback if file just says "solid"
+                }
+
+                std::string pNameStr = patchName.toStdString();
+
+                // Add to vector if it is unique
+                if (std::find(metrics.patches.begin(), metrics.patches.end(), pNameStr) == metrics.patches.end()) {
+                    metrics.patches.push_back(pNameStr);
+                }
+                continue;
+            }
 
             if (line.startsWith("vertex", Qt::CaseInsensitive)) {
                 QStringList parts = line.split(ws, Qt::SkipEmptyParts);
@@ -310,7 +340,7 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
                         currentFaceVertices.push_back(QVector3D(vx, vy, vz));
                         if (currentFaceVertices.size() == 3) {
                             firstTriangleCentroid = (currentFaceVertices[0] + currentFaceVertices[1] + currentFaceVertices[2]) / 3.0f;
-                            // Calculate normal geometrically to avoid relying on standard ASCII 'facet normal' lines
+                            // Calculate normal geometrically
                             firstTriangleNormal = QVector3D::crossProduct(
                                                       currentFaceVertices[1] - currentFaceVertices[0],
                                                       currentFaceVertices[2] - currentFaceVertices[0]

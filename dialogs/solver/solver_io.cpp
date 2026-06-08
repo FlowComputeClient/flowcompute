@@ -1,66 +1,5 @@
 #include "solver_io.h"
 
-QString SolverIO::createFoamHeader(const QString& objectName, const QString& foamPath) {
-    QString headerStr;
-    QTextStream out(&headerStr);
-
-    // Default fallback values
-    bool isESI = false;
-    QString verText = "unknown";
-    QRegularExpression re("openfoam-?v?(\\d+)", QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch match = re.match(foamPath);
-
-    if (match.hasMatch()) {
-        QString digits = match.captured(1);
-        int verNumber = digits.toInt();
-
-        // ESI/Keysight releases use YYMM (e.g., 2312, 2412), so the number is always > 100
-        if (verNumber > 100) {
-            isESI = true;
-            verText = "v" + digits;
-        } else {
-            // Foundation releases use sequential major versions (e.g., 11, 12, 13)
-            isESI = false;
-            verText = digits;
-        }
-    } else {
-        qWarning() << "Warning: Could not parse OpenFOAM version from path:" << foamPath;
-    }
-
-    QString line3_right, line4_right;
-
-    if (!isESI) {
-        // Foundation (.org) format
-        line3_right = "Website:  https://openfoam.org";
-        line4_right = "Version:  " + verText;
-    } else {
-        // Keysight / ESI (.com) format
-        line3_right = "Version:  " + verText;
-        line4_right = "Website:  www.openfoam.com";
-    }
-
-    // Write the banner, padding the right side to exactly 47 characters
-    out << "/*--------------------------------*- C++ -*----------------------------------*\\\n";
-    out << "| =========                 |                                                 |\n";
-    out << "| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n";
-    out << "|  \\\\    /   O peration     | " << line3_right.leftJustified(47, ' ') << "|\n";
-    out << "|   \\\\  /    A nd           | " << line4_right.leftJustified(47, ' ') << "|\n";
-    out << "|    \\\\/     M anipulation  |                                                 |\n";
-    out << "\\*---------------------------------------------------------------------------*/\n";
-
-    // Write the required FoamFile dictionary
-    out << "FoamFile\n";
-    out << "{\n";
-    out << "    version     2.0;\n";
-    out << "    format      ascii;\n";
-    out << "    class       dictionary;\n";
-    out << "    object      " << objectName << ";\n";
-    out << "}\n";
-    out << "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n\n";
-
-    return headerStr;
-}
-
 ControlConfig SolverIO::parseControlConfig(std::shared_ptr<OpenFoamDictionary> dict) {
     ControlConfig config;
 
@@ -236,4 +175,89 @@ void SolverIO::parseTransportProperties(std::shared_ptr<OpenFoamDictionary> dict
             cfg.fluidProperties.insert(propName, propValue);
         }
     }
+}
+
+std::vector<FlowCompute::MeshPatch> SolverIO::parseBoundaryPatches(const QByteArray& fileData) {
+    std::vector<FlowCompute::MeshPatch> patches;
+
+    // Convert the raw byte array from the WSL socket into a QString.
+    QString text = QString::fromUtf8(fileData);
+
+    // Remove comments
+    text.replace(QRegularExpression("/\\*.*?\\*/", QRegularExpression::DotMatchesEverythingOption), "");
+    text.replace(QRegularExpression("//.*"), "");
+
+    // Look through top-level parentheses
+    int startIdx = text.indexOf('(');
+    int endIdx = text.lastIndexOf(')');
+    if (startIdx == -1 || endIdx == -1 || startIdx >= endIdx) {
+        return patches;
+    }
+
+    QString listContent = text.mid(startIdx + 1, endIdx - startIdx - 1);
+
+    // Step 1: Regex to capture the patch name and everything inside its { } block
+    QRegularExpression reBlock("([A-Za-z0-9_\\-]+)\\s*\\{([^}]*)\\}");
+
+    // Step 2: Regex to capture the patch type inside the block
+    QRegularExpression reType("type\\s+([A-Za-z0-9_\\-]+)\\s*;");
+
+    // Step 3: Regex to capture the number of faces
+    QRegularExpression reFaces("nFaces\\s+([0-9]+)\\s*;");
+
+    QRegularExpressionMatchIterator i = reBlock.globalMatch(listContent);
+    while (i.hasNext()) {
+        QRegularExpressionMatch match = i.next();
+        QString blockContent = match.captured(2); // The text inside the { }
+
+        // Extract nFaces and check if it's greater than 0
+        QRegularExpressionMatch faceMatch = reFaces.match(blockContent);
+        int nFaces = faceMatch.hasMatch() ? faceMatch.captured(1).toInt() : 0;
+
+        if (nFaces > 0) {
+            FlowCompute::MeshPatch bp;
+            bp.name = match.captured(1);
+
+            QRegularExpressionMatch typeMatch = reType.match(blockContent);
+            bp.type = (typeMatch.hasMatch()) ? typeMatch.captured(1) : "patch";
+
+            patches.push_back(bp);
+        }
+    }
+    return patches;
+}
+
+// Update boundary file
+QString SolverIO::updateBoundaryFile(std::shared_ptr<OpenFoamDictionary> dict,
+                           const std::vector<FlowCompute::MeshPatch>& filtered) {
+
+    if (!dict) { return QString(); }
+    for (const auto& patch : filtered) {
+        QString basePath = patch.name;
+        if (patch.typeChanged) {
+            QString typePath = basePath + "/type";
+            dict->setValue(typePath, patch.type);
+        }
+        if (patch.nameChanged && !patch.newName.isEmpty()) {
+            dict->renameKey(basePath, patch.newName);
+        }
+    }
+    return QString::fromUtf8(dict->getRawText());
+}
+
+SolverIO::BoundaryFileParts SolverIO::splitBoundaryFile(const QByteArray& rawData) {
+    SolverIO::BoundaryFileParts parts;
+
+    // Find the opening parenthesis of the list and the closing parenthesis
+    int openParen = rawData.indexOf('(');
+    int closeParen = rawData.lastIndexOf(')');
+
+    if (openParen == -1 || closeParen == -1 || openParen >= closeParen) {
+        return parts;
+    }
+
+    parts.header = rawData.left(openParen);
+    parts.payload = rawData.mid(openParen + 1, closeParen - openParen - 1);
+    parts.footer = rawData.right(rawData.size() - closeParen);
+    return parts;
 }

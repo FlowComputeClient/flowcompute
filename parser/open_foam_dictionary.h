@@ -34,6 +34,7 @@ public:
     QStringList getList(const QString& path) const;
     QStringList getSubDictKeys(const QString& path) const;
     bool hasSyntaxErrors() const;
+    void renameKey(const QString& path, const QString& newName);
 
     // Get the final mutated text to send back over ASIO
     QByteArray getRawText() const;

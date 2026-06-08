@@ -96,5 +96,5 @@ int SnapControlPage::nextId() const {
     if (meshWizard->m_runLayers) {
         return Page_LayerControl;
     }
-    return Page_Execution;
+    return -1;
 }

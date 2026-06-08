@@ -4,9 +4,8 @@
 #include "core_types.h"
 
 #include "dialogs/new_case/wizard_new_case.h"
-#include "dialogs/mesh/wizard_mesh.h"
-#include "dialogs/solver/wizard_solver.h"
 #include "editors/tab_widget.h"
+#include "geometry/graphic_data.h"
 #include "systems/wsl_system.h"
 #include "views/navigator/case_navigator.h"
 #include "views/console/console.h"
@@ -26,7 +25,7 @@
 
 enum class EditorType : int {
     TEXT = 0,
-    MODEL,
+    SURFACE,
     MESH,
     RESULTS,
     COUNT
@@ -54,13 +53,14 @@ public:
     ~MainWindow() override;
 
     // Display text in the tabbar
-    void createEditor(EditorType type, const QString& fileName, const QString& fullPath);
+    void createEditor(EditorType type, QString& fileName, const QString& fullPath);
 
     // Create a new project
     void createCase(QString, QString, QStringList, int, QString);
 
     // Run mesh utilities
-    void runMesh(const QString&, const QString&, bool, bool, bool, const int&);
+    void runMesh(const QString& caseName, bool blockMesh, bool surfaceFeatureExtract,
+                 bool snappyHexMesh, const QString& snappyCmd, int numCores, bool display);
 
     static bool isWindows() { return s_isWindows; }
     static bool isWslAvailable() { return s_isWslAvailable; }
@@ -68,6 +68,7 @@ public:
     QMap<QString, CaseData> m_caseMap;
     QMap<QString, TabData> tabMap;
     TargetSystem* targetSystems[static_cast<int>(TargetType::COUNT)];
+    void updatePath(const QString& caseName, const QString& subDir, int targetId);
 
 public slots:
     void log(const QString& text);
@@ -81,20 +82,18 @@ private:
     TabWidget* tabWidget;
     QFont font;
 
+    std::shared_ptr<RenderData> getMeshData(QString caseName, QString casePath,
+                                            QString openFoamPath, int targetId);
+
     // Check utilities
     QMap<QString, QMap<QString, bool>> m_utilMap;
-    QStringList m_utilities = { "surfaceCheck", "surfacePatch", "surfaceAutoPatch", "blockMesh",
-                               "surfaceFeatureExtract", "snappyHexMesh", "simpleFoam", "pimpleFoam",
-                               "checkMesh", "decomposePar", "reconstructPar", "topoSet" };
+    QStringList m_utilities = { "surfaceCheck", "surfacePatch", "surfaceAutoPatch",
+        "blockMesh", "surfaceFeatureExtract", "snappyHexMesh", "autoPatch", "renumberMesh",
+        "checkMesh", "simpleFoam", "pimpleFoam", "decomposePar", "reconstructPar", "topoSet" };
     QMap<QString, bool> checkUtilities(const QString& fullPath, int targetId, const QStringList& utilities);
 
-    // Keep track of utility output
-    bool m_isStarted = false;
-    QString m_utilityText;
-    std::vector<QString> m_utilityItems;
-
     // Access solvers and families
-    QList<FlowCompute::SolverFamily> m_solverFamilies;
+    std::vector<FlowCompute::SolverFamily> m_solverFamilies;
     void loadSolverFamilies();
 
     // Access turbulence models
@@ -102,11 +101,11 @@ private:
     void loadTurbulenceModels();
 
     // Access fields
-    QHash<QString, FlowCompute::FieldData> m_fieldData;
+    QHash<QString, FlowCompute::FieldDef> m_fieldData;
     void loadFieldData();
 
     // Access boundary conditions
-    QList<FlowCompute::BoundaryCondition> m_boundaryConditions;
+    std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
     void loadBoundaryConditions();
 
     QDockWidget *navigatorWidget, *consoleWidget;
@@ -126,7 +125,7 @@ private:
 
     QAction *undoAction, *redoAction;
     QAction *zoomInAction, *zoomOutAction;
-    QAction *meshAction;
+    QAction *meshAction, *runMeshAction;
     QAction *postProcessAction;
     QAction *runAction, *stopAction;
     QAction *aboutAction;
@@ -157,16 +156,16 @@ private slots:
     // Dirty state changed
     void onDirtyStateChanged(bool isDirty, QWidget* widget);
 
-    // Mesh actions
-
-    // Receive output
-    void processUtilityOutput(const QString& line, UtilityType type);
-
     // Check if utilities are available
-    void runMeshWizard();
+    void runMeshConfiguration();
+    void runMeshExecution();
     void runNewCaseWizard();
     void runSolverWizard();
-    void runSurfacePatch(double featureAngle, const QString& fullPath, int targetId, bool isBinary);
     void runSurfaceCheck(const QString& fullPath, int targetId, bool isBinary);
+    void runSurfacePatch(double featureAngle, const QString& fullPath, int targetId, bool isBinary);
+    void runSurfaceScale(double scaleFactor, const QString& fullPath, int targetId);
+    void runMeshCheck(const QString& fullPath, int targetId);
+    void runMeshPatch(double featureAngle, const QString& fullPath, int targetId);
+    void runMeshRenumber(const QString& casePath, int targetId);
 };
 #endif // MAIN_WINDOW_H

@@ -103,5 +103,12 @@
     "types": ["vector"],
     "patchTypes": ["patch"],
     "parameters": [ "refValue" ]
-  }
+  },
+  {
+    "name": "turbulentMixingLengthDissipationRateInlet",
+    "categories": [ "inlet" ],
+    "types": [ "scalar" ],
+    "patchTypes": [ "patch" ],
+    "parameters": [ "mixingLength", "value" ]
+  }  
 ]

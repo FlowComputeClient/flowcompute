@@ -35,15 +35,22 @@ struct BlockMeshConfig {
 
 struct SurfaceFeatureExtractEntry {
     double includedAngle = 150.0;
-    bool nonManifoldEdges = false;
+    int edgeLevel = 3;
     bool openEdges = true;
     bool writeObj = true;
 };
 
-struct GeometryRefinement {
-    int surfaceMin = 2;
-    int surfaceMax = 4;
-    int edgeLevel = 4;
+struct RefinementRegion {
+    QString name;
+    int min = 2;
+    int max = 3;
+};
+
+struct RefinementSurface {
+    QString name;
+    int min = 2;
+    int max = 3;
+    std::vector<RefinementRegion> regions;
 };
 
 struct CastellatedMeshConfig {
@@ -54,24 +61,24 @@ struct CastellatedMeshConfig {
     bool allowFreeStandingZoneFaces = true;
 
     // Stability & feature angle
-    int nCellsBetweenLevels = 3;
+    int nCellsBetweenLevels = 2;
     double resolveFeatureAngle = 30.0;
 
     // Required location vector (defaulting to origin)
     std::array<double, 3> locationInMesh = {
         std::numeric_limits<double>::quiet_NaN(),
         std::numeric_limits<double>::quiet_NaN(),
-        std::numeric_limits<double>::quiet_NaN()
-    };
+        std::numeric_limits<double>::quiet_NaN()};
 
-    // The actual STL surfaces to refine
-    std::map<QString, GeometryRefinement> refinements;
+    // The surfaces to refine
+    std::vector<QString> geometryFiles;
+    std::vector<RefinementSurface> refinementSurfaces;
 };
 
 struct SnapControlConfig {
     int nSmoothPatch = 3;
     double tolerance = 2.0;
-    int nSolveIter = 30;
+    int nSolveIter = 15;
     int nRelaxIter = 5;
     int nFeatureSnapIter = 10;
     bool explicitFeatureSnap = true;
@@ -90,7 +97,9 @@ struct LayerControlConfig {
 
     // Angles and transitions
     double featureAngle = 130.0;
-    int nLayerIter = 50;
+    int nLayerIter = 30;
+    int nSmoothThickness = 10;
+    int nSmoothNormals = 3;
     int nSmoothSurfaceNormals = 1;
 };
 

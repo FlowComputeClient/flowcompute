@@ -43,8 +43,8 @@ QString Utils::createFoamHeader(const QString& objectName, const QString& foamPa
     out << "/*--------------------------------*- C++ -*----------------------------------*\\\n";
     out << "| =========                 |                                                 |\n";
     out << "| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n";
-    out << "|  \\\\    /   O peration     | " << line3_right.leftJustified(47, ' ') << "|\n";
-    out << "|   \\\\  /    A nd           | " << line4_right.leftJustified(47, ' ') << "|\n";
+    out << "|  \\\\    /   O peration     | " << line3_right.leftJustified(47, ' ') << " |\n";
+    out << "|   \\\\  /    A nd           | " << line4_right.leftJustified(47, ' ') << " |\n";
     out << "|    \\\\/     M anipulation  |                                                 |\n";
     out << "\\*---------------------------------------------------------------------------*/\n";
 
@@ -96,3 +96,83 @@ surfaces
     return createFoamHeader("surfacePatchDict", openFoamPath) +
            dictContent + createFoamFooter();
 }
+
+QString Utils::createDecomposeParDict(const QString& openFoamPath, int numCores) {
+
+    QString dictContent = QString(R"(
+// Number of cores used for processing
+numberOfSubdomains %1;
+
+// Decomposition method
+method scotch;
+)").arg(QString::number(numCores));
+
+    // Combine everything
+    return createFoamHeader("decomposeParDict", openFoamPath) +
+           dictContent + createFoamFooter();
+}
+
+QString Utils::createFieldFile(const QString& openFoamPath, QString fieldName, FlowCompute::FieldData data) {
+    QString fileContent = QString(R"(
+dimensions      %1;
+
+internalField   %2;
+
+boundaryField
+{
+)").arg(data.dimension, data.internalField);
+
+    for (const auto& [patchName, bc] : data.bcs) {
+        fileContent += QString(R"(
+    %1
+    {
+        type            %2;
+)").arg(patchName, bc.type);
+        for (const auto& [paramName, paramValue] : bc.parameters) {
+            fileContent += QString(R"(
+        %1              %2;
+)").arg(paramName, paramValue);
+        }
+        fileContent += QString(R"(
+    }
+)");
+    }
+    fileContent += QString(R"(
+})");
+
+    QString header = createFoamHeader(fieldName, openFoamPath).replace("dictionary", data.fieldClass);
+
+    return header + fileContent + createFoamFooter();
+}
+
+/*
+bool Utils::showParsingErrorMessage(QString fileName) {
+
+    QMessageBox errorDialog(this);
+    errorDialog.setWindowTitle("Parse Error");
+    errorDialog.setText(QString("<b>Failed to parse %1.</b>").arg(fileName));
+    errorDialog.setInformativeText("The file may contain syntax errors or unsupported keywords.");
+    errorDialog.setIcon(QMessageBox::Warning);
+
+    // Add the custom choices and assign them roles
+    QPushButton *editBtn = errorDialog.addButton("Edit File", QMessageBox::ActionRole);
+    QPushButton *overwriteBtn = errorDialog.addButton("Overwrite with Defaults", QMessageBox::DestructiveRole);
+    QPushButton *cancelBtn = errorDialog.addButton("Cancel", QMessageBox::RejectRole);
+    errorDialog.setDefaultButton(editBtn);
+
+    // Execute the dialog modally
+    errorDialog.exec();
+
+    // Determine which choice the user made
+    if (errorDialog.clickedButton() == editBtn) {
+        mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
+        reject();
+        return false;
+    } else if (errorDialog.clickedButton() == overwriteBtn) {
+        return true;
+    } else if (errorDialog.clickedButton() == cancelBtn) {
+        return false;
+    }
+    return false;
+}
+*/

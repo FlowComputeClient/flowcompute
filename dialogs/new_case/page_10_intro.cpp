@@ -91,7 +91,7 @@ IntroPage::IntroPage(QWidget *parent): QWizardPage(parent) {
 
     // Create tutorial radio button
     m_tutorialRadio = new QRadioButton(tr("Copy a tutorial case"), caseCreationGroup);
-    caseCreationButtonGroup->addButton(m_tutorialRadio, 0);
+    caseCreationButtonGroup->addButton(m_tutorialRadio, 1);
     caseCreationGroupLayout->addWidget(m_tutorialRadio);
 
     // Register base case button ID

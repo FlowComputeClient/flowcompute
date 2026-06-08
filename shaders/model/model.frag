@@ -1,7 +1,7 @@
 #version 450
 
 // Catch the centroid qualifier
-layout(location = 0) centroid in vec3 fragPosition;
+layout(location = 0) in vec3 fragPosition;
 
 layout(location = 0) out vec4 outColor;
 
@@ -18,19 +18,22 @@ void main() {
     // 1. Calculate Light Direction FIRST
     vec3 L = normalize(lightPos - fragPosition);
 
-    // 2. Compute the geometric normal using partial derivatives
-    vec3 dX = dFdx(fragPosition);
-    vec3 dY = dFdy(fragPosition);
+    // 2. Compute the geometric normal using partial derivatives.
+    // Multiply by a large scalar to prevent floating-point underflow (Flush-to-Zero)
+    // when rendering extremely small geometries.
+    vec3 dX = dFdx(fragPosition) * 10000.0;
+    vec3 dY = dFdy(fragPosition) * 10000.0;
+
     vec3 crossProduct = cross(dX, dY);
 
-    // 3. Protect against NaN. Fallback to L to prevent dark spots.
-    vec3 flatNormal = (length(crossProduct) > 0.000001) ? normalize(crossProduct) : L;
+    // 3. Protect against NaN using an appropriate epsilon for the scaled-up math
+    vec3 flatNormal = (length(crossProduct) > 1e-6) ? normalize(crossProduct) : L;
 
     // Diffuse (Lambert) using the calculated flat normal
     float diff = max(dot(flatNormal, L), 0.0);
 
     // Ambient term (simple constant)
-    float ambientStrength = 0.8;
+    float ambientStrength = 0.7;
     vec3 ambient = ambientStrength * lightColor;
 
     // Diffuse contribution

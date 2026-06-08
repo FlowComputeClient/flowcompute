@@ -1,6 +1,7 @@
 #ifndef CORE_TYPES_H
 #define CORE_TYPES_H
 
+#include <QHash>
 #include <QString>
 #include <QStringList>
 
@@ -35,6 +36,7 @@ enum class FieldClass {
     PointTensorField,
     Unknown,
 };
+Q_ENUM_NS(FieldClass)
 
 enum class LinearSolver {
     PCG,
@@ -74,12 +76,24 @@ enum class DecompositionMethod {
 };
 Q_ENUM_NS(DecompositionMethod)
 
-struct BoundaryPatch {
-    QString name;
+inline const QStringList patchTypes = { "patch", "wall", "empty", "symmetry", "wedge" };
+
+// Store entered results
+struct BoundaryCondition {
     QString type;
+    std::unordered_map<QString, QString> parameters;
 };
 
-struct BoundaryCondition {
+struct MeshPatch {
+    QString name;
+    QString newName;
+    QString type;
+    bool nameChanged = false;
+    bool typeChanged = false;
+    std::unordered_map<QString, BoundaryCondition> bcs;
+};
+
+struct BoundaryConditionDef {
     QString name;
     QStringList categories;
     QStringList types;
@@ -88,6 +102,13 @@ struct BoundaryCondition {
 };
 
 struct FieldData {
+    QString dimension;
+    QString fieldClass;
+    QString internalField;
+    std::unordered_map<QString, BoundaryCondition> bcs;
+};
+
+struct FieldDef {
     QString dimensions;
     QString defaultValue;
     FieldClass fieldClass;
@@ -105,13 +126,45 @@ struct SolverFamily {
     QList<SolverDetails> solvers;
 };
 
+inline QString getBaseMathType(FieldClass foamClass) {
+    switch (foamClass) {
+    case FieldClass::VolScalarField:
+    case FieldClass::SurfaceScalarField:
+    case FieldClass::PointScalarField:
+        return "scalar";
+
+    case FieldClass::VolVectorField:
+    case FieldClass::SurfaceVectorField:
+    case FieldClass::PointVectorField:
+        return "vector";
+
+    case FieldClass::VolSymmTensorField:
+    case FieldClass::SurfaceSymmTensorField:
+    case FieldClass::PointSymmTensorField:
+        return "symmTensor";
+
+    case FieldClass::VolTensorField:
+    case FieldClass::SurfaceTensorField:
+    case FieldClass::PointTensorField:
+        return "tensor";
+
+    case FieldClass::VolSphericalTensorField:
+    case FieldClass::SurfaceSphericalTensorField:
+    case FieldClass::PointSphericalTensorField:
+        return "sphericalTensor";
+
+    default:
+        return "unknown";
+    }
+}
+
 struct TurbulenceModel {
     QString name;
     QString description;
     QStringList fields;
 };
 
-using TurbulenceDatabase = QMap<QString, QMap<QString, QList<FlowCompute::TurbulenceModel>>>;
+using TurbulenceDatabase = QMap<QString, QMap<QString, std::vector<TurbulenceModel>>>;
 
 };
 

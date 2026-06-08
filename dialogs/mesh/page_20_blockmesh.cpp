@@ -1,6 +1,7 @@
 #include "page_20_blockmesh.h"
 #include "page_10_geometry.h"
 
+#include "../../geometry/stl/stl_reader.h"
 #include "../../main_window.h"
 #include "wizard_mesh.h"
 
@@ -16,21 +17,23 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
 
     // Configure spin boxes
     for(int i = 0; i < 6; i++) {
-        dimSpinBox[i] = new QDoubleSpinBox(this);
-        dimSpinBox[i]->setRange(-1e9, 1e9);
-        dimSpinBox[i]->setDecimals(4);
-        dimSpinBox[i]->setSingleStep(0.1);
-        connect(dimSpinBox[i], &QDoubleSpinBox::editingFinished, this, &BlockMeshPage1::updateCellCount);
+        dimSpin[i] = new QDoubleSpinBox(this);
+        dimSpin[i]->setRange(-1e9, 1e9);
+        dimSpin[i]->setDecimals(6);
+        dimSpin[i]->setSingleStep(0.1);
+        connect(dimSpin[i], &QDoubleSpinBox::editingFinished, this, &BlockMeshPage1::updateCellCount);
     }
 
     // Set scale factor
     scaleFactorBox = new QComboBox(this);
+    scaleFactorBox->setEditable(true);
     scaleFactorBox->addItem(tr("1 meter (1.0)"), 1.0);
     scaleFactorBox->addItem(tr("10 centimeters (0.1)"), 0.1);
     scaleFactorBox->addItem(tr("1 centimeter (0.01)"), 0.01);
     scaleFactorBox->addItem(tr("1 millimeter (0.001)"), 0.001);
     scaleFactorBox->addItem(tr("1 inch (0.0254)"), 0.0254);
     layout->addRow(tr("Geometry scale factor:"), scaleFactorBox);
+    connect(scaleFactorBox, &QComboBox::currentTextChanged, this, &BlockMeshPage1::onScaleFactorChanged);
 
     // Set group box for domain bounds
     QGroupBox* domainBox = new QGroupBox(tr("Domain Bounds"), this);
@@ -46,11 +49,11 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     for(int i = 0; i < 3; i++) {
         QHBoxLayout* boundsLayout = new QHBoxLayout;
         boundsLayout->setContentsMargins(0, 0, 0, 0);
-        boundsLayout->addWidget(dimSpinBox[2*i]);
+        boundsLayout->addWidget(dimSpin[2*i]);
         QLabel* separator = new QLabel(tr(" to "), this);
         separator->setAlignment(Qt::AlignCenter);
         boundsLayout->addWidget(separator);
-        boundsLayout->addWidget(dimSpinBox[2*i+1]);
+        boundsLayout->addWidget(dimSpin[2*i+1]);
         domainLayout->addRow(tr("Domain bounds (%1-direction):").arg(dims[i]), boundsLayout);
     }
 
@@ -64,29 +67,48 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     layout->addRow(cellBox);
     QFormLayout* cellLayout = new QFormLayout(cellBox);
 
-    // Absolute cell size
-    targetCellSizeBox = new QDoubleSpinBox(cellBox);
-    targetCellSizeBox->setDecimals(4);
-    targetCellSizeBox->setMinimum(0.0001);
-    targetCellSizeBox->setSuffix(" m");
-    targetCellSizeBox->setValue(0.1);
-    cellLayout->addRow(tr("Target cell dimension:"), targetCellSizeBox);
-    connect(targetCellSizeBox, &QDoubleSpinBox::editingFinished, this, &BlockMeshPage1::updateCellCount);
+    // Target cell size
+    targetCellSizeSpin = new QDoubleSpinBox(cellBox);
+    targetCellSizeSpin->setDecimals(6);
+    targetCellSizeSpin->setMinimum(0.0001);
+    targetCellSizeSpin->setValue(0.1);
+    cellLayout->addRow(tr("Estimated cell dimension:"), targetCellSizeSpin);
+    connect(targetCellSizeSpin, &QDoubleSpinBox::editingFinished,
+            this, &BlockMeshPage1::updateCellCount);
 
-    // A helper lambda to quickly create standard read-only line edits
-    auto createReadOnlyBox = [this](QFormLayout* layout, const QString& labelText) -> QLineEdit* {
-        QLineEdit* lineEdit = new QLineEdit(this);
-        lineEdit->setReadOnly(true);
-        lineEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
-        layout->addRow(labelText, lineEdit);
-        return lineEdit;
-    };
+    // Display actual cell sizes
+    QHBoxLayout* sizesLayout = new QHBoxLayout;
+    sizesLayout->setContentsMargins(0, 0, 0, 0);
+    for(int i=0; i<3; i++) {
+        actualSizeEdits[i] = new QLineEdit();
+        actualSizeEdits[i]->setReadOnly(true);
+        actualSizeEdits[i]->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
+        sizesLayout->addWidget(actualSizeEdits[i]);
+    }
+    cellLayout->addRow(tr("Actual cell sizes:"), sizesLayout);
 
     // Display cell counts
-    cellCountX     = createReadOnlyBox(cellLayout, tr("Cells (x-dimension):"));
-    cellCountY     = createReadOnlyBox(cellLayout, tr("Cells (y-dimension):"));
-    cellCountZ     = createReadOnlyBox(cellLayout, tr("Cells (z-dimension):"));
-    cellCountTotal = createReadOnlyBox(cellLayout, tr("Estimated Total Base Cells:"));
+    QHBoxLayout* numCellsLayout = new QHBoxLayout;
+    numCellsLayout->setContentsMargins(0, 0, 0, 0);
+    for(int i=0; i<3; i++) {
+        cellCountEdits[i] = new QLineEdit();
+        cellCountEdits[i]->setReadOnly(true);
+        cellCountEdits[i]->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
+        numCellsLayout->addWidget(cellCountEdits[i]);
+    }
+    cellLayout->addRow(tr("Number of cells (Nx, Ny, Nz):"), numCellsLayout);
+
+    // Display total cell count
+    cellCountTotalEdit = new QLineEdit();
+    cellCountTotalEdit->setReadOnly(true);
+    cellCountTotalEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
+    cellLayout->addRow(tr("Estimated cell count:"), cellCountTotalEdit);
+
+    // Display maximum aspect ratio
+    maxAspectRatioEdit = new QLineEdit();
+    maxAspectRatioEdit->setReadOnly(true);
+    maxAspectRatioEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
+    cellLayout->addRow(tr("Maximum aspect ratio:"), maxAspectRatioEdit);
 
     // Set the page layout
     setLayout(layout);
@@ -102,18 +124,22 @@ void BlockMeshPage1::initializePage() {
     }
     m_cfg = &(meshWizard->getBlockMeshConfig());
 
-    // Set scale factor from file
-    double scaleValue = m_cfg->convertToMeters;
-    int index = scaleFactorBox->findData(scaleValue);
-    if (index != -1) {
-        scaleFactorBox->setCurrentIndex(index);
+    {
+        const QSignalBlocker blocker(scaleFactorBox);
+
+        // Set scale factor from file
+        double scaleValue = m_cfg->convertToMeters;
+        m_previousScaleFactor = scaleValue;
+        int index = scaleFactorBox->findData(scaleValue);
+        if (index != -1) {
+            scaleFactorBox->setCurrentIndex(index);
+        } else {
+            scaleFactorBox->setCurrentText(QString::number(scaleValue, 'f', 4));
+        }
     }
 
     // Set bounding box values
     setBoundingBox();
-
-    // Set cell counts
-    updateCellCount();
 }
 
 void BlockMeshPage1::setBoundingBox() {
@@ -134,7 +160,7 @@ void BlockMeshPage1::setBoundingBox() {
     // Iterate through geometry files
     meshWizard->getGeometryMap().clear();
     GeometryMetrics metrics;
-    for (auto& file: std::as_const(geometryFiles)) {
+    for (auto const& file: std::as_const(geometryFiles)) {
         fileData = mainWin->targetSystems[targetSystemId]->getFileContent(fullPath + "/" + file);
         if(file.endsWith(".stl")) {
             metrics = StlReader::readMetrics(fileData);
@@ -155,122 +181,69 @@ void BlockMeshPage1::setBoundingBox() {
         geomBox.max.setZ(std::max(geomBox.max.z(), currentBox.max.z()));
     }
 
-    // Update domain dimensions
-    double xMin = geomBox.min.x(), yMin = geomBox.min.y(), zMin = geomBox.min.z();
-    double xMax = geomBox.max.x(), yMax = geomBox.max.y(), zMax = geomBox.max.z();
-    geometryLabel->setText(tr("Geometry bounds: (%1, %2, %3) to (%4, %5, %6)")
-                               .arg(xMin).arg(yMin).arg(zMin).arg(xMax).arg(yMax).arg(zMax));
+    // Store the bounding box
+    m_rawGeomBox = geomBox;
 
-    // Add padding to geometry bounds
-    double padX = (xMax - xMin) * 0.05;
-    double padY = (yMax - yMin) * 0.05;
-    double padZ = (zMax - zMin) * 0.05;
-    xMin -= padX; xMax += padX;
-    yMin -= padY; yMax += padY;
-    zMin -= padZ; zMax += padZ;
+    // Compute default cell size
+    double diffX = m_rawGeomBox.max.x() - m_rawGeomBox.min.x();
+    double diffY = m_rawGeomBox.max.y() - m_rawGeomBox.min.y();
+    double diffZ = m_rawGeomBox.max.z() - m_rawGeomBox.min.z();
+    double maxDim = std::max({diffX, diffY, diffZ});
+    double defaultSize = maxDim / 20.0;
 
-    // Update arrays and spin boxes
-    minGeometry[0] = xMin; minGeometry[1] = yMin; minGeometry[2] = zMin;
-    maxGeometry[0] = xMax; maxGeometry[1] = yMax; maxGeometry[2] = zMax;
-    dimSpinBox[0]->setValue(xMin);
-    dimSpinBox[1]->setValue(xMax);
-    dimSpinBox[2]->setValue(yMin);
-    dimSpinBox[3]->setValue(yMax);
-    dimSpinBox[4]->setValue(zMin);
-    dimSpinBox[5]->setValue(zMax);
+    // Set default cell size
+    targetCellSizeSpin->blockSignals(true);
+    targetCellSizeSpin->setValue(defaultSize);
+    targetCellSizeSpin->blockSignals(false);
 
-    // Read data from original blockMeshDict file
-    std::vector<std::array<double, 3>> vertices = m_cfg->vertices;
-
-    // Iterate through the extracted numbers in chunks of 3 (X, Y, Z)
-    double minX = dimSpinBox[0]->value(), maxX = dimSpinBox[1]->value();
-    double minY = dimSpinBox[2]->value(), maxY = dimSpinBox[3]->value();
-    double minZ = dimSpinBox[4]->value(), maxZ = dimSpinBox[5]->value();
-
-    for (const auto& pt : vertices) {
-        minX = std::min(minX, pt[0]);
-        maxX = std::max(maxX, pt[0]);
-        minY = std::min(minY, pt[1]);
-        maxY = std::max(maxY, pt[1]);
-        minZ = std::min(minZ, pt[2]);
-        maxZ = std::max(maxZ, pt[2]);
-    }
-
-    // Update the boxes that display the bounding box values
-    dimSpinBox[0]->setValue(minX);
-    dimSpinBox[1]->setValue(maxX);
-    dimSpinBox[2]->setValue(minY);
-    dimSpinBox[3]->setValue(maxY);
-    dimSpinBox[4]->setValue(minZ);
-    dimSpinBox[5]->setValue(maxZ);
+    // Run scale update
+    onScaleFactorChanged(scaleFactorBox->currentText());
 }
 
 void BlockMeshPage1::updateCellCount() {
 
-    // Compute physical axis lengths
-    double diffX = dimSpinBox[1]->value() - dimSpinBox[0]->value();
-    double diffY = dimSpinBox[3]->value() - dimSpinBox[2]->value();
-    double diffZ = dimSpinBox[5]->value() - dimSpinBox[4]->value();
+    std::array<double, 3> diff = {
+        dimSpin[1]->value() - dimSpin[0]->value(),
+        dimSpin[3]->value() - dimSpin[2]->value(),
+        dimSpin[5]->value() - dimSpin[4]->value() };
 
-    if (m_cellSize == -1.0) {
-
-        // 2. Protect against divide-by-zero from a malformed or default config
-        int cfgNx = std::max(1, m_cfg->nX);
-        int cfgNy = std::max(1, m_cfg->nY);
-        int cfgNz = std::max(1, m_cfg->nZ);
-
-        // Find the most restrictive resolution to enforce cubic cells
-        m_cellSize = std::max(0.0001, std::min({diffX / cfgNx, diffY / cfgNy, diffZ / cfgNz}));
-
-        // Safely update the UI input without triggering feedback loops
-        targetCellSizeBox->blockSignals(true);
-        targetCellSizeBox->setValue(m_cellSize);
-        targetCellSizeBox->blockSignals(false);
-    } else {
-        m_cellSize = targetCellSizeBox->value();
-    }
+    if (diff[0] <= 0 || diff[1] <= 0 || diff[2] <= 0) return;
 
     // Compute cell counts
-    int actualNx = std::max(1, static_cast<int>(std::ceil(diffX / m_cellSize)));
-    int actualNy = std::max(1, static_cast<int>(std::ceil(diffY / m_cellSize)));
-    int actualNz = std::max(1, static_cast<int>(std::ceil(diffZ / m_cellSize)));
+    std::array<int, 3> cellCounts;
+    double targetSize = targetCellSizeSpin->value();
+    for(int i=0; i<3; i++) {
+        cellCounts[i] = std::max(1, static_cast<int>(std::round(diff[i] / targetSize)));
+        cellCountEdits[i]->setText(QString::number(cellCounts[i]));
+    }
 
-    // Snap the bounding box max values outward to enforce perfectly cubic cells
-    double snappedMaxX = dimSpinBox[0]->value() + (actualNx * m_cellSize);
-    double snappedMaxY = dimSpinBox[2]->value() + (actualNy * m_cellSize);
-    double snappedMaxZ = dimSpinBox[4]->value() + (actualNz * m_cellSize);
+    // Compute actual cell sizes
+    std::array<double, 3> actualSizes;
+    for(int i=0; i<3; i++) {
+        actualSizes[i] = diff[i]/cellCounts[i];
+        actualSizeEdits[i]->setText(QString::number(actualSizes[i]));
+    }
 
-    // Update spin boxes
-    dimSpinBox[1]->blockSignals(true);
-    dimSpinBox[3]->blockSignals(true);
-    dimSpinBox[5]->blockSignals(true);
+    // Update cell count total
+    long long totalCells = static_cast<long long>(cellCounts[0]) * cellCounts[1] * cellCounts[2];
+    cellCountTotalEdit->setText(QLocale().toString(totalCells));
 
-    dimSpinBox[1]->setValue(snappedMaxX);
-    dimSpinBox[3]->setValue(snappedMaxY);
-    dimSpinBox[5]->setValue(snappedMaxZ);
-
-    dimSpinBox[1]->blockSignals(false);
-    dimSpinBox[3]->blockSignals(false);
-    dimSpinBox[5]->blockSignals(false);
-
-    // Compute total cells
-    long long totalCells = static_cast<long long>(actualNx) * actualNy * actualNz;
-
-    // Display the cell count results individually
-    cellCountX->setText(QString::number(actualNx));
-    cellCountY->setText(QString::number(actualNy));
-    cellCountZ->setText(QString::number(actualNz));
-
-    // QLocale adds the thousands separators (e.g., 1,500,000)
-    cellCountTotal->setText(QLocale().toString(totalCells));
+    // Update aspect ratio
+    double maxDim = *std::max_element(actualSizes.begin(), actualSizes.end());
+    double minDim = *std::min_element(actualSizes.begin(), actualSizes.end());
+    double aspectRatio = 1.0;
+    if (minDim > 0.0) {
+        aspectRatio = maxDim / minDim;
+    }
+    maxAspectRatioEdit->setText(QString::number(aspectRatio, 'f', 3));
 }
 
 bool BlockMeshPage1::validatePage() {
 
     // Validate domain bounds
     for (int i = 0; i < 3; ++i) {
-        double minVal = dimSpinBox[2 * i]->value();
-        double maxVal = dimSpinBox[2 * i + 1]->value();
+        double minVal = dimSpin[2 * i]->value();
+        double maxVal = dimSpin[2 * i + 1]->value();
 
         if (maxVal <= minVal) {
             QMessageBox::warning(this, tr("Invalid Bounds"),
@@ -280,17 +253,17 @@ bool BlockMeshPage1::validatePage() {
     }
 
     // Write scale factor to struct
-    m_cfg->convertToMeters = scaleFactorBox->currentData().toDouble();
+    m_cfg->convertToMeters = getCurrentScaleFactor(scaleFactorBox->currentText());
 
     // Write cell counts to struct
-    m_cfg->nX = cellCountX->text().toInt();
-    m_cfg->nY = cellCountY->text().toInt();
-    m_cfg->nZ = cellCountZ->text().toInt();
+    m_cfg->nX = cellCountEdits[0]->text().toInt();
+    m_cfg->nY = cellCountEdits[1]->text().toInt();
+    m_cfg->nZ = cellCountEdits[2]->text().toInt();
 
     // Write vertices to struct
-    double minX = dimSpinBox[0]->value(), maxX = dimSpinBox[1]->value();
-    double minY = dimSpinBox[2]->value(), maxY = dimSpinBox[3]->value();
-    double minZ = dimSpinBox[4]->value(), maxZ = dimSpinBox[5]->value();
+    double minX = dimSpin[0]->value(), maxX = dimSpin[1]->value();
+    double minY = dimSpin[2]->value(), maxY = dimSpin[3]->value();
+    double minZ = dimSpin[4]->value(), maxZ = dimSpin[5]->value();
     m_cfg->vertices = {
         {minX, minY, minZ}, // Vertex 0
         {maxX, minY, minZ}, // Vertex 1
@@ -301,16 +274,93 @@ bool BlockMeshPage1::validatePage() {
         {maxX, maxY, maxZ}, // Vertex 6
         {minX, maxY, maxZ}  // Vertex 7
     };
-
     return true;
 }
 
-void BlockMeshPage1::fitBoundsPressed() {
-    dimSpinBox[0]->setValue(minGeometry[0]);
-    dimSpinBox[1]->setValue(maxGeometry[0]);
-    dimSpinBox[2]->setValue(minGeometry[1]);
-    dimSpinBox[3]->setValue(maxGeometry[1]);
-    dimSpinBox[4]->setValue(minGeometry[2]);
-    dimSpinBox[5]->setValue(maxGeometry[2]);
+void BlockMeshPage1::onScaleFactorChanged(const QString& text) {
+
+    // Pass the text directly instead of relying on the GUI state
+    double scale = getCurrentScaleFactor(text);
+
+    // Abort if the user is in an intermediate typing state (like "0.")
+    if (scale <= 0.0) return;
+
+    double scaleRatio = m_previousScaleFactor / scale;
+
+    // Read directly from the widget instead of a detached member variable
+    double currentCellSize = targetCellSizeSpin->value();
+
+    if (currentCellSize > 0.0) {
+        currentCellSize *= scaleRatio;
+        targetCellSizeSpin->blockSignals(true);
+        targetCellSizeSpin->setValue(currentCellSize);
+        targetCellSizeSpin->blockSignals(false);
+    }
+
+    m_previousScaleFactor = scale;
+
+    // Compute new geometry bounds
+    double xMin = m_rawGeomBox.min.x() / scale;
+    double yMin = m_rawGeomBox.min.y() / scale;
+    double zMin = m_rawGeomBox.min.z() / scale;
+    double xMax = m_rawGeomBox.max.x() / scale;
+    double yMax = m_rawGeomBox.max.y() / scale;
+    double zMax = m_rawGeomBox.max.z() / scale;
+
+    // Update the geometry label
+    geometryLabel->setText(tr("Geometry bounds: (%1, %2, %3) to (%4, %5, %6)")
+                               .arg(xMin).arg(yMin).arg(zMin).arg(xMax).arg(yMax).arg(zMax));
+
+    // Re-apply the 5% padding to the scaled bounds
+    double padX = std::max((xMax - xMin) * 0.05, 0.001);
+    double padY = std::max((yMax - yMin) * 0.05, 0.001);
+    double padZ = std::max((zMax - zMin) * 0.05, 0.001);
+    xMin -= padX; xMax += padX;
+    yMin -= padY; yMax += padY;
+    zMin -= padZ; zMax += padZ;
+
+    // Update the cached arrays for the "Fit Bounds" button
+    minGeometry[0] = xMin; minGeometry[1] = yMin; minGeometry[2] = zMin;
+    maxGeometry[0] = xMax; maxGeometry[1] = yMax; maxGeometry[2] = zMax;
+
+    // Consolidated blocker
+    for (int i = 0; i < 6; ++i) {
+        dimSpin[i]->blockSignals(true);
+    }
+    dimSpin[0]->setValue(xMin);
+    dimSpin[1]->setValue(xMax);
+    dimSpin[2]->setValue(yMin);
+    dimSpin[3]->setValue(yMax);
+    dimSpin[4]->setValue(zMin);
+    dimSpin[5]->setValue(zMax);
+    for (int i = 0; i < 6; ++i) {
+        dimSpin[i]->blockSignals(false);
+    }
+
     updateCellCount();
+}
+
+void BlockMeshPage1::fitBoundsPressed() {
+    dimSpin[0]->setValue(minGeometry[0]);
+    dimSpin[1]->setValue(maxGeometry[0]);
+    dimSpin[2]->setValue(minGeometry[1]);
+    dimSpin[3]->setValue(maxGeometry[1]);
+    dimSpin[4]->setValue(minGeometry[2]);
+    dimSpin[5]->setValue(maxGeometry[2]);
+    updateCellCount();
+}
+
+double BlockMeshPage1::getCurrentScaleFactor(const QString& text) const {
+    // 1. Try to find a perfectly matching dropdown item first
+    int index = scaleFactorBox->findText(text);
+    if (index != -1) {
+        return scaleFactorBox->itemData(index).toDouble();
+    }
+
+    // 2. Otherwise, attempt to parse it as custom typed input
+    bool ok;
+    double customScale = text.toDouble(&ok);
+
+    // Return -1.0 for invalid text to prevent premature/broken scaling
+    return (ok && customScale > 0.0) ? customScale : -1.0;
 }

@@ -20,6 +20,7 @@ public:
     void expandCase(QString caseName);
     QStringList getCases() const;
     QString getSelectedCase();
+    void updatePath(QString path, QStringList children);
 
 protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
@@ -27,7 +28,7 @@ protected:
 private:
     // Menu and actions
     QMenu *m_contextMenu;
-    QAction *m_deleteAction;
+    QAction *m_deleteAction, *m_viewMeshAction;
     void createActions();
 
 private slots:
@@ -39,6 +40,7 @@ private slots:
 
     // Responds to actions
     void deleteNode();
+    void viewMesh();
 
 private:
     NavigatorModel* model;

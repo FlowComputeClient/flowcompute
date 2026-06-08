@@ -30,6 +30,7 @@ public:
     virtual bool writeData(const QByteArray& payload, const QString& remoteFilePath) = 0;
     virtual bool writeData(const QString& localPath, const QString& remoteFilePath) = 0;
     virtual int launchShortUtility(const QString& cmd, QString& output) = 0;
+    virtual void launchLongUtility(const QString& cmd) = 0;
     virtual bool createDirectories(QStringList dirPaths) = 0;
 };
 

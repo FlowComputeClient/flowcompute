@@ -76,29 +76,44 @@ void TabWidget::closeAllTabs() {
     }
 }
 
-void TabWidget::destroyTab(int index) {
+bool TabWidget::promptToSave(int index) {
 
-    // Check if the tab indicates unsaved changes
+    // Make the tab at the given index current
+    this->setCurrentIndex(index);
+
+    // Access the filename
     QString fileName = tabText(index);
-    if (fileName.endsWith('*')) {
 
-        QMessageBox msgBox(this);
-        msgBox.setWindowTitle("Unsaved Changes");
-        msgBox.setText(QString("The file in '%1' has been modified.\nDo you want to save your changes?").arg(fileName.remove('*').trimmed()));
-        msgBox.setIcon(QMessageBox::Warning);
-        msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
-        msgBox.setDefaultButton(QMessageBox::Save);
+    // If it's not dirty, it's safe to proceed.
+    if (!fileName.endsWith('*')) {
+        return true;
+    }
 
-        // Apply a style sheet to force the text color to black for both labels and buttons
-        msgBox.setStyleSheet("QLabel { color: black; } QPushButton { color: black; }");
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle("Unsaved Changes");
+    msgBox.setText(QString("The file '%1' has been modified.\nDo you want to save your changes?")
+                       .arg(fileName.remove('*').trimmed()));
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+    msgBox.setDefaultButton(QMessageBox::Save);
+    msgBox.setStyleSheet("QLabel { color: black; } QPushButton { color: black; }");
 
-        int resBtn = msgBox.exec();
+    int resBtn = msgBox.exec();
+    if (resBtn == QMessageBox::Save) {
+        emit saveTab();
+        return true;
+    } else if (resBtn == QMessageBox::Cancel) {
+        return false; // Tell the caller to abort!
+    }
 
-        if (resBtn == QMessageBox::Save) {
-            emit saveTab();
-        } else if (resBtn == QMessageBox::Cancel) {
-            return;
-        }
+    // If they clicked Discard, it's safe to proceed.
+    return true;
+}
+
+void TabWidget::destroyTab(int index) {
+    // If the user clicked Cancel, promptToSave returns false, so we abort destruction.
+    if (!promptToSave(index)) {
+        return;
     }
 
     // Access the tab's editor

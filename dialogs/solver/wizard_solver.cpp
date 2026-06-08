@@ -11,13 +11,11 @@ enum {
     Page_Parallel = 4
 };
 
-QList<FlowCompute::BoundaryPatch> parseBoundaryPatches(const QByteArray& fileData);
-
 SolverWizard::SolverWizard(const QString& caseName,
-                           const QList<FlowCompute::SolverFamily>& families,
+                           const std::vector<FlowCompute::SolverFamily>& families,
                            const FlowCompute::TurbulenceDatabase& turbModels,
-                           const QHash<QString, FlowCompute::FieldData>& fieldData,
-                           const QList<FlowCompute::BoundaryCondition>& boundaryConditions,
+                           const QHash<QString, FlowCompute::FieldDef>& fieldData,
+                           const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
                            QWidget *parent): QWizard(parent), m_caseName(caseName),
     m_families(families), m_turbModels(turbModels), m_fieldData(fieldData),
     m_boundaryConditions(boundaryConditions) {
@@ -65,9 +63,9 @@ bool SolverWizard::parseFiles() {
     fileName = "constant/polyMesh/boundary";
     fileData = mainWin->targetSystems[targetId]->getFileContent(casePath + "/" + m_caseName + "/" + fileName);
     if (!fileData.isEmpty()) {
-        m_boundaries = parseBoundaryPatches(fileData);
+        m_boundaries = SolverIO::parseBoundaryPatches(fileData);
     }
-    if(m_boundaries.isEmpty()) {
+    if(m_boundaries.empty()) {
         QMessageBox msgBox(this);
         msgBox.setIcon(QMessageBox::Critical);
         msgBox.setWindowTitle(tr("Missing Boundary Error"));
@@ -128,46 +126,6 @@ bool SolverWizard::parseFiles() {
     }
 
     return true;
-}
-
-QList<FlowCompute::BoundaryPatch> parseBoundaryPatches(const QByteArray& fileData) {
-    QList<FlowCompute::BoundaryPatch> patches;
-
-    // Convert the raw byte array from the WSL socket into a QString.
-    QString text = QString::fromUtf8(fileData);
-
-    // Remove comments
-    text.replace(QRegularExpression("/\\*.*?\\*/", QRegularExpression::DotMatchesEverythingOption), "");
-    text.replace(QRegularExpression("//.*"), "");
-
-    // Look through top-level parentheses
-    int startIdx = text.indexOf('(');
-    int endIdx = text.lastIndexOf(')');
-    if (startIdx == -1 || endIdx == -1 || startIdx >= endIdx) {
-        return patches;
-    }
-
-    QString listContent = text.mid(startIdx + 1, endIdx - startIdx - 1);
-
-    // Step 1: Regex to capture the patch name and everything inside its { } block
-    // [^}]* matches anything that is NOT a closing brace, preventing bleed into the next block
-    QRegularExpression reBlock("([A-Za-z0-9_\\-]+)\\s*\\{([^}]*)\\}");
-
-    // Step 2: Regex to capture the patch type inside the block
-    QRegularExpression reType("type\\s+([A-Za-z0-9_\\-]+)\\s*;");
-
-    QRegularExpressionMatchIterator i = reBlock.globalMatch(listContent);
-    while (i.hasNext()) {
-        QRegularExpressionMatch match = i.next();
-        FlowCompute::BoundaryPatch bp;
-        bp.name = match.captured(1); // The patch name
-
-        QString blockContent = match.captured(2); // The text inside the { }
-        QRegularExpressionMatch typeMatch = reType.match(blockContent);
-        bp.type = (typeMatch.hasMatch()) ? typeMatch.captured(1) : "unknown";
-        patches.append(bp);
-    }
-    return patches;
 }
 
 QStringList SolverWizard::getSolverFields() {

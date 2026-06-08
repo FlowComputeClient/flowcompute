@@ -15,22 +15,26 @@ BlockMeshConfig MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict)
 
     // Vertices
     QString verticesStr = dict->getString("vertices");
-    QRegularExpression numRe("[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?");
-    QRegularExpressionMatchIterator vi = numRe.globalMatch(verticesStr);
+    QString numPat = "[-+]?[0-9]*\\.?[0-9]+(?:[eE][-+]?[0-9]+)?";
 
-    // Extract numbers in chunks of 3 and push them directly into the vector
+    // Build a pattern that looks for: ( x y z )
+    QString vertexPattern = QString("\\(\\s*(%1)\\s+(%2)\\s+(%3)\\s*\\)").arg(numPat, numPat, numPat);
+    QRegularExpression vertexRe(vertexPattern);
+    QRegularExpressionMatchIterator vi = vertexRe.globalMatch(verticesStr);
+
     while (vi.hasNext()) {
-        double x = vi.next().captured(0).toDouble();
-        double y = vi.next().captured(0).toDouble();
-        double z = vi.next().captured(0).toDouble();
+        QRegularExpressionMatch match = vi.next();
+        // captured(1), (2), and (3) correspond to x, y, and z
+        double x = match.captured(1).toDouble();
+        double y = match.captured(2).toDouble();
+        double z = match.captured(3).toDouble();
 
-        // C++11 initializer list automatically creates the std::array
         config.vertices.push_back({x, y, z});
     }
 
     // Blocks
     QString blocksStr = dict->getString("blocks");
-    QString numPat = "[-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?";
+    // QString numPat = "[-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?";
 
     QString fullPattern = QString(
                               "hex\\s*\\([^)]+\\)\\s*"
@@ -129,8 +133,8 @@ std::map<QString, SurfaceFeatureExtractEntry>
         QString writeObjStr = dict->getString(stlName + "/writeObj");
         entry.writeObj = parseOfBool(writeObjStr, true);
 
-        QString nonManifoldStr = dict->getString(stlName + "/nonManifoldEdges");
-        entry.nonManifoldEdges = parseOfBool(nonManifoldStr, false);
+        // QString nonManifoldStr = dict->getString(stlName + "/nonManifoldEdges");
+        // entry.nonManifoldEdges = parseOfBool(nonManifoldStr, false);
 
         QString openEdgesStr = dict->getString(stlName + "/openEdges");
         entry.openEdges = parseOfBool(openEdgesStr, true);
@@ -156,6 +160,8 @@ std::map<QString, SurfaceFeatureExtractEntry>
 // Parse castellation mesh data
 CastellatedMeshConfig MeshIO::parseCastellatedMesh(const std::shared_ptr<OpenFoamDictionary> dict) {
     CastellatedMeshConfig config;
+
+    /*
     if (!dict) return config;
 
     // Only overwrite the struct's default values if the key exists in the file
@@ -214,10 +220,10 @@ CastellatedMeshConfig MeshIO::parseCastellatedMesh(const std::shared_ptr<OpenFoa
             QStringList parts = levelStr.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
 
             if (parts.size() >= 2) {
-                GeometryRefinement ref;
-                ref.surfaceMin = parts[0].toInt();
-                ref.surfaceMax = parts[1].toInt();
-                config.refinements[surfName] = ref;
+                RefinementSurface ref;
+                ref.min = parts[0].toInt();
+                ref.max = parts[1].toInt();
+                config.refinementSurfaces[surfName] = ref;
             }
         }
     }
@@ -240,9 +246,10 @@ CastellatedMeshConfig MeshIO::parseCastellatedMesh(const std::shared_ptr<OpenFoa
 
             // Reconstruct the STL filename to match our map keys
             QString stlName = baseName + ".stl";
-            config.refinements[stlName].edgeLevel = edgeLevel;
+            // config.refinements[stlName].edgeLevel = edgeLevel;
         }
     }
+    */
     return config;
 }
 
@@ -549,7 +556,7 @@ QString MeshIO::updateSurfaceFeatureExtractDict(
 
         // Use standard OpenFOAM boolean syntax (yes/no)
         QString writeObjStr = config.writeObj ? "yes" : "no";
-        QString nonManifoldStr = config.nonManifoldEdges ? "yes" : "no";
+        // QString nonManifoldStr = config.nonManifoldEdges ? "yes" : "no";
         QString openEdgesStr = config.openEdges ? "yes" : "no";
 
         out << "\n"
@@ -560,7 +567,7 @@ QString MeshIO::updateSurfaceFeatureExtractDict(
             << "            includedAngle   " << config.includedAngle << ";\n"
             << "        }\n"
             << "        writeObj            " << writeObjStr << ";\n"
-            << "        nonManifoldEdges    " << nonManifoldStr << ";\n"
+            // << "        nonManifoldEdges    " << nonManifoldStr << ";\n"
             << "        openEdges           " << openEdgesStr << ";\n"
             << "    }";
 
@@ -575,8 +582,7 @@ QString MeshIO::updateSurfaceFeatureExtractDict(
 }
 
 QString MeshIO::createSurfaceFeatureExtractDict(
-    const std::map<QString, SurfaceFeatureExtractEntry>& entryMap,
-    QString openFoamPath) {
+    const std::map<QString, SurfaceFeatureExtractEntry>& entryMap, QString openFoamPath) {
 
     QString dictStr;
     QTextStream out(&dictStr);
@@ -589,7 +595,7 @@ QString MeshIO::createSurfaceFeatureExtractDict(
 
         // Convert booleans to OpenFOAM's preferred yes/no format
         QString writeObjStr = config.writeObj ? "yes" : "no";
-        QString nonManifoldStr = config.nonManifoldEdges ? "yes" : "no";
+        // QString nonManifoldStr = config.nonManifoldEdges ? "yes" : "no";
         QString openEdgesStr = config.openEdges ? "yes" : "no";
 
         // Write the block, ensuring the filename is safely wrapped in quotes
@@ -601,7 +607,7 @@ QString MeshIO::createSurfaceFeatureExtractDict(
             << "        includedAngle   " << config.includedAngle << ";\n"
             << "    }\n"
             << "    writeObj            " << writeObjStr << ";\n"
-            << "    nonManifoldEdges    " << nonManifoldStr << ";\n"
+            // << "    nonManifoldEdges    " << nonManifoldStr << ";\n"
             << "    openEdges           " << openEdgesStr << ";\n"
             << "}\n\n";
     }
@@ -616,8 +622,9 @@ QString MeshIO::updateSnappyHexMeshDict(
     std::shared_ptr<OpenFoamDictionary> dict,
     const CastellatedMeshConfig& castConfig,
     const SnapControlConfig& snapConfig,
-    const LayerControlConfig& layerConfig)
-{
+    const LayerControlConfig& layerConfig) {
+
+    /*
     if (!dict) {
         qWarning() << "Cannot update snappyHexMeshDict: Dictionary pointer is null.";
         return QString();
@@ -653,11 +660,11 @@ QString MeshIO::updateSnappyHexMeshDict(
         refOut << "{\n";
         featOut << "(\n";
 
-        for (const auto& [geom, ref] : castConfig.refinements) {
+        for (const auto& [geom, ref] : castConfig.refinementSurfaces) {
             // Write to refinementSurfaces
             refOut << "        \"" << geom << "\"\n"
                    << "        {\n"
-                   << "            level (" << ref.surfaceMin << " " << ref.surfaceMax << ");\n"
+                   << "           level (" << ref.surfaceMin << " " << ref.surfaceMax << ");\n"
                    << "        }\n";
 
             // Predict the eMesh filename for the features block
@@ -668,7 +675,7 @@ QString MeshIO::updateSnappyHexMeshDict(
             // Write to features
             featOut << "        {\n"
                     << "            file \"" << eMeshFile << "\";\n"
-                    << "            level " << ref.edgeLevel << ";\n"
+                    << "            level " << "3" << ";\n"
                     << "        }\n";
         }
 
@@ -717,11 +724,12 @@ QString MeshIO::updateSnappyHexMeshDict(
 
         dict->setValue("addLayersControls/layers", layersStr);
     }
-
+    */
     return dict->getRawText();
 }
 
 QString MeshIO::createSnappyHexMeshDict(
+    const std::map<QString, SurfaceFeatureExtractEntry>& entryMap,
     const CastellatedMeshConfig& castConfig,
     const SnapControlConfig& snapConfig,
     const LayerControlConfig& layerConfig,
@@ -743,18 +751,23 @@ QString MeshIO::createSnappyHexMeshDict(
 
     // 3. Geometry Definition Block
     out << "geometry\n{\n";
-    for (auto it = castConfig.refinements.begin(); it != castConfig.refinements.end(); ++it) {
-        QString fileName = it->first;
-        // Strip extension to create an internal OpenFOAM name
-        QString name = fileName;
-        name.remove(".stl", Qt::CaseInsensitive).remove(".obj", Qt::CaseInsensitive);
-
-        out << "    \"" << fileName << "\"\n"
+    for (const auto& surface: castConfig.refinementSurfaces) {
+        out << "    " << surface.name << "\n"
             << "    {\n"
-            << "        type triSurfaceMesh;\n"
-            << "        name " << name << ";\n"
-            << "    }\n";
+            << "        type triSurfaceMesh;\n";
+        if (!surface.regions.empty()) {
+            out << "        regions\n";
+            out << "        {\n";
+            for (auto const& region: surface.regions) {
+                out << "            " << region.name << "\n";
+                out << "            {\n";
+                out << "                 name " << region.name << ";\n";
+                out << "            }\n";
+            }
+            out << "        }\n";
+        }
     }
+    out << "    }\n";
     out << "}\n\n";
 
     // ==========================================
@@ -769,39 +782,51 @@ QString MeshIO::createSnappyHexMeshDict(
 
     // Features block (eMesh Extrapolation)
     out << "    features\n    (\n";
-    for (auto it = castConfig.refinements.begin(); it != castConfig.refinements.end(); ++it) {
-        QString eMeshFile = it->first;
-        eMeshFile.replace(".stl", ".eMesh", Qt::CaseInsensitive);
-        eMeshFile.replace(".obj", ".eMesh", Qt::CaseInsensitive);
-
+    for (auto it = entryMap.begin(); it != entryMap.end(); ++it) {
+        QString fileName = it->first;
+        SurfaceFeatureExtractEntry entry = it->second;
+        fileName.replace(".stl", ".eMesh", Qt::CaseInsensitive);
+        fileName.replace(".obj", ".eMesh", Qt::CaseInsensitive);
         out << "        {\n"
-            << "            file \"" << eMeshFile << "\";\n"
-            << "            level " << it->second.edgeLevel << ";\n"
+            << "            file \"" << fileName << "\";\n"
+            << "            level " << entry.edgeLevel << ";\n"
             << "        }\n";
     }
     out << "    );\n\n";
 
     // Refinement Surfaces block
     out << "    refinementSurfaces\n    {\n";
-    for (auto it = castConfig.refinements.begin(); it != castConfig.refinements.end(); ++it) {
-        out << "        \"" << it->first << "\"\n"
+    for (auto const& surface: castConfig.refinementSurfaces) {
+
+        out << "        " << surface.name << "\n"
             << "        {\n"
-            << "            level (" << it->second.surfaceMin << " " << it->second.surfaceMax << ");\n"
-            << "        }\n";
+            << "            level (" << surface.min << " " << surface.max << ");\n";
+        if (!surface.regions.empty()) {
+            out << "            regions\n";
+            out << "            {\n";
+            for(auto const& region: surface.regions) {
+                out << "                " << region.name << "\n";
+                out << "                {\n";
+                out << "                     level (" << region.min << " " << region.max << ");\n";
+                out << "                }\n";
+            }
+            out << "            }\n";
+        }
+        out << "        }\n";
     }
     out << "    }\n\n";
 
     out << "    resolveFeatureAngle " << castConfig.resolveFeatureAngle << ";\n";
-    out << "    refinementRegions {}\n"; // Leave empty by default
+    out << "    refinementRegions {}\n";
 
     // Location in Mesh
     if (!std::isnan(castConfig.locationInMesh[0])) {
         out << QString("    locationInMesh (%1 %2 %3);\n")
         .arg(castConfig.locationInMesh[0])
-            .arg(castConfig.locationInMesh[1])
-            .arg(castConfig.locationInMesh[2]);
+        .arg(castConfig.locationInMesh[1])
+        .arg(castConfig.locationInMesh[2]);
     } else {
-        out << "    locationInMesh (0 0 0);\n"; // Safe fallback
+        out << "    locationInMesh (0 0 0);\n";
     }
 
     out << "    allowFreeStandingZoneFaces " << boolToStr(castConfig.allowFreeStandingZoneFaces) << ";\n";
@@ -828,7 +853,7 @@ QString MeshIO::createSnappyHexMeshDict(
 
     out << "    layers\n    {\n";
     for (auto it = layerConfig.nSurfaceLayers.begin(); it != layerConfig.nSurfaceLayers.end(); ++it) {
-        out << "        \"" << it->first << "\"\n"
+        out << "        " << it->first << "\n"
             << "        {\n"
             << "            nSurfaceLayers " << it->second << ";\n"
             << "        }\n";
@@ -838,13 +863,18 @@ QString MeshIO::createSnappyHexMeshDict(
     out << "    expansionRatio " << layerConfig.expansionRatio << ";\n";
     out << "    finalLayerThickness " << layerConfig.finalLayerThickness << ";\n";
     out << "    minThickness " << layerConfig.minThickness << ";\n";
-    out << "    nGrow 0;\n";
     out << "    featureAngle " << layerConfig.featureAngle << ";\n";
+    out << "    nLayerIter " << layerConfig.nLayerIter << ";\n";
+    out << "    nSmoothThickness " << layerConfig.nSmoothThickness << ";\n";
+    out << "    nSmoothSurfaceNormals " << layerConfig.nSmoothSurfaceNormals << ";\n";
+    out << "    nSmoothNormals " << layerConfig.nSmoothNormals << ";\n";
+    out << "    nGrow 0;\n";
     out << "    nRelaxIter 5;\n";
     out << "    nAlphaIter 5;\n";
-    out << "    nLayerIter " << layerConfig.nLayerIter << ";\n";
-    out << "    nSmoothSurfaceNormals " << layerConfig.nSmoothSurfaceNormals << ";\n";
-    out << "    nSmoothNormals 3;\n";
+    out << "    maxFaceThicknessRatio 0.5;\n";
+    out << "    maxThicknessToMedialRatio 0.3;\n";
+    out << "    minMedialAxisAngle 90;\n";
+    out << "    nBufferCellsNoExtrude 0;\n";
     out << "}\n\n";
 
     // ==========================================

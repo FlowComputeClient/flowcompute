@@ -24,10 +24,10 @@ class SolverWizard : public QWizard {
 
 public:
     explicit SolverWizard(const QString& caseName,
-                          const QList<FlowCompute::SolverFamily>& families,
+                          const std::vector<FlowCompute::SolverFamily>& families,
                           const FlowCompute::TurbulenceDatabase& turbModels,
-                          const QHash<QString, FlowCompute::FieldData>& fieldData,
-                          const QList<FlowCompute::BoundaryCondition>& boundaryConditions,
+                          const QHash<QString, FlowCompute::FieldDef>& fieldData,
+                          const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
                           QWidget *parent);
 
     bool parseFiles();
@@ -38,7 +38,8 @@ public:
 
     QStringList getSolverFields();
     QStringList getTurbulenceFields();
-    QList<FlowCompute::BoundaryPatch>& getBoundaries() { return m_boundaries; };
+    std::vector<FlowCompute::MeshPatch>& getBoundaries() { return m_boundaries; };
+    std::vector<FlowCompute::MeshPatch> parseBoundaryPatches(const QByteArray& fileData);
 
     void setConfiguredFields(const QStringList& fields) { m_configuredFields = fields; }
     QStringList getConfiguredFields() const { return m_configuredFields; }
@@ -52,13 +53,13 @@ protected:
 private:
     MainWindow* mainWin;
     int m_targetSystemId;
-    QList<FlowCompute::BoundaryPatch> m_boundaries;
+    std::vector<FlowCompute::MeshPatch> m_boundaries;
 
     // Data from config files
-    QList<FlowCompute::SolverFamily> m_families;
+    std::vector<FlowCompute::SolverFamily> m_families;
     FlowCompute::TurbulenceDatabase m_turbModels;
-    QHash<QString, FlowCompute::FieldData> m_fieldData;
-    QList<FlowCompute::BoundaryCondition> m_boundaryConditions;
+    QHash<QString, FlowCompute::FieldDef> m_fieldData;
+    std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
 
     // Lookup maps
     QHash<QString, FlowCompute::Algorithm> m_solverAlgorithmMap;

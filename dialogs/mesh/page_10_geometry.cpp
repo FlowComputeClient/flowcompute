@@ -34,29 +34,24 @@ GeometryPage::GeometryPage(QWidget *parent): QWizardPage(parent) {
     stageLayout->addWidget(new QLabel(tr("Select one or more stages in the meshing process:")));
 
     // Create checkable label
-    QCheckBox* blockMeshCheckBox = new QCheckBox(tr("Generate base mesh (blockMesh)"), this);
-    stageLayout->addWidget(blockMeshCheckBox);
-    blockMeshCheckBox->setChecked(true);
-    QCheckBox* extractCheckBox = new QCheckBox(tr("Extract surface features (surfaceFeatureExtract)"), this);
-    stageLayout->addWidget(extractCheckBox);
-    extractCheckBox->setChecked(true);
-    QCheckBox* castellatedCheckBox = new QCheckBox(tr("Run castellated mesh (snappyHexMesh - phase 1)"), this);
-    stageLayout->addWidget(castellatedCheckBox);
-    castellatedCheckBox->setChecked(true);
-    QCheckBox* snapCheckBox = new QCheckBox(tr("Run surface snapping (snappyHexMesh - phase 2)"), this);
-    stageLayout->addWidget(snapCheckBox);
-    snapCheckBox->setChecked(true);
-    QCheckBox* layersCheckBox = new QCheckBox(tr("Run boundary layer addition (snappyHexMesh - phase 3)"), this);
-    stageLayout->addWidget(layersCheckBox);
-    layersCheckBox->setChecked(true);
+    m_blockMeshCheck = new QCheckBox(tr("Generate base mesh (blockMesh)"), this);
+    stageLayout->addWidget(m_blockMeshCheck);
+    m_blockMeshCheck->setChecked(true);
+    m_extractCheck = new QCheckBox(tr("Extract surface features (surfaceFeatureExtract)"), this);
+    stageLayout->addWidget(m_extractCheck);
+    m_extractCheck->setChecked(true);
+    m_castellatedCheck = new QCheckBox(tr("Run castellated mesh (snappyHexMesh - phase 1)"), this);
+    stageLayout->addWidget(m_castellatedCheck);
+    m_castellatedCheck->setChecked(true);
+    m_snapCheck = new QCheckBox(tr("Run surface snapping (snappyHexMesh - phase 2)"), this);
+    stageLayout->addWidget(m_snapCheck);
+    m_snapCheck->setChecked(true);
+    m_layersCheck = new QCheckBox(tr("Run boundary layer addition (snappyHexMesh - phase 3)"), this);
+    stageLayout->addWidget(m_layersCheck);
+    m_layersCheck->setChecked(true);
 
-    // Register values
+    // Register case name
     registerField("caseName", caseBox, "currentText");
-    registerField("runBlockMesh", blockMeshCheckBox);
-    registerField("runExtract", extractCheckBox);
-    registerField("runCastellated", castellatedCheckBox);
-    registerField("runSnap", snapCheckBox);
-    registerField("runLayers", layersCheckBox);
 
     // Set the page layout
     setLayout(layout);
@@ -112,6 +107,13 @@ void GeometryPage::caseChanged(int index) {
 
 bool GeometryPage::validatePage() {
 
+    // Update wizard
+    meshWizard->m_runBlockMesh = m_blockMeshCheck->isChecked();
+    meshWizard->m_runExtract = m_extractCheck->isChecked();
+    meshWizard->m_runCastellated = m_castellatedCheck->isChecked();
+    meshWizard->m_runSnap = m_snapCheck->isChecked();
+    meshWizard->m_runLayers = m_layersCheck->isChecked();
+
     // Set case name
     caseName = caseBox->currentText();
 
@@ -125,7 +127,7 @@ bool GeometryPage::validatePage() {
     }
     if (geometryFiles.empty()) {
         QMessageBox::critical(this, tr("No Geometry"),
-                              tr("No geometry files selected. Please select at least one file."));
+            tr("No geometry files selected. Please select at least one file."));
         return false;
     } else {
         geometryFiles.sort();
@@ -135,15 +137,15 @@ bool GeometryPage::validatePage() {
 }
 
 int GeometryPage::nextId() const {
-    if (meshWizard->m_runBlockMesh) {
+    if (m_blockMeshCheck->isChecked()) {
         return Page_BlockMesh1;
-    } else if (meshWizard->m_runExtract) {
+    } else if (m_extractCheck->isChecked()) {
         return Page_SurfaceExtraction;
-    } else if (meshWizard->m_runCastellated) {
+    } else if (m_castellatedCheck->isChecked()) {
         return Page_Castellation;
-    } else if (meshWizard->m_runSnap) {
+    } else if (m_snapCheck->isChecked()) {
         return Page_SnapControl;
-    } else if (meshWizard->m_runLayers) {
+    } else if (m_layersCheck->isChecked()) {
         return Page_LayerControl;
     }
     return -1;
