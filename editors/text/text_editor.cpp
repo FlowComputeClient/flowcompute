@@ -18,25 +18,18 @@ void LineNumberArea::paintEvent(QPaintEvent *event) {
 TextEditor::TextEditor(QWidget *parent) : QPlainTextEdit(parent) {
 
     lineNumberArea = new LineNumberArea(this);
-
     connect(document(), &QTextDocument::contentsChange,
             this, &TextEditor::onDocumentEdited);
-
     connect(this, &TextEditor::blockCountChanged,
             this, &TextEditor::updateLineNumberAreaWidth);
-
     connect(this, &TextEditor::updateRequest,
             this, &TextEditor::updateLineNumberArea);
-
     connect(this, &TextEditor::cursorPositionChanged,
             this, &TextEditor::highlightCurrentLine);
-
     connect(document(), &QTextDocument::modificationChanged,
             this, &TextEditor::dirtyStateChanged);
 
-    // Set highlighter
     m_highlighter = new TreeSitterHighlighter(document());
-
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
 }
@@ -55,7 +48,6 @@ void TextEditor::setTextData(const QByteArray &textData) {
 }
 
 void TextEditor::triggerBackgroundParse(const QByteArray& fileData) {
-    // Launch a background thread
     QFuture<TSTree*> future = QtConcurrent::run([fileData]() {
         TSParser* bgParser = ts_parser_new();
         ts_parser_set_language(bgParser, tree_sitter_openfoam());
@@ -83,22 +75,18 @@ void TextEditor::onDocumentEdited(int position, int charsRemoved, int charsAdded
 }
 
 int TextEditor::lineNumberAreaWidth() {
-
     int digits = 1;
     int max = qMax(1, blockCount());
-
     while (max >= 10) {
         max /= 10;
         ++digits;
     }
-
-    int space = 3 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
-
+    int space = 10 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
     return space;
 }
 
 void TextEditor::updateLineNumberAreaWidth(int) {
-    setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
+    setViewportMargins(lineNumberAreaWidth() + 5, 0, 0, 0);
 }
 
 void TextEditor::updateLineNumberArea(const QRect &rect, int dy) {
@@ -106,9 +94,7 @@ void TextEditor::updateLineNumberArea(const QRect &rect, int dy) {
         lineNumberArea->scroll(0, dy);
     else
         lineNumberArea->update(0, rect.y(),
-                               lineNumberArea->width(),
-                               rect.height());
-
+            lineNumberArea->width(), rect.height());
     if (rect.contains(viewport()->rect()))
         updateLineNumberAreaWidth(0);
 }
@@ -122,32 +108,30 @@ void TextEditor::resizeEvent(QResizeEvent *event) {
 }
 
 void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
-
     QPainter painter(lineNumberArea);
-    painter.fillRect(event->rect(), QColor(240, 240, 240));
+    painter.fillRect(event->rect(), m_gutterBackground);
+
+    // Draw the border at the extreme right edge
+    painter.setPen(m_lineNumberBorder);
+    painter.drawLine(lineNumberArea->width() - 1, event->rect().top(),
+                     lineNumberArea->width() - 1, event->rect().bottom());
+
     QTextBlock block = firstVisibleBlock();
     int blockNumber = block.blockNumber();
-
-    int top = (int) blockBoundingGeometry(block)
-                  .translated(contentOffset()).top();
-
+    int top = (int) blockBoundingGeometry(block).translated(contentOffset()).top();
     int bottom = top + (int) blockBoundingRect(block).height();
 
-    while (block.isValid() && top <= event->rect().bottom())
-    {
-        if (block.isVisible() && bottom >= event->rect().top())
-        {
+    while (block.isValid() && top <= event->rect().bottom()) {
+        if (block.isVisible() && bottom >= event->rect().top()) {
             QString number = QString::number(blockNumber + 1);
-
-            painter.setPen(Qt::black);
-
-            painter.drawText(0, top,
-                             lineNumberArea->width() - 5,
-                             fontMetrics().height(),
-                             Qt::AlignRight,
-                             number);
+            if (blockNumber == textCursor().blockNumber()) {
+                painter.setPen(m_lineNumberActive);
+            } else {
+                painter.setPen(m_lineNumberNormal);
+            }
+            painter.drawText(0, top, lineNumberArea->width() - 6,
+                             fontMetrics().height(), Qt::AlignRight, number);
         }
-
         block = block.next();
         top = bottom;
         bottom = top + (int) blockBoundingRect(block).height();
@@ -155,21 +139,43 @@ void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
     }
 }
 
+void TextEditor::applyThemeConfig(const TextEditorConfig& cfg) {
+
+    // Set background color
+    QPalette p = this->palette();
+    p.setColor(QPalette::Base, cfg.background);
+    this->setPalette(p);
+
+    // Set internal color variables
+    m_gutterBackground = cfg.gutterBackground;
+    m_currentLineHighlight = cfg.currentLineHighlight;
+    m_lineNumberBorder = cfg.lineNumberBorder;
+    m_lineNumberNormal = cfg.lineNumberNormal;
+    m_lineNumberActive = cfg.lineNumberActive;
+
+    // Update the highlighter
+    m_highlighter->setSyntaxConfig(cfg.syntaxConfig);
+
+    // Force redraw
+    this->viewport()->update();
+    if (lineNumberArea) {
+        lineNumberArea->update();
+    }
+    highlightCurrentLine();
+}
+
 void TextEditor::highlightCurrentLine() {
 
     QList<QTextEdit::ExtraSelection> extraSelections;
-
     if (!isReadOnly()) {
 
         QTextEdit::ExtraSelection selection;
-        QColor lineColor = QColor(220, 220, 255);
-        selection.format.setBackground(lineColor);
+        selection.format.setBackground(m_currentLineHighlight);
         selection.format.setProperty(
             QTextFormat::FullWidthSelection, true);
 
         selection.cursor = textCursor();
         selection.cursor.clearSelection();
-
         extraSelections.append(selection);
     }
 

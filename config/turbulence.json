@@ -1,5 +1,5 @@
 {
-  "Reynolds-Averaged Stress (RAS)": {
+  "RAS": {
     "Two-Equation": {
       "kOmegaSST": {
         "description": "k-omega-SST model",
@@ -35,7 +35,7 @@
       }
     }
   },
-  "Large-Eddy Simulation (LES)": {
+  "LES": {
     "Algebraic": {
       "Smagorinsky": {
         "description": "Smagorinsky SGS model",

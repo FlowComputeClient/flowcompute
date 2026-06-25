@@ -5,6 +5,7 @@
 
 #include "dialogs/new_case/wizard_new_case.h"
 #include "editors/tab_widget.h"
+#include "editors/text/text_editor.h"
 #include "geometry/graphic_data.h"
 #include "systems/wsl_system.h"
 #include "views/navigator/case_navigator.h"
@@ -22,14 +23,6 @@
 #include <QVersionNumber>
 #include <QVulkanInstance>
 #include <QWindow>
-
-enum class EditorType : int {
-    TEXT = 0,
-    SURFACE,
-    MESH,
-    RESULTS,
-    COUNT
-};
 
 // Store information about project in navigator
 struct CaseData {
@@ -53,18 +46,20 @@ public:
     ~MainWindow() override;
 
     // Display text in the tabbar
-    void createEditor(EditorType type, QString& fileName, const QString& fullPath);
+    void createEditor(EditorType type, QString& fileName, const QString& fullPath, bool logMessage = true);
 
     // Create a new project
     void createCase(QString, QString, QStringList, int, QString);
 
     // Run mesh utilities
     void runMesh(const QString& caseName, bool blockMesh, bool surfaceFeatureExtract,
-                 bool snappyHexMesh, const QString& snappyCmd, int numCores, bool display);
+                 bool snappyHexMesh, const QString& snappyCmd, int numCores);
+
+    // Run solver utilities
+    void runSolver(const QString& caseName, const QString& command);
 
     static bool isWindows() { return s_isWindows; }
     static bool isWslAvailable() { return s_isWslAvailable; }
-    QString getSelectedCase() { return navigator->getSelectedCase(); }
     QMap<QString, CaseData> m_caseMap;
     QMap<QString, TabData> tabMap;
     TargetSystem* targetSystems[static_cast<int>(TargetType::COUNT)];
@@ -77,13 +72,17 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 
 private:
-    CaseNavigator* navigator;
-    Console* console;
-    TabWidget* tabWidget;
-    QFont font;
+    CaseNavigator* m_navigator;
+    Console* m_console;
+    TabWidget* m_tabWidget;
+    QFont m_font;
+    QDir m_configDir;
+    QString m_themeFile;
+    TextEditorConfig m_editorConfig;
 
-    std::shared_ptr<RenderData> getMeshData(QString caseName, QString casePath,
-                                            QString openFoamPath, int targetId);
+    std::shared_ptr<RenderData> getMeshData(
+        QString caseName, QString casePath,
+        QString openFoamPath, int targetId);
 
     // Check utilities
     QMap<QString, QMap<QString, bool>> m_utilMap;
@@ -92,9 +91,15 @@ private:
         "checkMesh", "simpleFoam", "pimpleFoam", "decomposePar", "reconstructPar", "topoSet" };
     QMap<QString, bool> checkUtilities(const QString& fullPath, int targetId, const QStringList& utilities);
 
+    QString getSelectedCase();
+
     // Access solvers and families
     std::vector<FlowCompute::SolverFamily> m_solverFamilies;
     void loadSolverFamilies();
+
+    // Access material properties
+    std::map<QString, FlowCompute::TransportPropertyDef> m_transportProperties;
+    void loadMaterialProperties();
 
     // Access turbulence models
     FlowCompute::TurbulenceDatabase m_turbulenceModels;
@@ -127,7 +132,7 @@ private:
     QAction *zoomInAction, *zoomOutAction;
     QAction *meshAction, *runMeshAction;
     QAction *postProcessAction;
-    QAction *runAction, *stopAction;
+    QAction *solverAction, *runSolverAction, *stopSolverAction;
     QAction *aboutAction;
 
     // Menus
@@ -146,6 +151,8 @@ private:
 
 private slots:
 
+    void applyTheme(QString themeFile);
+
     // File actions
     void saveFile();
 
@@ -160,12 +167,17 @@ private slots:
     void runMeshConfiguration();
     void runMeshExecution();
     void runNewCaseWizard();
-    void runSolverWizard();
+    void runSolverConfiguration();
+    void runSolverExecution();
     void runSurfaceCheck(const QString& fullPath, int targetId, bool isBinary);
     void runSurfacePatch(double featureAngle, const QString& fullPath, int targetId, bool isBinary);
     void runSurfaceScale(double scaleFactor, const QString& fullPath, int targetId);
     void runMeshCheck(const QString& fullPath, int targetId);
     void runMeshPatch(double featureAngle, const QString& fullPath, int targetId);
     void runMeshRenumber(const QString& casePath, int targetId);
+    void stopSolverExecution();
+
+    // Utility finished
+    void longUtilityFinished(const QString& status, const QString& caseName, UtilityType utilityType);
 };
 #endif // MAIN_WINDOW_H

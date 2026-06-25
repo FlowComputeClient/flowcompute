@@ -3,163 +3,222 @@
 #include "wizard_solver.h"
 
 // Introduction page asks for the case name and platform
-ControlPage::ControlPage(const std::vector<FlowCompute::SolverFamily>& families,
-                         QWidget *parent): QWizardPage(parent), m_families(families) {
+ControlPage::ControlPage(const QString& caseName, const QStringList& cases,
+                         const std::vector<FlowCompute::SolverFamily>& families,
+                         QWidget *parent):
+    QWizardPage(parent), m_caseName(caseName), m_families(families) {
 
     // Set title and style
-    setTitle(tr("Control Configuration"));
+    setTitle(tr("Control Configuration (controlDict)"));
 
     // Create a grid layout with two columns
     QFormLayout* layout = new QFormLayout(this);
-    layout->setSpacing(20);
+    layout->setSpacing(15);
+
+    // Get selected case
+    m_caseCombo = new QComboBox(this);
+    m_caseCombo->addItems(cases);
+    m_caseCombo->setCurrentText(caseName);
+    layout->addRow(tr("Select the OpenFOAM case:"), m_caseCombo);
+    connect(m_caseCombo, &QComboBox::currentTextChanged, this, [this](const QString& text) {
+        m_caseName = text;
+    });
 
     // Get solver family
-    familyBox = new QComboBox(this);
-    layout->addRow(tr("Select solver category:"), familyBox);
-    connect(familyBox, &QComboBox::currentIndexChanged,
+    m_familyCombo = new QComboBox(this);
+    layout->addRow(tr("Select solver category:"), m_familyCombo);
+    connect(m_familyCombo, &QComboBox::currentIndexChanged,
             this, &ControlPage::familyChanged);
 
     // Select solver
-    solverBox = new QComboBox(this);
-    layout->addRow(tr("Select solver:"), solverBox);
-    connect(solverBox, &QComboBox::currentIndexChanged,
+    m_solverCombo = new QComboBox(this);
+    layout->addRow(tr("Select solver:"), m_solverCombo);
+    connect(m_solverCombo, &QComboBox::currentIndexChanged,
             this, &ControlPage::solverChanged);
 
     // ---------------------------------------------------------
     // Solution Timing Group
     // ---------------------------------------------------------
-    QGroupBox* timingBox = new QGroupBox(tr("Solution Timing"), this);
-    layout->addRow(timingBox);
-    QFormLayout* timingLayout = new QFormLayout(timingBox);
+    QGroupBox* timingGroup = new QGroupBox(tr("Solution Timing"), this);
+    layout->addRow(timingGroup);
+    QFormLayout* timingLayout = new QFormLayout(timingGroup);
+    timingLayout->setSpacing(10);
 
-    startFromBox = new QComboBox(this);
-    startFromBox->addItems({ "startTime", "firstTime", "latestTime" });
-    timingLayout->addRow(tr("Start time source: "), startFromBox);
+    m_startFromCombo = new QComboBox(this);
+    QMetaEnum metaEnum = QMetaEnum::fromType<Solver::StartSolverType>();
+    for (int i = 0; i < metaEnum.keyCount(); ++i) {
+        m_startFromCombo->addItem(metaEnum.key(i));
+    }
+    timingLayout->addRow(tr("Start time source: "), m_startFromCombo);
+    connect(m_startFromCombo, &QComboBox::currentTextChanged, this, [this](const QString& text){
+        m_startTimeSpin->setEnabled(text == "startTime");
+    });
 
-    startTimeBox = new QDoubleSpinBox(this);
-    startTimeBox->setRange(0.0, 1e6);
-    startTimeBox->setDecimals(5);
-    timingLayout->addRow(tr("Start time: "), startTimeBox);
+    m_startTimeSpin = new QDoubleSpinBox(this);
+    m_startTimeSpin->setRange(0.0, 1e6);
+    m_startTimeSpin->setDecimals(5);
+    timingLayout->addRow(tr("Start time: "), m_startTimeSpin);
 
-    stopAtBox = new QComboBox(this);
-    stopAtBox->addItems({ "endTime", "writeNow", "noWriteNow", "nextWrite" });
-    timingLayout->addRow(tr("Stop time source: "), stopAtBox);
+    m_stopAtCombo = new QComboBox(this);
+    metaEnum = QMetaEnum::fromType<Solver::EndSolverType>();
+    for (int i = 0; i < metaEnum.keyCount(); ++i) {
+        m_stopAtCombo->addItem(metaEnum.key(i));
+    }
+    timingLayout->addRow(tr("Stop time source: "), m_stopAtCombo);
+    connect(m_stopAtCombo, &QComboBox::currentTextChanged, this, [this](const QString& text){
+        m_endTimeSpin->setEnabled(text == "endTime");
+    });
 
-    endTimeBox = new QDoubleSpinBox(this);
-    endTimeBox->setRange(0.0, 1e6);
-    endTimeBox->setDecimals(5);
-    endTimeBox->setValue(0.5);
-    timingLayout->addRow(tr("End time: "), endTimeBox);
+    m_endTimeSpin = new QDoubleSpinBox(this);
+    m_endTimeSpin->setRange(0.0, 1e6);
+    m_endTimeSpin->setDecimals(5);
+    m_endTimeSpin->setValue(0.5);
+    timingLayout->addRow(tr("End time: "), m_endTimeSpin);
 
-    // Added: deltaT (Required by OpenFOAM)
-    deltaTBox = new QDoubleSpinBox(this);
-    deltaTBox->setRange(1e-8, 1e4);
-    deltaTBox->setDecimals(6);
-    deltaTBox->setValue(1.0);
-    timingLayout->addRow(tr("Time step (deltaT): "), deltaTBox);
-
-    // ---------------------------------------------------------
-    // Time Step Adjustment Group
-    // ---------------------------------------------------------
-    QGroupBox* stepBox = new QGroupBox(tr("Time Step Adjustment"), this);
-    layout->addRow(stepBox);
-    QFormLayout* stepLayout = new QFormLayout(stepBox);
-
-    adjustTimeStepBox = new QCheckBox("Adjust time step (Courant number driven)", this);
-    stepLayout->addRow(adjustTimeStepBox);
-
-    maxCourantBox = new QDoubleSpinBox(this);
-    maxCourantBox->setRange(0.1, 20.0);
-    maxCourantBox->setDecimals(2);
-    maxCourantBox->setSingleStep(0.1);
-    maxCourantBox->setValue(1.0);
-    stepLayout->addRow(tr("Max Courant number (maxCo): "), maxCourantBox);
+    m_deltaTSpin = new QDoubleSpinBox(this);
+    m_deltaTSpin->setRange(1e-8, 1e4);
+    m_deltaTSpin->setDecimals(6);
+    m_deltaTSpin->setValue(1.0);
+    timingLayout->addRow(tr("Time step (deltaT): "), m_deltaTSpin);
 
     // ---------------------------------------------------------
     // Writing Output Group
     // ---------------------------------------------------------
-    QGroupBox* writeBox = new QGroupBox(tr("Writing Output"), this);
-    layout->addRow(writeBox);
-    QFormLayout* writeLayout = new QFormLayout(writeBox);
+    QGroupBox* writeGroup = new QGroupBox(tr("Writing Output"), this);
+    layout->addRow(writeGroup);
+    QFormLayout* writeLayout = new QFormLayout(writeGroup);
+    writeLayout->setSpacing(10);
 
-    writeControlBox = new QComboBox(this);
-    writeControlBox->addItems({ "timeStep", "runTime", "adjustableRunTime",
-                               "cpuTime", "clockTime", "none" });
-    writeLayout->addRow(tr("Write control: "), writeControlBox);
+    // Check boxes
+    auto* checkLayout = new QHBoxLayout;
+    m_modifiableCheck = new QCheckBox(tr("Enable runtime modification"), this);
+    checkLayout->addWidget(m_modifiableCheck);
+    m_compressCheck = new QCheckBox(tr("Compress output"), this);
+    checkLayout->addWidget(m_compressCheck);
+    writeLayout->addRow(checkLayout);
 
-    writeIntervalBox = new QDoubleSpinBox(this);
-    writeIntervalBox->setRange(1e-5, 1e6);
-    writeIntervalBox->setDecimals(4);
-    writeIntervalBox->setValue(20.0);
-    writeLayout->addRow(tr("Write interval: "), writeIntervalBox);
+    m_writeFormatCombo = new QComboBox(this);
+    metaEnum = QMetaEnum::fromType<Solver::WriteFormatType>();
+    for (int i = 0; i < metaEnum.keyCount(); ++i) {
+        m_writeFormatCombo->addItem(metaEnum.key(i));
+    }
+    writeLayout->addRow(tr("Write format: "), m_writeFormatCombo);
 
-    purgeWriteBox = new QSpinBox(this);
-    purgeWriteBox->setRange(0, 100);
-    purgeWriteBox->setValue(0);
-    writeLayout->addRow(tr("Purge write (0 = keep all): "), purgeWriteBox);
+    m_writeControlCombo = new QComboBox(this);
+    metaEnum = QMetaEnum::fromType<Solver::WriteControlType>();
+    for (int i = 0; i < metaEnum.keyCount(); ++i) {
+        m_writeControlCombo->addItem(metaEnum.key(i));
+    }
+    writeLayout->addRow(tr("Write control: "), m_writeControlCombo);
+    connect(m_writeControlCombo, &QComboBox::currentIndexChanged,
+            this, &ControlPage::writeControlChanged);
 
-    // ---------------------------------------------------------
-    // Field Registration
-    // ---------------------------------------------------------
-    registerField("solverFamily", familyBox, "currentText");
-    registerField("solverName", solverBox, "currentText");
+    m_writeIntervalEdit = new QLineEdit(this);
+    writeLayout->addRow(tr("Write interval: "), m_writeIntervalEdit);
 
-    registerField("startFrom", startFromBox, "currentText");
-    registerField("startTime", startTimeBox);
-    registerField("stopAt", stopAtBox, "currentText");
-    registerField("endTime", endTimeBox);
-    registerField("deltaT", deltaTBox);
+    // Create validator for write interval
+    m_intValidator = new QIntValidator(1, 9999999, this);
+    m_doubleValidator = new QDoubleValidator(0.0, 999999.0, 6, this);
+    m_doubleValidator->setLocale(QLocale::C);
 
-    registerField("adjustTimeStep", adjustTimeStepBox);
-    registerField("maxCo", maxCourantBox);
+    m_purgeWriteSpin = new QSpinBox(this);
+    m_purgeWriteSpin->setRange(0, 100);
+    m_purgeWriteSpin->setValue(0);
+    writeLayout->addRow(tr("Purge write (0 = keep all): "), m_purgeWriteSpin);
 
-    registerField("writeControl", writeControlBox, "currentText");
-    registerField("writeInterval", writeIntervalBox);
-    registerField("purgeWrite", purgeWriteBox);
+    // Register case name
+    registerField("caseName", m_caseCombo, "currentText");
+
+    // Set the initial validator based on the default combo box state
+    writeControlChanged(m_writeControlCombo->currentIndex());
 
     setLayout(layout);
 }
 
 void ControlPage::initializePage() {
 
-    // Access the parsed structure
+    // Access wizard data
     solverWizard = qobject_cast<SolverWizard*>(this->wizard());
     m_cfg = &(solverWizard->getControlConfig());
 
     // Update fields
-    startFromBox->setCurrentIndex(static_cast<int>(m_cfg->startFrom));
-    startTimeBox->setValue(m_cfg->startTime);
-    stopAtBox->setCurrentIndex(static_cast<int>(m_cfg->stopAt));
-    endTimeBox->setValue(m_cfg->endTime);
-    deltaTBox->setValue(m_cfg->deltaT);
-    adjustTimeStepBox->setChecked(m_cfg->adjustTimeStep);
-    maxCourantBox->setValue(m_cfg->maxCo);
-    writeControlBox->setCurrentIndex(static_cast<int>(m_cfg->writeControl));
-    writeIntervalBox->setValue(m_cfg->writeInterval);
-    purgeWriteBox->setValue(m_cfg->purgeWrite);
+    m_startFromCombo->setCurrentIndex(static_cast<int>(m_cfg->startFrom));
+    m_startTimeSpin->setValue(m_cfg->startTime);
+    m_stopAtCombo->setCurrentIndex(static_cast<int>(m_cfg->stopAt));
+    m_endTimeSpin->setValue(m_cfg->endTime);
+    m_deltaTSpin->setValue(m_cfg->deltaT);
+    m_compressCheck->setChecked(m_cfg->writeCompression);
+    m_modifiableCheck->setChecked(m_cfg->runTimeModifiable);
+    m_writeFormatCombo->setCurrentIndex(static_cast<int>(m_cfg->writeFormat));
+    m_writeControlCombo->setCurrentIndex(static_cast<int>(m_cfg->writeControl));
+    m_writeIntervalEdit->setText(QString::number(m_cfg->writeInterval));
+    m_purgeWriteSpin->setValue(m_cfg->purgeWrite);
 
     // Update families and solvers
     for (const auto& family: std::as_const(m_families)) {
-        familyBox->addItem(family.familyName);
+        m_familyCombo->addItem(family.name);
     }
     if (m_cfg->solverCategory.isEmpty()) {
-        familyBox->setCurrentIndex(0);
+        m_familyCombo->setCurrentIndex(0);
     } else {
-        familyBox->setCurrentText(m_cfg->solverCategory);
+        m_familyCombo->setCurrentText(m_cfg->solverCategory);
     }
     if (m_cfg->solver.isEmpty()) {
-        solverBox->setCurrentIndex(0);
+        m_solverCombo->setCurrentIndex(0);
     } else {
-        solverBox->setCurrentText(m_cfg->solver);
+        m_solverCombo->setCurrentText(m_cfg->solver);
+    }
+}
+
+bool ControlPage::validatePage() {
+
+    // Update wizard's case name
+    solverWizard->setCaseName(m_caseName);
+
+    if (!m_cfg) return false;
+    m_cfg->solverCategory = m_familyCombo->currentText();
+    m_cfg->solver = m_solverCombo->currentText();
+
+    // Timing fields
+    m_cfg->startFrom = static_cast<Solver::StartSolverType>(m_startFromCombo->currentIndex());
+    m_cfg->startTime = m_startTimeSpin->value();
+    m_cfg->stopAt = static_cast<Solver::EndSolverType>(m_stopAtCombo->currentIndex());
+    m_cfg->endTime = m_endTimeSpin->value();
+    m_cfg->deltaT = m_deltaTSpin->value();
+
+    // Write output fields
+    m_cfg->writeCompression = m_compressCheck->isChecked();
+    m_cfg->runTimeModifiable = m_modifiableCheck->isChecked();
+    m_cfg->writeFormat = static_cast<Solver::WriteFormatType>(m_writeFormatCombo->currentIndex());
+    m_cfg->writeControl = static_cast<Solver::WriteControlType>(m_writeControlCombo->currentIndex());
+    m_cfg->writeInterval = m_writeIntervalEdit->text().toDouble();
+    m_cfg->purgeWrite = m_purgeWriteSpin->value();
+
+    // Check if write interval is empty
+    if (m_writeIntervalEdit->text().trimmed().isEmpty()) {
+        QMessageBox::warning(this, tr("Invalid Input"), tr("Please enter a valid write interval."));
+        m_writeIntervalEdit->setFocus();
+        return false;
+    }
+
+    return true;
+}
+
+// Set next page of the wizard
+int ControlPage::nextId() const {
+    if (m_isSteadyState) {
+        return Page_Physics;
+    } else {
+        return Page_Transient;
     }
 }
 
 // Populate list of solvers based on solver family
 void ControlPage::familyChanged(int index) {
-    solverBox->clear();
+    m_solverCombo->clear();
     if (index >= 0 && index < m_families.size()) {
         for (const auto& solver: std::as_const(m_families[index].solvers)) {
-            solverBox->addItem(solver.name);
+            m_solverCombo->addItem(solver.name);
         }
     }
 }
@@ -168,14 +227,38 @@ void ControlPage::familyChanged(int index) {
 void ControlPage::solverChanged(int index) {
 
     // Check combo box states
-    int familyIndex = familyBox->currentIndex();
+    int familyIndex = m_familyCombo->currentIndex();
     if (familyIndex < 0 || familyIndex >= m_families.size()) return;
     if (index < 0 || index >= m_families[familyIndex].solvers.size()) return;
 
-    // Get SolverDetails for the selected family and solver
-    const auto& details = m_families[familyIndex].solvers[index];
+    // Determine if the solver is steady state
+    m_isSteadyState = m_families[familyIndex].solvers[index].isSteadyState;
 
-    // Configure transient-only UI elements
-    adjustTimeStepBox->setEnabled(!details.isSteadyState);
-    maxCourantBox->setEnabled(!details.isSteadyState);
+    // Lock timeStep field for steady-state simulation
+    if (m_isSteadyState) {
+        int timeStepIndex = m_writeControlCombo->findText("timeStep");
+        if (timeStepIndex != -1) {
+            m_writeControlCombo->setCurrentIndex(timeStepIndex);
+        }
+        m_writeControlCombo->setEnabled(false);
+    } else {
+        m_writeControlCombo->setEnabled(true);
+    }
+}
+
+void ControlPage::writeControlChanged(int index) {
+    QString controlText = m_writeControlCombo->itemText(index);
+
+    // If writing by timeStep, enforce integers. Otherwise, allow decimals.
+    if (controlText == "timeStep") {
+        m_writeIntervalEdit->setValidator(m_intValidator);
+
+        // Optional UX polish: Strip decimals if the user already typed them
+        QString currentText = m_writeIntervalEdit->text();
+        if (currentText.contains('.')) {
+            m_writeIntervalEdit->setText(QString::number(currentText.toDouble(), 'f', 0));
+        }
+    } else {
+        m_writeIntervalEdit->setValidator(m_doubleValidator);
+    }
 }

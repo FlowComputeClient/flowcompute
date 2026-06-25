@@ -65,7 +65,7 @@ int WslSystem::launchShortUtility(const QString& cmd, QString& output) {
     }
 }
 
-void WslSystem::launchLongUtility(const QString& cmd) {
+void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName, UtilityType utilityType) {
 
     // 1. Allocate socket on the heap so it survives after the function returns
     QTcpSocket* socket = new QTcpSocket(this);
@@ -79,7 +79,7 @@ void WslSystem::launchLongUtility(const QString& cmd) {
     });
 
     // Connect the readyRead signal to process streaming chunks
-    connect(socket, &QTcpSocket::readyRead, this, [this, socket]() {
+    connect(socket, &QTcpSocket::readyRead, this, [this, socket, caseName, utilityType]() {
         while (socket->canReadLine()) {
             QByteArray data = socket->readLine();
 
@@ -100,7 +100,7 @@ void WslSystem::launchLongUtility(const QString& cmd) {
             }
             // Handle the completion states
             else if (status == "success" || status == "error") {
-                emit longUtilityFinished(status);
+                emit longUtilityFinished(status, caseName, utilityType);
                 socket->disconnectFromHost();
             }
         }
@@ -333,6 +333,13 @@ QString WslSystem::checkPath(QString projPath) {
     return path;
 }
 
+QString WslSystem::getResultFolders(QString projPath) {
+
+    QJsonObject result = contactServer("getResultFolders", projPath);
+    QString res = result["message"].toString();
+    return res;
+}
+
 QByteArray WslSystem::getFileContent(QString path) {
 
     QTcpSocket socket;
@@ -392,6 +399,106 @@ QByteArray WslSystem::getFileContent(QString path) {
         }
     }
     return payload;
+}
+
+RenderData WslSystem::getResultData(QString path) {
+    RenderData result;
+    QTcpSocket socket;
+    socket.connectToHost(QHostAddress::LocalHost, 8080);
+
+    if (!socket.waitForConnected(3000)) {
+        qDebug() << "Could not connect to WSL server on port 8080.";
+        return result;
+    }
+
+    // Send the JSON Request
+    QJsonObject request;
+    request["action"] = "getFileContent";
+    request["message"] = path;
+    socket.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
+
+    // Read the JSON Response
+    bool jsonRead = false;
+    while (!jsonRead && socket.waitForReadyRead(3000)) {
+        if (socket.canReadLine()) {
+            QByteArray jsonData = socket.readLine(); // Reads exactly up to the '\n'
+            QJsonParseError parseError;
+            QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
+
+            if (parseError.error != QJsonParseError::NoError) {
+                qDebug() << "JSON Parse Error: " + parseError.errorString();
+                return result;
+            }
+
+            QJsonObject responseObj = doc.object();
+            if (responseObj["status"].toString() != "success") {
+                qDebug() << "Server error: " + responseObj["message"].toString();
+                return result;
+            }
+            jsonRead = true;
+        }
+    }
+
+    if (!jsonRead) {
+        qDebug() << "Timeout waiting for JSON response header.";
+        return result;
+    }
+
+    // Read the Binary Header
+    ResultHeader binHeader;
+    qint64 headerSize = sizeof(ResultHeader);
+    qint64 headerBytesRead = 0;
+    while (headerBytesRead < headerSize) {
+        if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
+            qint64 chunk = socket.read(reinterpret_cast<char*>(&binHeader) + headerBytesRead,
+                                       headerSize - headerBytesRead);
+            if (chunk > 0) headerBytesRead += chunk;
+        } else {
+            qDebug() << "Timeout reading binary header.";
+            return result;
+        }
+    }
+
+    // Check the magic number
+    if (binHeader.magicNumber != 0xFEEDBEEF) {
+        qDebug() << "Protocol mismatch: Magic number invalid.";
+        return result;
+    }
+
+    // Read the Vertex Payload
+    result.data.resize(binHeader.dataByteSize);
+    qint64 vertexBytesRead = 0;
+
+    while (vertexBytesRead < binHeader.dataByteSize) {
+        if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
+            qint64 chunk = socket.read(reinterpret_cast<char*>(result.data.data()) + vertexBytesRead,
+                                       binHeader.dataByteSize - vertexBytesRead);
+            if (chunk > 0) vertexBytesRead += chunk;
+        } else {
+            qDebug() << "Timeout reading vertex payload.";
+            return result;
+        }
+    }
+
+    // Read the Index Payload
+    result.indices.resize(binHeader.indexByteSize / sizeof(uint32_t));
+    qint64 indexBytesRead = 0;
+    while (indexBytesRead < binHeader.indexByteSize) {
+        if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
+            qint64 chunk = socket.read(reinterpret_cast<char*>(result.indices.data()) + indexBytesRead,
+                                       binHeader.indexByteSize - indexBytesRead);
+            if (chunk > 0) indexBytesRead += chunk;
+        } else {
+            qDebug() << "Timeout reading index payload.";
+            return result;
+        }
+    }
+
+    // Finalize
+    result.format = RenderType::Color;
+    result.boundingBoxMin = binHeader.boundingBoxMin;
+    result.boundingBoxMax = binHeader.boundingBoxMax;
+    return result;
 }
 
 // Check for installed Linux distributions

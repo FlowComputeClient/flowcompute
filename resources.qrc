@@ -4,6 +4,10 @@
         <file>config/turbulence.json</file>
         <file>config/fields.json</file>
         <file>config/boundary_conditions.json</file>
+        <file>config/material_properties.json</file>
+        <file>fonts/JetBrainsMono-Regular.ttf</file>        
+        <file>fonts/JetBrainsMono-Bold.ttf</file>
+        <file>fonts/JetBrainsMono-Italic.ttf</file>        
         <file>images/case_folder.png</file>
         <file>images/delete.png</file>
         <file>images/dict.png</file>
@@ -12,15 +16,17 @@
         <file>images/help.png</file>
         <file>images/mesh.png</file>
         <file>images/new_case.png</file>
-        <file>images/play.png</file>
         <file>images/post_process.png</file>
         <file>images/redo.png</file>
         <file>images/run_mesh.png</file>
+        <file>images/run_solver.png</file>
         <file>images/save.png</file>
-        <file>images/stop.png</file>
+        <file>images/solver.png</file>
+        <file>images/stop_solver.png</file>
         <file>images/time.png</file>
         <file>images/undo.png</file>
         <file>images/view_mesh.png</file>
+        <file>images/view_result.png</file>
         <file>images/zoom_in.png</file>
         <file>images/zoom_out.png</file>
         <file>images/flowcompute.ico</file>
@@ -51,5 +57,8 @@
         <file>template/p_rgh</file>
         <file>template/nut</file>
         <file>template/epsilon</file>
+        <file>template/omega</file>
+        <file>themes/light.json</file>
+        <file>themes/dark.json</file>
     </qresource>
 </RCC>

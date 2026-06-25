@@ -26,8 +26,8 @@ protected:
     void initializePage() override;
 
 private:
-    QLineEdit *hiddenPathField;
-    QTreeWidget* tutorialTree;
+    QLineEdit *m_hiddenPathEdit;
+    QTreeWidget* m_tutorialTree;
 
     void onTreeSelectionChanged();
     void populateTutorialTree(QTreeWidget* treeWidget, const QStringList& paths);

@@ -1,5 +1,6 @@
 #include "utility_output_dialog.h"
 
+#include <QFontDatabase>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -18,16 +19,11 @@ UtilityOutputDialog::UtilityOutputDialog(const QString& title,
 
     // Create layout
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSizeConstraint(QLayout::SetFixedSize);
-    mainLayout->setSpacing(15);
+    // mainLayout->setSizeConstraint(QLayout::SetFixedSize);
+    mainLayout->setSpacing(0);
 
     // Set appearance
     setWindowTitle(title);
-    setStyleSheet(R"(
-        QLabel      { color: black; font-size: 14px; }
-        QPushButton { color: black; }
-        QTextEdit   { color: black; }
-    )");
 
     // Set description
     if (!description.isEmpty()) {
@@ -39,6 +35,8 @@ UtilityOutputDialog::UtilityOutputDialog(const QString& title,
         descLabel->setFont(f);
         mainLayout->addWidget(descLabel);
     }
+
+    mainLayout->addSpacing(20);
 
     // Display Summary Items
     for (const auto& item : summaryItems) {
@@ -66,11 +64,14 @@ UtilityOutputDialog::UtilityOutputDialog(const QString& title,
     m_rawLogTextEdit->setMinimumSize(400, 300);
 
     // Use a monospace font for terminal output
-    QFont monoFont("Courier");
+    QFont monoFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    m_rawLogTextEdit->setFont(monoFont);
     monoFont.setStyleHint(QFont::Monospace);
     m_rawLogTextEdit->setFont(monoFont);
     m_rawLogTextEdit->setVisible(false);
     mainLayout->addWidget(m_rawLogTextEdit);
+
+    mainLayout->addSpacing(20);
 
     // Close Button
     QPushButton* closeButton = new QPushButton("Close", this);
@@ -78,8 +79,12 @@ UtilityOutputDialog::UtilityOutputDialog(const QString& title,
 
     QHBoxLayout* buttonLayout = new QHBoxLayout();
     buttonLayout->addStretch();
-    buttonLayout->addWidget(closeButton, Qt::AlignHCenter);
+    buttonLayout->addWidget(closeButton);
+    buttonLayout->addStretch();
     mainLayout->addLayout(buttonLayout);
+
+    this->adjustSize();
+    setMinimumWidth(320);
 }
 
 void UtilityOutputDialog::toggleLogViewer(bool checked) {

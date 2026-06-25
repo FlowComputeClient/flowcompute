@@ -1,20 +1,22 @@
 #include "wizard_mesh.h"
 
 #include "../../main_window.h"
+#include "../../utils.h"
 #include "mesh_io.h"
 
 // Function declarations
-MeshWizard::MeshWizard(QWidget *parent): QWizard(parent) {
+MeshWizard::MeshWizard(const QString& caseName, const QStringList& cases, QWidget *parent):
+    m_caseName(caseName), QWizard(parent) {
 
     setWizardStyle(QWizard::ClassicStyle);
-    setStyleSheet("color: black;");
+    // setStyleSheet("color: black;");
     setWindowTitle(tr("Mesh Configuration Wizard"));
 
     // Access the main window, get cases
     mainWin = qobject_cast<MainWindow*>(this->parentWidget());
 
     // Add pages using setPage with their explicit IDs
-    setPage(Page_Geometry, new GeometryPage(this));
+    setPage(Page_Geometry, new GeometryPage(m_caseName, cases, this));
     setPage(Page_BlockMesh1, new BlockMeshPage1(this));
     setPage(Page_BlockMesh2, new BlockMeshPage2(this));
     setPage(Page_SurfaceExtraction, new SurfaceExtractionPage(this));
@@ -48,7 +50,15 @@ bool MeshWizard::loadParseFiles() {
                 m_dictMap.insert(fileName, dict);
                 m_blockMeshConfig = MeshIO::parseBlockMesh(dict);
             } else {
-                if(!showParsingErrorMessage(fileName)) {
+                auto action = Utils::showParsingErrorMessage(fileName, this);
+                switch(action) {
+                case Utils::ParseErrorAction::EditFile:
+                    mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
+                    reject();
+                    return false;
+                case Utils::ParseErrorAction::Overwrite:
+                    break;
+                case Utils::ParseErrorAction::Cancel:
                     return false;
                 }
             }
@@ -67,7 +77,15 @@ bool MeshWizard::loadParseFiles() {
                 m_dictMap.insert(fileName, dict);
                 m_surfaceFeatureMap = MeshIO::parseSurfaceFeatureData(dict, m_geometryMap.keys());
             } else {
-                if(!showParsingErrorMessage(fileName)) {
+                auto action = Utils::showParsingErrorMessage(fileName, this);
+                switch(action) {
+                case Utils::ParseErrorAction::EditFile:
+                    mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
+                    reject();
+                    return false;
+                case Utils::ParseErrorAction::Overwrite:
+                    break;
+                case Utils::ParseErrorAction::Cancel:
                     return false;
                 }
             }
@@ -91,43 +109,21 @@ bool MeshWizard::loadParseFiles() {
                 if (m_runLayers) m_layerControlConfig =
                         MeshIO::parseLayerControlConfig(dict);
             }  else {
-                if(!showParsingErrorMessage(fileName)) {
+                auto action = Utils::showParsingErrorMessage(fileName, this);
+                switch(action) {
+                case Utils::ParseErrorAction::EditFile:
+                    mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
+                    reject();
+                    return false;
+                case Utils::ParseErrorAction::Overwrite:
+                    break;
+                case Utils::ParseErrorAction::Cancel:
                     return false;
                 }
             }
         }
     }
     return true;
-}
-
-bool MeshWizard::showParsingErrorMessage(QString fileName) {
-
-    QMessageBox errorDialog(this);
-    errorDialog.setWindowTitle("Parse Error");
-    errorDialog.setText(QString("<b>Failed to parse %1.</b>").arg(fileName));
-    errorDialog.setInformativeText("The file may contain syntax errors or unsupported keywords.");
-    errorDialog.setIcon(QMessageBox::Warning);
-
-    // Add the custom choices and assign them roles
-    QPushButton *editBtn = errorDialog.addButton("Edit File", QMessageBox::ActionRole);
-    QPushButton *overwriteBtn = errorDialog.addButton("Overwrite with Defaults", QMessageBox::DestructiveRole);
-    QPushButton *cancelBtn = errorDialog.addButton("Cancel", QMessageBox::RejectRole);
-    errorDialog.setDefaultButton(editBtn);
-
-    // Execute the dialog modally
-    errorDialog.exec();
-
-    // Determine which choice the user made
-    if (errorDialog.clickedButton() == editBtn) {
-        mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
-        reject();
-        return false;
-    } else if (errorDialog.clickedButton() == overwriteBtn) {
-        return true;
-    } else if (errorDialog.clickedButton() == cancelBtn) {
-        return false;
-    }
-    return false;
 }
 
 void MeshWizard::accept() {
@@ -171,15 +167,6 @@ void MeshWizard::accept() {
         // Update file
         mainWin->targetSystems[m_targetId]->writeData(surfaceFeatureExtractDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/surfaceFeatureExtractDict");
-
-        /*
-        // Launch utility
-        QString cmd = QString("cd %1; source %2/etc/bashrc && surfaceFeatureExtract").arg(m_casePath + "/" + m_caseName, openFoamPath);
-        QString output;
-        if (mainWin->targetSystems[m_targetId]->launchShortUtility(cmd, output) == 0) {
-            mainWin->log(output);
-        }
-        */
     }
 
     // Update or create snappyHexMeshDict
@@ -205,15 +192,6 @@ void MeshWizard::accept() {
         // Update file
         mainWin->targetSystems[m_targetId]->writeData(snappyHexMeshDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/snappyHexMeshDict");
-
-        /*
-        // Launch utility
-        QString cmd = QString("cd %1; source %2/etc/bashrc && snappyHexMesh").arg(m_casePath + "/" + m_caseName, openFoamPath);
-        QString output;
-        if (mainWin->targetSystems[m_targetId]->launchShortUtility(cmd, output) == 0) {
-            mainWin->log(output);
-        }
-        */
     }
 
     mainWin->updatePath(m_caseName, "system", m_targetId);

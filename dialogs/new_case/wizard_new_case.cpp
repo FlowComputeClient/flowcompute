@@ -5,7 +5,6 @@
 NewCaseWizard::NewCaseWizard(QWidget *parent): QWizard(parent) {
 
     setWizardStyle(QWizard::ClassicStyle);
-    setStyleSheet("color: black;");
     setWindowTitle("New Case Wizard");
 
     // Access the main window
@@ -63,7 +62,7 @@ bool NewCaseWizard::validateCurrentPage() {
             QString msg = tr("There is already a case named '%1'.\nCreate '%2' instead?")
                               .arg(m_caseName, newName);
             reply = QMessageBox::question(this, tr("Existing Case Detected"), msg,
-                                          QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 
             // Fail validation if the response is no
             if (reply == QMessageBox::No) {

@@ -1,6 +1,10 @@
 #include "model_left_pane.h"
 
 #include "../../../geometry/graphic_data.h"
+#include "../table_delegate.h"
+
+#include <QStyleOption>
+#include <QPainter>
 
 ModelLeftPane::ModelLeftPane(QWidget* parent): QWidget(parent) {
 
@@ -9,6 +13,7 @@ ModelLeftPane::ModelLeftPane(QWidget* parent): QWidget(parent) {
     layout->setSpacing(15);
     setLayout(layout);
 
+    /*
     // Set stylesheet
     setStyleSheet(R"(
         QPushButton    { color: black; }
@@ -18,10 +23,15 @@ ModelLeftPane::ModelLeftPane(QWidget* parent): QWidget(parent) {
         QTableWidget   { color: black; }
         QHeaderView    { color: black; }
     )");
+    */
+
+    setProperty("widgetType", "pane");
 
     // Set dimensions
     int buttonWidth = 130;
     int spinBoxWidth = 80;
+
+    layout->addSpacing(10);
 
     // Label
     layout->addSpacing(5);
@@ -36,11 +46,16 @@ ModelLeftPane::ModelLeftPane(QWidget* parent): QWidget(parent) {
     connect(m_checkButton, &QPushButton::clicked,
             this, &ModelLeftPane::onCheckButtonClicked);
 
+    layout->addSpacing(10);
+
     // Horizontal line
     QFrame *line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
+    line->setProperty("lineStyle", "hline");
     layout->addWidget(line);
+
+    layout->addSpacing(10);
 
     // Label that displays surface size
     m_boundsLabel = new QLabel();
@@ -71,11 +86,16 @@ ModelLeftPane::ModelLeftPane(QWidget* parent): QWidget(parent) {
     connect(m_scaleButton, &QPushButton::clicked,
             this, &ModelLeftPane::onScaleButtonClicked);
 
+    layout->addSpacing(10);
+
     // Horizontal line
     line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
+    line->setProperty("lineStyle", "hline");
     layout->addWidget(line);
+
+    layout->addSpacing(10);
 
     // Create horizontal layout
     hLayout = new QHBoxLayout();
@@ -101,15 +121,22 @@ ModelLeftPane::ModelLeftPane(QWidget* parent): QWidget(parent) {
     connect(m_patchButton, &QPushButton::clicked,
             this, &ModelLeftPane::onPatchButtonClicked);
 
+    layout->addSpacing(10);
+
     // Horizontal line
     line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
+    line->setProperty("lineStyle", "hline");
     layout->addWidget(line);
+
+    layout->addSpacing(10);
 
     // Set table title
     QLabel* tableTitle = new QLabel(tr("<b>Surface Patches</b>"));
     layout->addWidget(tableTitle, 0, Qt::AlignHCenter);
+
+    layout->addSpacing(10);
 
     // Patch table
     m_patchTable = new QTableWidget(this);
@@ -119,7 +146,11 @@ ModelLeftPane::ModelLeftPane(QWidget* parent): QWidget(parent) {
     m_patchTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_patchTable->verticalHeader()->setVisible(false);
     m_patchTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    m_patchTable->setTabKeyNavigation(true);
+    m_patchTable->setItemDelegateForColumn(1, new TableDelegate(m_patchTable));
+    m_patchTable->setStyleSheet("QTableView::item { padding-left: 10px; }");
     layout->addWidget(m_patchTable, 0, Qt::AlignHCenter);
+    m_patchTable->setShowGrid(false);
 
     // Emit signal when a patch name changes
     connect(m_patchTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
@@ -224,5 +255,13 @@ void ModelLeftPane::onScaleButtonClicked() {
 void ModelLeftPane::onPatchButtonClicked() {
     double angle = m_angleSpin->value();
     emit surfacePatchRequested(angle);
+}
+
+void ModelLeftPane::paintEvent(QPaintEvent *event) {
+    QStyleOption opt;
+    opt.initFrom(this);
+    QPainter p(this);
+    style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
+    QWidget::paintEvent(event);
 }
 

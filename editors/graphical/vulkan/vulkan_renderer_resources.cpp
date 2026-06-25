@@ -7,7 +7,7 @@ void VulkanRenderer::createVertexBuffer() {
 
     // Check mesh data
     if (!m_renderData || m_renderData->data.empty()) {
-        qWarning("Mesh data is empty. Skipping buffer creation.");
+        qWarning("Vertex data is empty. Skipping buffer creation.");
         return;
     }
 
@@ -39,7 +39,7 @@ void VulkanRenderer::createVertexBuffer() {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = vertexMemReqs.size,
         .memoryTypeIndex = findMemoryType(vertexMemReqs.memoryTypeBits,
-                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
 
     err = m_devFuncs->vkAllocateMemory(m_device, &vertexAllocInfo, nullptr, &m_vertexBufferMemory);
@@ -84,7 +84,7 @@ void VulkanRenderer::createIndexBuffer() {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = indexMemReqs.size,
         .memoryTypeIndex = findMemoryType(indexMemReqs.memoryTypeBits,
-                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
 
     err = m_devFuncs->vkAllocateMemory(m_device, &indexAllocInfo, nullptr, &m_indexBufferMemory);
@@ -104,17 +104,19 @@ void VulkanRenderer::createAxisBuffer() {
     // Create axis buffer
     float xDiff = m_renderData->boundingBoxMax[0] - m_renderData->boundingBoxMin[0];
     float yDiff = m_renderData->boundingBoxMax[1] - m_renderData->boundingBoxMin[1];
-    float zDiff = m_renderData->boundingBoxMax[2] - m_renderData->boundingBoxMin[2];
-    float maxDim = std::max({xDiff, yDiff, zDiff});
-    if (maxDim < 0.001f) maxDim = 1.0f;
-    float L = maxDim * 10.0f;
-    std::array<float, 36> axisData = {
-        0.0, 0.0, 0.0,  1.0, 0.35, 0.35,
-        L, 0.0, 0.0,  1.0, 0.35, 0.35,
-        0.0, 0.0, 0.0,  0.35, 1.0, 0.35,
-        0.0, L, 0.0,  0.35, 1.0, 0.35,
-        0.0, 0.0, 0.0,  0.4, 0.65, 1.0,
-        0.0, 0.0, L,  0.4, 0.65, 1.0 };
+    m_maxDim = std::max({xDiff, yDiff});
+    if (m_maxDim < 0.001f) m_maxDim = 1.0f;
+
+    // The extent of the geometric plane
+    float L = m_maxDim * 10.0f;
+    std::vector<float> axisData = {
+        -L, -L, 0.0f,
+        L, -L, 0.0f,
+        -L,  L, 0.0f,
+        L, -L, 0.0f,
+        L,  L, 0.0f,
+        -L,  L, 0.0f
+    };
     VkDeviceSize axisBufferSize = axisData.size() * sizeof(axisData[0]);
     VkBufferCreateInfo axisBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -132,7 +134,8 @@ void VulkanRenderer::createAxisBuffer() {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = axisMemReqs.size,
         .memoryTypeIndex = findMemoryType(axisMemReqs.memoryTypeBits,
-                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
 
     err = m_devFuncs->vkAllocateMemory(m_device, &axisAllocInfo, nullptr, &m_axisBufferMemory);
@@ -184,8 +187,8 @@ void VulkanRenderer::createUniformBuffer() {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = memReqs.size,
         .memoryTypeIndex = findMemoryType(memReqs.memoryTypeBits,
-                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
 
     err = m_devFuncs->vkAllocateMemory(m_device, &allocInfo, nullptr, &m_uniformBufferMemory);
@@ -246,8 +249,6 @@ void VulkanRenderer::createTexture() {
     m_devFuncs->vkUnmapMemory(m_device, stagingBufferMemory);
 
     // Create Texture Image
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
     VkImageCreateInfo imageInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_1D,
@@ -260,15 +261,15 @@ void VulkanRenderer::createTexture() {
         .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
-    m_devFuncs->vkCreateImage(m_device, &imageInfo, nullptr, &textureImage);
+    m_devFuncs->vkCreateImage(m_device, &imageInfo, nullptr, &m_textureImage);
 
     // Allocate GPU memory for the Image
-    m_devFuncs->vkGetImageMemoryRequirements(m_device, textureImage, &memRequirements);
+    m_devFuncs->vkGetImageMemoryRequirements(m_device, m_textureImage, &memRequirements);
     memAllocInfo.allocationSize = memRequirements.size;
     memAllocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
                                                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    m_devFuncs->vkAllocateMemory(m_device, &memAllocInfo, nullptr, &textureImageMemory);
-    m_devFuncs->vkBindImageMemory(m_device, textureImage, textureImageMemory, 0);
+    m_devFuncs->vkAllocateMemory(m_device, &memAllocInfo, nullptr, &m_textureImageMemory);
+    m_devFuncs->vkBindImageMemory(m_device, m_textureImage, m_textureImageMemory, 0);
 
     // Create command pool
     VkCommandPool commandPool;
@@ -306,7 +307,7 @@ void VulkanRenderer::createTexture() {
         .newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = textureImage,
+        .image = m_textureImage,
         .subresourceRange = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
@@ -333,7 +334,7 @@ void VulkanRenderer::createTexture() {
 
     // Copy data from staging buffer to image
     m_devFuncs->vkCmdCopyBufferToImage(commandBuffer,
-        stagingBuffer, textureImage,
+        stagingBuffer, m_textureImage,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1, &region);
 
@@ -363,15 +364,14 @@ void VulkanRenderer::createTexture() {
 
     // Free resources
     m_devFuncs->vkFreeCommandBuffers(m_device, commandPool, 1, &commandBuffer);
-    m_devFuncs->vkDestroyCommandPool(m_device, commandPool, nullptr); // Added: Don't forget to destroy the pool!
+    m_devFuncs->vkDestroyCommandPool(m_device, commandPool, nullptr);
     m_devFuncs->vkDestroyBuffer(m_device, stagingBuffer, nullptr);
     m_devFuncs->vkFreeMemory(m_device, stagingBufferMemory, nullptr);
 
     // Create the image view
-    VkImageView imageView;
     VkImageViewCreateInfo viewInfo = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image = textureImage,
+        .image = m_textureImage,
         .viewType = VK_IMAGE_VIEW_TYPE_1D,
         .format = VK_FORMAT_R8G8B8A8_UNORM,
         .subresourceRange = {
@@ -380,10 +380,9 @@ void VulkanRenderer::createTexture() {
             .baseArrayLayer = 0, .layerCount = 1
         }
     };
-    m_devFuncs->vkCreateImageView(m_device, &viewInfo, nullptr, &imageView);
+    m_devFuncs->vkCreateImageView(m_device, &viewInfo, nullptr, &m_imageView);
 
     // Create the sampler
-    VkSampler sampler;
     VkSamplerCreateInfo samplerInfo = {
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .magFilter = VK_FILTER_LINEAR,
@@ -395,12 +394,12 @@ void VulkanRenderer::createTexture() {
         .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
         .unnormalizedCoordinates = VK_FALSE
     };
-    m_devFuncs->vkCreateSampler(m_device, &samplerInfo, NULL, &sampler);
+    m_devFuncs->vkCreateSampler(m_device, &samplerInfo, NULL, &m_sampler);
 
     // Create the descriptor image
     m_colorMapImageInfo = {
-        .sampler = sampler,
-        .imageView = imageView,
+        .sampler = m_sampler,
+        .imageView = m_imageView,
         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 }

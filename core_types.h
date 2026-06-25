@@ -19,37 +19,37 @@ enum class Algorithm {
 Q_ENUM_NS(Algorithm)
 
 enum class FieldClass {
-    VolScalarField = 0,
-    VolVectorField,
-    VolSphericalTensorField,
-    VolSymmTensorField,
-    VolTensorField,
-    SurfaceScalarField,
-    SurfaceVectorField,
-    SurfaceSphericalTensorField,
-    SurfaceSymmTensorField,
-    SurfaceTensorField,
-    PointScalarField,
-    PointVectorField,
-    PointSphericalTensorField,
-    PointSymmTensorField,
-    PointTensorField,
+    volScalarField = 0,
+    volVectorField,
+    volSphericalTensorField,
+    volSymmTensorField,
+    volTensorField,
+    surfaceScalarField,
+    surfaceVectorField,
+    surfaceSphericalTensorField,
+    surfaceSymmTensorField,
+    surfaceTensorField,
+    pointScalarField,
+    pointVectorField,
+    pointSphericalTensorField,
+    pointSymmTensorField,
+    pointTensorField,
     Unknown,
 };
 Q_ENUM_NS(FieldClass)
 
 enum class LinearSolver {
+    GAMG = 0,
+    smoothSolver,
+    PBiCGStab,
     PCG,
     PBiCG,
-    PBiCGStab,
-    smoothSolver,
-    GAMG,
     diagonal
 };
 Q_ENUM_NS(LinearSolver)
 
 enum class Smoother {
-    symGaussSeidel,
+    symGaussSeidel = 0,
     GaussSeidel,
     DICGaussSeidel,
     DILUGaussSeidel,
@@ -59,11 +59,11 @@ enum class Smoother {
 Q_ENUM_NS(Smoother)
 
 enum class Preconditioner {
+    DILU = 0,
     DIC,
-    FDIC,
-    DILU,
-    ILU,
     GAMG,
+    FDIC,
+    ILU,
     NONE
 };
 Q_ENUM_NS(Preconditioner)
@@ -90,7 +90,6 @@ struct MeshPatch {
     QString type;
     bool nameChanged = false;
     bool typeChanged = false;
-    std::unordered_map<QString, BoundaryCondition> bcs;
 };
 
 struct BoundaryConditionDef {
@@ -102,10 +101,10 @@ struct BoundaryConditionDef {
 };
 
 struct FieldData {
-    QString dimension;
-    QString fieldClass;
-    QString internalField;
-    std::unordered_map<QString, BoundaryCondition> bcs;
+    QString dimension = "[0 0 0 0 0 0 0]";
+    FieldClass fieldClass = FieldClass::volScalarField;
+    QString internalField = "uniform 0";
+    std::vector<std::pair<QString, BoundaryCondition>> bcs;
 };
 
 struct FieldDef {
@@ -114,43 +113,51 @@ struct FieldDef {
     FieldClass fieldClass;
 };
 
-struct SolverDetails {
+struct SolverDef {
     QString name;
     Algorithm algorithm = Algorithm::PIMPLE;
     QStringList fields;
+    QStringList transportProperties;
+    QStringList thermalProperties;
     bool isSteadyState = false;
 };
 
+struct TransportPropertyDef {
+    QString name;
+    QString dimensions;
+    QString defaultVal;
+};
+
 struct SolverFamily {
-    QString familyName;
-    QList<SolverDetails> solvers;
+    QString name;
+    QList<SolverDef> solvers;
 };
 
 inline QString getBaseMathType(FieldClass foamClass) {
     switch (foamClass) {
-    case FieldClass::VolScalarField:
-    case FieldClass::SurfaceScalarField:
-    case FieldClass::PointScalarField:
+    case FieldClass::volScalarField:
+    case FieldClass::surfaceScalarField:
+    case FieldClass::pointScalarField:
         return "scalar";
 
-    case FieldClass::VolVectorField:
-    case FieldClass::SurfaceVectorField:
-    case FieldClass::PointVectorField:
+    case FieldClass::volVectorField:
+    case FieldClass::surfaceVectorField:
+    case FieldClass::pointVectorField:
         return "vector";
 
-    case FieldClass::VolSymmTensorField:
-    case FieldClass::SurfaceSymmTensorField:
-    case FieldClass::PointSymmTensorField:
+    case FieldClass::volSymmTensorField:
+    case FieldClass::surfaceSymmTensorField:
+    case FieldClass::pointSymmTensorField:
         return "symmTensor";
 
-    case FieldClass::VolTensorField:
-    case FieldClass::SurfaceTensorField:
-    case FieldClass::PointTensorField:
+    case FieldClass::volTensorField:
+    case FieldClass::surfaceTensorField:
+    case FieldClass::pointTensorField:
         return "tensor";
 
-    case FieldClass::VolSphericalTensorField:
-    case FieldClass::SurfaceSphericalTensorField:
-    case FieldClass::PointSphericalTensorField:
+    case FieldClass::volSphericalTensorField:
+    case FieldClass::surfaceSphericalTensorField:
+    case FieldClass::pointSphericalTensorField:
         return "sphericalTensor";
 
     default:

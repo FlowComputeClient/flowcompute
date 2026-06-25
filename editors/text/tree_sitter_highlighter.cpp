@@ -7,13 +7,42 @@ TreeSitterHighlighter::TreeSitterHighlighter(QTextDocument *parent)
     m_parser.reset(ts_parser_new());
     ts_parser_set_language(m_parser.get(), tree_sitter_openfoam());
 
-    // Setup some basic Qt text formats
-    m_keywordFormat.setForeground(Qt::darkBlue);
-    m_keywordFormat.setFontWeight(QFont::Bold);
+    /*
+      "keyword": { "color": "#569CD6", "bold": true, "italic": false },
+      "number": { "color": "#B5CEA8", "bold": false, "italic": false },
+      "string": { "color": "#CE9178", "bold": false, "italic": false },
+      "enum": { "color": "#4EC9B0", "bold": false, "italic": false },
+      "comment": { "color": "#6A9955", "bold": false, "italic": true },
+      "punctuation": { "color": "#808080", "bold": false, "italic": false },
+      "macro": { "color": "#C586C0", "bold": true, "italic": false }
+    */
 
-    m_numberFormat.setForeground(Qt::darkGreen);
-    m_stringFormat.setForeground(Qt::darkRed);
-    m_enumFormat.setForeground(Qt::darkCyan);
+    // m_keywordFormat, m_numberFormat, m_stringFormat, m_enumFormat, m_macroFormat, m_commentFormat;
+
+    // Setup some basic Qt text formats
+    m_keywordFormat.setForeground(QColor("#569CD6"));
+    m_keywordFormat.setFontWeight(QFont::Bold);
+    m_keywordFormat.setFontItalic(false);
+
+    m_numberFormat.setForeground(QColor("#B5CEA8"));
+    m_numberFormat.setFontItalic(false);
+
+    m_stringFormat.setForeground(QColor("#CE9178"));
+    m_stringFormat.setFontItalic(false);
+
+    m_enumFormat.setForeground(QColor("#4EC9B0"));
+    m_enumFormat.setFontItalic(false);
+
+    m_macroFormat.setForeground(QColor("#C586C0"));
+    m_macroFormat.setFontWeight(QFont::Bold);
+    m_macroFormat.setFontItalic(false);
+
+    m_commentFormat.setForeground(QColor("#E5C07B"));
+    m_commentFormat.setFontItalic(true);
+}
+
+void TreeSitterHighlighter::setSyntaxConfig(const SyntaxConfig& cfg) {
+
 }
 
 void TreeSitterHighlighter::setTree(TSTree* newTree, const QByteArray& documentUtf8) {
@@ -66,13 +95,8 @@ void TreeSitterHighlighter::applyFormatting(TSNode node, int blockStart, int blo
             int length = overlapEnd - overlapStart;
 
             if (nodeType == "identifier") {
-                // 1. Get the parent node (usually an 'entry' or 'list')
                 TSNode parent = ts_node_parent(node);
-
-                // 2. Ask the parent for its specific "key" child
                 TSNode keyNode = ts_node_child_by_field_name(parent, "key", 3);
-
-                // 3. If this identifier IS the key node, style it as a key
                 if (!ts_node_is_null(keyNode) && ts_node_eq(node, keyNode)) {
                     setFormat(relativeStart, length, m_keywordFormat);
                 } else {
@@ -88,6 +112,12 @@ void TreeSitterHighlighter::applyFormatting(TSNode node, int blockStart, int blo
             }
             else if (nodeType == "boolean") {
                 setFormat(relativeStart, length, m_keywordFormat);
+            }
+            else if (nodeType == "line_comment" || nodeType == "block_comment") {
+                setFormat(relativeStart, length, m_commentFormat);
+            }
+            else if (nodeType == "include_directive" || nodeType == "calc_directive" || nodeType == "code_stream") {
+                setFormat(relativeStart, length, m_macroFormat);
             }
         }
     } else {

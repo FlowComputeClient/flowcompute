@@ -37,6 +37,7 @@ TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
     setTabsClosable(true);
     connect(this, &QTabWidget::tabCloseRequested, this, &TabWidget::destroyTab);
 
+    /*
     // Set style
     setStyleSheet(
         "QTabBar {"
@@ -66,6 +67,7 @@ TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
         "}"
         "QMessageBox { color: #000000; }"
         );
+    */
 }
 
 TabWidget::~TabWidget() {}
@@ -96,7 +98,7 @@ bool TabWidget::promptToSave(int index) {
     msgBox.setIcon(QMessageBox::Warning);
     msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
     msgBox.setDefaultButton(QMessageBox::Save);
-    msgBox.setStyleSheet("QLabel { color: black; } QPushButton { color: black; }");
+    // msgBox.setStyleSheet("QLabel { color: black; } QPushButton { color: black; }");
 
     int resBtn = msgBox.exec();
     if (resBtn == QMessageBox::Save) {
@@ -111,7 +113,6 @@ bool TabWidget::promptToSave(int index) {
 }
 
 void TabWidget::destroyTab(int index) {
-    // If the user clicked Cancel, promptToSave returns false, so we abort destruction.
     if (!promptToSave(index)) {
         return;
     }
@@ -146,83 +147,3 @@ void TabWidget::changeDirtyState(QWidget* editor, bool dirty) {
         return;
     }
 }
-
-/*
-void TabWidget::editFile(NodeData* node) {
-
-    QString path = workspacePath + "/" + node->file_path;
-    if(opened.contains(path)) {
-        setCurrentIndex(opened.indexOf(path));
-    }
-    else {
-        opened.append(path);
-        setCurrentIndex(createEditor(node->file_name, path));
-    }
-}
-
-void TabWidget::setWorkspace(QString path) {
-
-    // Read list of files to open
-    workspacePath = path;
-    QString line;
-    QString filename = workspacePath + "/.ngenie-workspace";
-    QFile file(filename);
-    if (file.open(QIODevice::ReadOnly)) {
-        QTextStream stream(&file);
-        while (!stream.atEnd() && !line.startsWith("open")) {
-            line = stream.readLine();
-        }
-        file.close();
-    }
-    if(line.startsWith("open")) {
-        opened = line.split("=").last().split(",");
-    }
-
-    for(int i=0; i<opened.count(); i++) {
-        int pos = opened[i].lastIndexOf("/");
-        QString name = opened[i].mid(pos+1);
-        setCurrentIndex(createEditor(name, opened[i]));
-    }
-}
-
-int TabWidget::createEditor(QString name, QString path) {
-
-    CodeEditor *editor = new CodeEditor(this, path);
-    connect(editor, SIGNAL(changeDirtyState(QWidget*, bool)), this, SLOT(changeDirtyState(QWidget*, bool)));
-    int index = addTab(editor, name);
-    editor->setFocus();
-    return index;
-}
-
-void TabWidget::updateWorkspace() {
-
-    QString newFile = "";
-    QString filename = workspacePath + "/.ngenie-workspace";
-    QFile file(filename);
-    if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
-        QTextStream stream(&file);
-        while (!stream.atEnd()) {
-            QString line = stream.readLine();
-            if(!line.startsWith("open")) {
-                newFile = newFile % line;
-            }
-        }
-        newFile = newFile.trimmed();
-        if(!opened.empty()) {
-            if(newFile != "")
-                newFile = newFile % "\n";
-            newFile = newFile % "open=" % opened.join(",");
-        }
-        file.resize(0);
-        stream << newFile;
-        file.close();
-    }
-    else {
-        qDebug() << "Couldn't open workspace file";
-    }
-}
-
-CodeEditor* TabWidget::getCurrentEditor() {
-    return (CodeEditor*)currentWidget();
-}
-*/

@@ -2,20 +2,22 @@
 
 #include "dialogs/mesh/wizard_mesh.h"
 #include "dialogs/run_mesh/run_mesh_dialog.h"
-#include "dialogs/selection/selection_dialog.h"
+#include "dialogs/run_solver/run_solver_dialog.h"
 #include "dialogs/solver/wizard_solver.h"
 #include "dialogs/utility_output/utility_output_dialog.h"
 
-#include "editors/text/text_editor.h"
 #include "editors/graphical/model_editor/model_editor.h"
 #include "editors/graphical/mesh_editor/mesh_editor.h"
+#include "editors/graphical/result_editor/result_editor.h"
 #include "geometry/mesh/mesh_reader.h"
 #include "geometry/stl/stl_reader.h"
 #include "utils.h"
 
+#include <QApplication>
 #include <QtConcurrent>
 #include <QFuture>
 #include <QFutureWatcher>
+#include <QGuiApplication>
 #include <QProgressBar>
 #include <QProgressDialog>
 #include <QStatusBar>
@@ -34,6 +36,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     s_isWslAvailable = !wslPath.isEmpty();
 #endif
 
+    /*
     // Set title and icon
     setStyleSheet(
         "QWidget { background-color: #F4F1EA; }"
@@ -47,20 +50,27 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         "QTreeWidget { background-color: white; }"
         "QTreeView { background-color: white; }"
         );
-    menuBar()->setStyleSheet("QMenuBar { color: black; }");
-    setWindowTitle("FlowCompute 1.0.0");
+    */
+    setWindowTitle("FlowCompute 0.8.0 - Visual CFD Made Simple");
 
     // Configure font
-    font = QFont();
-    font.setPointSize(13);
-    font.setFamily("Courier New");
+    int regularId = QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Bold.ttf");
+    QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Italic.ttf");
+    if (regularId != -1) {
+        QString fontFamily = QFontDatabase::applicationFontFamilies(regularId).at(0);
+        m_font = QFont(fontFamily);
+        m_font.setPointSize(13);
+        m_font.setStyleHint(QFont::Monospace);
+        m_font.setFixedPitch(true);
+    }
 
     // Create communication systems
     targetSystems[0] = &wslSystem;
     connect(&wslSystem, &WslSystem::longUtilityOutputReceived,
             this, &MainWindow::log);
     connect(&wslSystem, &WslSystem::longUtilityFinished,
-            this, &MainWindow::log);
+            this, &MainWindow::longUtilityFinished);
     connect(&wslSystem, &WslSystem::longUtilityError,
             this, &MainWindow::log);
 
@@ -70,21 +80,66 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     createToolBar();
 
     // Create tab widget
-    tabWidget = new TabWidget(this);
-    setCentralWidget(tabWidget);
+    m_tabWidget = new TabWidget(this);
+    setCentralWidget(m_tabWidget);
 
     // Create the navigator
     navigatorWidget = new QDockWidget(tr("Case Navigator"), this);
     navigatorWidget->setTitleBarWidget(new QWidget(navigatorWidget));
     navigatorWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
-    navigator = new CaseNavigator(this);
-    navigatorWidget->setWidget(navigator);
+    m_navigator = new CaseNavigator(this);
+    navigatorWidget->setWidget(m_navigator);
     navigatorWidget->setMinimumWidth(200);
     addDockWidget(Qt::LeftDockWidgetArea, navigatorWidget);
     setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
 
-    // Populate caseMap and navigator from settings
+    // Create the console
+    consoleWidget = new QDockWidget(tr("Console"), this);
+    consoleWidget->setTitleBarWidget(new QWidget(consoleWidget));
+    consoleWidget->setAllowedAreas(Qt::BottomDockWidgetArea);
+    m_console = new Console(this);
+    consoleWidget->setWidget(m_console);
+    consoleWidget->setMinimumHeight(150);
+    addDockWidget(Qt::BottomDockWidgetArea, consoleWidget);
+    m_console->appendPlainText("\nWelcome to FlowCompute!\n");
+
+    // Access configuration directory
+    QString configDirPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    m_configDir.setPath(configDirPath);
+    if (!m_configDir.exists()) {
+        m_configDir = QDir(".");
+    }
+
+    // Create themes directory if it doesn't exist
+    QDir themesDir(m_configDir.filePath("themes"));
+    if (!themesDir.exists()) {
+        if (!m_configDir.mkpath("themes")) {
+            throw std::runtime_error("Failed to create themes directory");
+        }
+
+        // Copy files from the resource system
+        QDir resourceThemesDir(":/themes");
+        const QFileInfoList files =
+            resourceThemesDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
+        for (const QFileInfo& fileInfo : files) {
+            const QString sourcePath = fileInfo.filePath();
+            const QString destPath = themesDir.filePath(fileInfo.fileName());
+            if (QFile::copy(sourcePath, destPath)) {
+                QFile newThemeFile(destPath);
+                newThemeFile.setPermissions(
+                    QFileDevice::ReadOwner | QFileDevice::WriteOwner |
+                    QFileDevice::ReadUser | QFileDevice::WriteUser);
+            } else {
+                qWarning() << "Failed to copy" << sourcePath << "to" << destPath;
+            }
+        }
+    }
+
+    // Read theme from settings
     QSettings settings;
+    applyTheme(settings.value("Theme/file", "dark.json").toString());
+
+    // Populate caseMap and navigator from settings
     m_caseMap.clear();
     int caseCount = settings.beginReadArray("Cases");
     for (int i = 0; i < caseCount; ++i) {
@@ -106,8 +161,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         }
 
         // Update navigator
-        navigator->addCase(caseName, data.caseFiles);
-        navigator->expandCase(caseName);
+        m_navigator->addCase(caseName, data.caseFiles);
+        m_navigator->expandCase(caseName);
     }
     settings.endArray();
 
@@ -125,18 +180,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         tabMap.insert(tabName, data);
 
         // Create editor
-        createEditor(data.type, tabName, data.fullPath);
+        createEditor(data.type, tabName, data.fullPath, false);
     }
     settings.endArray();
-
-    // Create the console
-    consoleWidget = new QDockWidget(tr("Console"), this);
-    consoleWidget->setTitleBarWidget(new QWidget(consoleWidget));
-    consoleWidget->setAllowedAreas(Qt::BottomDockWidgetArea);
-    console = new Console(this);
-    consoleWidget->setWidget(console);
-    consoleWidget->setMinimumHeight(150);
-    addDockWidget(Qt::BottomDockWidgetArea, consoleWidget);
 
     // Create Vulkan instance
     m_vulkanInstance.setLayers({ "VK_LAYER_KHRONOS_validation" });
@@ -146,8 +192,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     }
 
     // Configure undo/redo actions
-    connect(tabWidget, &QTabWidget::currentChanged, this, [=, this](int index) {
-        TextEditor* editor = qobject_cast<TextEditor*>(tabWidget->widget(index));
+    connect(m_tabWidget, &QTabWidget::currentChanged, this, [=, this](int index) {
+        TextEditor* editor = qobject_cast<TextEditor*>(m_tabWidget->widget(index));
         if (editor) {
             undoAction->setEnabled(editor->document()->isUndoAvailable());
             redoAction->setEnabled(editor->document()->isRedoAvailable());
@@ -161,13 +207,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     statusBar()->showMessage("Ready");
 
     // Configure tab save
-    connect(tabWidget, &TabWidget::saveTab, this, &MainWindow::saveFile);
+    connect(m_tabWidget, &TabWidget::saveTab, this, &MainWindow::saveFile);
+
+    // Configure logging from the navigator
+    // connect(m_navigator, &CaseNavigator::createEditor, this, &MainWindow::createEditor);
 
     // Load data from JSON configuration files
     loadSolverFamilies();
     loadTurbulenceModels();
     loadFieldData();
     loadBoundaryConditions();
+    loadMaterialProperties();
 }
 
 MainWindow::~MainWindow() = default;
@@ -235,54 +285,59 @@ void MainWindow::createActions() {
     connect(pasteAction, &QAction::triggered, this, SLOT(Paste()));
     */
 
-    // Create undo action
+    // Undo
     undoAction = new QAction(QIcon(":/images/undo.png"), tr("Undo"), this);
     undoAction->setShortcuts(QKeySequence::Undo);
     undoAction->setStatusTip(tr("Zoom in"));
     connect(undoAction, &QAction::triggered, this, &MainWindow::undo);
     undoAction->setDisabled(true);
 
-    // Create redo action
+    // Redo
     redoAction = new QAction(QIcon(":/images/redo.png"), tr("Redo"), this);
     redoAction->setShortcuts(QKeySequence::Redo);
     redoAction->setStatusTip(tr("Zoom out"));
     connect(redoAction, &QAction::triggered, this, &MainWindow::redo);
     redoAction->setDisabled(true);
 
-    // Create zoom in action
+    // Zoom in
     zoomInAction = new QAction(QIcon(":/images/zoom_in.png"), tr("Zoom in"), this);
     zoomInAction->setShortcuts(QKeySequence::ZoomIn);
     zoomInAction->setStatusTip(tr("Zoom in"));
 
-    // Create zoom out action
+    // Zoom out
     zoomOutAction = new QAction(QIcon(":/images/zoom_out.png"), tr("Zoom out"), this);
     zoomOutAction->setShortcuts(QKeySequence::ZoomOut);
     zoomOutAction->setStatusTip(tr("Zoom out"));
 
-    // Configure the mesh action in the Mesh menu
-    meshAction = new QAction(QIcon(":/images/mesh.png"), tr("&Mesh Configuration"), this);
+    // Mesh configuration
+    meshAction = new QAction(QIcon(":/images/mesh.png"), tr("Configure &Mesh"), this);
     meshAction->setStatusTip(tr("Configure mesh process"));
     connect(meshAction, &QAction::triggered, this, &MainWindow::runMeshConfiguration);
 
-    // Configure the mesh action in the Mesh menu
-    runMeshAction = new QAction(QIcon(":/images/run_mesh.png"), tr("Mesh &Execution"), this);
+    // Launch mesh utilities
+    runMeshAction = new QAction(QIcon(":/images/run_mesh.png"), tr("Run M&esh"), this);
     runMeshAction->setStatusTip(tr("Run mesh utilities"));
     connect(runMeshAction, &QAction::triggered, this, &MainWindow::runMeshExecution);
 
-    // Configure the run action in the Solver menu
-    runAction = new QAction(QIcon(":/images/play.png"), tr("&Launch solver"), this);
-    runAction->setStatusTip(tr("Launch solver"));
-    connect(runAction, &QAction::triggered, this, &MainWindow::runSolverWizard);
+    // Solver configuration
+    solverAction = new QAction(QIcon(":/images/solver.png"), tr("&Solver Configuration"), this);
+    solverAction->setStatusTip(tr("Configure simulation"));
+    connect(solverAction, &QAction::triggered, this, &MainWindow::runSolverConfiguration);
 
-    // Configure the stop action in the Solver menu
-    stopAction = new QAction(QIcon(":/images/stop.png"), tr("&Stop solver"), this);
-    stopAction->setStatusTip(tr("Stop solver"));
-    stopAction->setEnabled(false);
-    // connect(meshAction, &QAction::triggered, this, SLOT(About()));
+    // Run solver
+    runSolverAction = new QAction(QIcon(":/images/run_solver.png"), tr("&Run solver"), this);
+    solverAction->setStatusTip(tr("Launch solver"));
+    connect(runSolverAction, &QAction::triggered, this, &MainWindow::runSolverExecution);
 
-    // Configure the mesh action in the Mesh menu
-    postProcessAction = new QAction(QIcon(":/images/post_process.png"), tr("&Post-process"), this);
-    postProcessAction->setStatusTip(tr("Launch post-processing"));
+    // Stop solver
+    stopSolverAction = new QAction(QIcon(":/images/stop_solver.png"), tr("&Halt solver execution"), this);
+    stopSolverAction->setStatusTip(tr("Stop solver"));
+    stopSolverAction->setEnabled(false);
+    connect(stopSolverAction, &QAction::triggered, this, &MainWindow::stopSolverExecution);
+
+    // Post-process
+    // postProcessAction = new QAction(QIcon(":/images/post_process.png"), tr("&Post-process"), this);
+    // postProcessAction->setStatusTip(tr("Launch post-processing"));
     // connect(meshAction, &QAction::triggered, this, SLOT(About()));
 
     // Configure the About action in the help menu
@@ -376,23 +431,99 @@ void MainWindow::createToolBar() {
     toolBar->addSeparator();
 
     // Create tool bar with solver actions
-    toolBar->addAction(runAction);
-    toolBar->addAction(stopAction);
+    toolBar->addAction(solverAction);
+    toolBar->addAction(runSolverAction);
+    toolBar->addAction(stopSolverAction);
     toolBar->addSeparator();
 
     // Create tool bar with view actions
-    toolBar->addAction(postProcessAction);
+    // toolBar->addAction(postProcessAction);
 
     // Add help actions
     toolBar->addAction(aboutAction);
 }
 
+void MainWindow::applyTheme(QString themeFile) {
+
+    QString styleText;
+    m_themeFile = themeFile;
+    QFile file(m_configDir.filePath("themes/" + m_themeFile));
+    if (file.open(QIODevice::ReadOnly)) {
+        QByteArray data = file.readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+        if (doc.isObject()) {
+            QJsonObject rootObj = doc.object();
+
+            // Read stylesheet settings
+            if (rootObj.contains("qt_stylesheet")) {
+                styleText = rootObj["qt_stylesheet"].toString();
+            } else {
+                qWarning() << QString("'qt_stylesheet' object is missing or invalid in %1.").arg(m_themeFile);
+            }
+
+            // Read text editor settings
+            if (rootObj.contains("text_editor")) {
+                QJsonObject editorObj = rootObj["text_editor"].toObject();
+
+                // Extract base editor colors
+                if (editorObj.contains("background"))
+                    m_editorConfig.background = QColor(editorObj["background"].toString());
+                if (editorObj.contains("gutter_background"))
+                    m_editorConfig.gutterBackground = QColor(editorObj["gutter_background"].toString());
+                if (editorObj.contains("line_number_normal"))
+                    m_editorConfig.lineNumberNormal = QColor(editorObj["line_number_normal"].toString());
+                if (editorObj.contains("line_number_active"))
+                    m_editorConfig.lineNumberActive = QColor(editorObj["line_number_active"].toString());
+                if (editorObj.contains("current_line_highlight"))
+                    m_editorConfig.currentLineHighlight = QColor(editorObj["current_line_highlight"].toString());
+
+                // Extract syntax highlighting rules
+                if (editorObj.contains("syntax")) {
+                    QJsonObject syntaxObj = editorObj["syntax"].toObject();
+
+                    // Lambda helper to cleanly parse the nested SyntaxItem objects
+                    auto parseSyntaxItem = [](const QJsonValue& val) -> SyntaxItem {
+                        SyntaxItem item;
+                        if (val.isObject()) {
+                            QJsonObject obj = val.toObject();
+                            if (obj.contains("color")) item.color = QColor(obj["color"].toString());
+                            if (obj.contains("bold")) item.bold = obj["bold"].toBool(false);
+                            if (obj.contains("italic")) item.italic = obj["italic"].toBool(false);
+                        }
+                        return item;
+                    };
+
+                    // Map the JSON objects to your struct fields
+                    m_editorConfig.syntaxConfig.keyword     = parseSyntaxItem(syntaxObj["keyword"]);
+                    m_editorConfig.syntaxConfig.number      = parseSyntaxItem(syntaxObj["number"]);
+                    m_editorConfig.syntaxConfig.string      = parseSyntaxItem(syntaxObj["string"]);
+                    m_editorConfig.syntaxConfig.enumItem    = parseSyntaxItem(syntaxObj["enum"]);
+                    m_editorConfig.syntaxConfig.comment     = parseSyntaxItem(syntaxObj["comment"]);
+                    m_editorConfig.syntaxConfig.punctuation = parseSyntaxItem(syntaxObj["punctuation"]);
+                    m_editorConfig.syntaxConfig.macro       = parseSyntaxItem(syntaxObj["macro"]);
+                }
+            } else {
+                qWarning() << QString("'text_editor' object is missing or invalid in %1.").arg(m_themeFile);
+            }
+        } else {
+            qWarning() << QString("Failed to parse %1: Root is not a JSON Object.").arg(m_themeFile);
+        }
+        file.close();
+    } else {
+        qWarning() << QString("Failed to open %1 at:" + file.fileName()).arg(m_themeFile);
+    }
+    if (!styleText.isEmpty()) {
+        QApplication* app = qobject_cast<QApplication*>(qApp);
+        if (app) { app->setStyleSheet(styleText); }
+    }
+}
+
 void MainWindow::createEditor(EditorType type, QString& fileName,
-                              const QString& fullPath) {
+                              const QString& fullPath, bool logMessage) {
 
     // Get case name
     QString caseName;
-    if (type != EditorType::MESH) {
+    if ((type != EditorType::MESH) && (type != EditorType::RESULT)) {
         caseName = fullPath.split('/').first();
     } else {
         caseName = fileName;
@@ -406,8 +537,11 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
     TabData tabData;
     QByteArray data;
 
+    // Update log
+    if(logMessage) m_console->appendPlainText(tr("Reading %1\n").arg(path));
+
     // Read data
-    if (type != EditorType::MESH) {
+    if ((type != EditorType::MESH) && (type != EditorType::RESULT)) {
         data = targetSystems[targetId]->getFileContent(path);
     }
 
@@ -417,11 +551,11 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
         if (tabData.fullPath == fullPath) {
 
             // Iterate through tabs
-            for (int i = 0; i < tabWidget->count(); ++i) {
-                QString tabName = tabWidget->tabText(i);
-                QString tabPath = tabWidget->tabBar()->tabData(i).toString();
+            for (int i = 0; i < m_tabWidget->count(); ++i) {
+                QString tabName = m_tabWidget->tabText(i);
+                QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
                 if (tabName == fileName && tabPath == fullPath) {
-                    tabWidget->setCurrentIndex(i);
+                    m_tabWidget->setCurrentIndex(i);
                     return;
                 }
             }
@@ -438,11 +572,11 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
 
         // Create new tab
         TextEditor* textEditor = new TextEditor(this);
-        textEditor->setFont(font);
+        textEditor->setFont(m_font);
         textEditor->setTextData(data);
-        tabIndex = tabWidget->addTab(textEditor, fileName);
-        tabWidget->setCurrentIndex(tabIndex);
-        tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+        tabIndex = m_tabWidget->addTab(textEditor, fileName);
+        m_tabWidget->setCurrentIndex(tabIndex);
+        m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
 
         // Enable undo and redo actions according to the editor
         connect(textEditor->document(), &QTextDocument::undoAvailable,
@@ -457,8 +591,8 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
         });
 
         // Configure the save action
-        connect(tabWidget, &QTabWidget::currentChanged, this, [=, this](int index) {
-            TextEditor* currentEditor = qobject_cast<TextEditor*>(tabWidget->widget(index));
+        connect(m_tabWidget, &QTabWidget::currentChanged, this, [=, this](int index) {
+            TextEditor* currentEditor = qobject_cast<TextEditor*>(m_tabWidget->widget(index));
             if (currentEditor) {
                 saveFileAction->setEnabled(currentEditor->document()->isModified());
             } else {
@@ -484,7 +618,7 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
         // Create editor
         ModelEditor* modelEditor = new ModelEditor(modelData, path, targetId,
                                               &m_vulkanInstance, isBinary, this);
-        tabIndex = tabWidget->addTab(modelEditor, fileName);
+        tabIndex = m_tabWidget->addTab(modelEditor, fileName);
         connect(modelEditor, &ModelEditor::surfacePatchRequested,
                 this, &MainWindow::runSurfacePatch);
         connect(modelEditor, &ModelEditor::surfaceCheckRequested,
@@ -528,9 +662,9 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
                 connect(meshEditor, &MeshEditor::meshRenumberRequested,
                         this, &MainWindow::runMeshRenumber);
 
-                int tabIndex = tabWidget->addTab(meshEditor, fileName + " (mesh)");
-                tabWidget->setCurrentIndex(tabIndex);
-                tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+                int tabIndex = m_tabWidget->addTab(meshEditor, fileName + " (mesh)");
+                m_tabWidget->setCurrentIndex(tabIndex);
+                m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
                 undoAction->setDisabled(true);
                 redoAction->setDisabled(true);
                 saveFileAction->setDisabled(true);
@@ -547,11 +681,36 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
         watcher->setFuture(future);
     }
 
+    if (type == EditorType::RESULT) {
+
+        // Get list of time folders
+        QString resultPath = casePath + "/postProcessing/surfaces";
+        QString res = targetSystems[0]->getResultFolders(resultPath);
+
+        if(!res.isEmpty()) {
+            QStringList timeFolders = res.split(',');
+            resultPath += "/" + timeFolders.last();
+            RenderData renderData = targetSystems[targetId]->getResultData(resultPath);
+            std::shared_ptr<RenderData> resultData = std::make_shared<RenderData>(std::move(renderData));
+            if (resultData) {
+                ResultEditor* resultEditor = new ResultEditor(timeFolders, resultData,
+                                                              casePath, targetId, &m_vulkanInstance, this);
+                int tabIndex = m_tabWidget->addTab(resultEditor, fileName + " (result)");
+                m_tabWidget->setCurrentIndex(tabIndex);
+                m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+                undoAction->setDisabled(true);
+                redoAction->setDisabled(true);
+                saveFileAction->setDisabled(true);
+            }
+        }
+        return;
+    }
+
     if (type != EditorType::MESH) {
 
         // Update tab widget
-        tabWidget->setCurrentIndex(tabIndex);
-        tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+        m_tabWidget->setCurrentIndex(tabIndex);
+        m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
         undoAction->setDisabled(true);
         redoAction->setDisabled(true);
         saveFileAction->setDisabled(true);
@@ -579,13 +738,16 @@ std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName, QString ca
 
 void MainWindow::runMesh(const QString& caseName, bool runBlockMesh,
                          bool runSurfaceFeatureExtract, bool runSnappyHexMesh,
-                         const QString& snappyCmd, int numCores, bool display) {
+                         const QString& snappyCmd, int numCores) {
 
     CaseData caseData = m_caseMap[caseName];
     int targetId = caseData.targetSystemId;
     QString casePath = caseData.casePath + "/" + caseName;
     QString openFoamPath = caseData.openFoamPath;
     QString cmd, output;
+
+    // Clear console
+    m_console->clear();
 
     // Launch blockMesh
     if (runBlockMesh) {
@@ -617,11 +779,23 @@ void MainWindow::runMesh(const QString& caseName, bool runBlockMesh,
         // Create command
         cmd = QString("cd %1; source %2/etc/bashrc; " + snappyCmd).arg(casePath, openFoamPath);
         qDebug() << cmd;
-        targetSystems[targetId]->launchLongUtility(cmd);
+        targetSystems[targetId]->launchLongUtility(cmd, caseName, UtilityType::MESH);
     }
+}
 
-    updatePath(caseName, "constant/polyMesh", targetId);
-    updatePath(caseName, "system", targetId);
+void MainWindow::runSolver(const QString& caseName, const QString& cmd) {
+
+    CaseData caseData = m_caseMap[caseName];
+    int targetId = caseData.targetSystemId;
+    QString casePath = caseData.casePath + "/" + caseName;
+    QString openFoamPath = caseData.openFoamPath;
+
+    // Clear console
+    m_console->clear();
+
+    // Execute command
+    QString command = QString("cd %1; source %2/etc/bashrc; " + cmd).arg(casePath, openFoamPath);
+    targetSystems[targetId]->launchLongUtility(command, caseName, UtilityType::SOLVER);
 }
 
 void MainWindow::createCase(QString caseName, QString casePath, QStringList caseFiles,
@@ -637,15 +811,15 @@ void MainWindow::createCase(QString caseName, QString casePath, QStringList case
     }
 
     // Display case in navigator
-    navigator->addCase(caseName, caseFiles);
-    navigator->expandCase(caseName);
+    m_navigator->addCase(caseName, caseFiles);
+    m_navigator->expandCase(caseName);
 }
 
 // Create new case folder
 void MainWindow::saveFile() {
 
     // Remove the " *" to get the real map key
-    QString rawTabText = tabWidget->tabText(tabWidget->currentIndex());
+    QString rawTabText = m_tabWidget->tabText(m_tabWidget->currentIndex());
     QString fileName = rawTabText.remove(" *");
 
     // Look up data
@@ -659,7 +833,7 @@ void MainWindow::saveFile() {
 
         // Save data for text editor
         if (tabData.type == EditorType::TEXT) {
-            TextEditor* editor = qobject_cast<TextEditor*>(tabWidget->currentWidget());
+            TextEditor* editor = qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
             if (editor) {
                 bool save = targetSystems[targetId]->writeData(editor->toPlainText().toUtf8(),
                                                                      fullPath);
@@ -670,7 +844,7 @@ void MainWindow::saveFile() {
 
         // Save data for model editor
         if (tabData.type == EditorType::SURFACE) {
-            ModelEditor* editor = qobject_cast<ModelEditor*>(tabWidget->currentWidget());
+            ModelEditor* editor = qobject_cast<ModelEditor*>(m_tabWidget->currentWidget());
             if (editor) {
 
                 QString output;
@@ -716,28 +890,33 @@ void MainWindow::saveFile() {
 
 // Undo action in text editor
 void MainWindow::undo() {
-    TextEditor* editor = qobject_cast<TextEditor*>(tabWidget->currentWidget());
+    TextEditor* editor = qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
     if (editor) { editor->undo(); }
 }
 
 // Redo action in text editor
 void MainWindow::redo() {
-    TextEditor* editor = qobject_cast<TextEditor*>(tabWidget->currentWidget());
+    TextEditor* editor = qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
     if (editor) { editor->redo(); }
 }
 
 // Write text to the log
 void MainWindow::log(const QString& text) {
-    console->appendPlainText(text);
+    m_console->appendPlainText(text);
 }
 
 void MainWindow::updatePath(const QString& caseName, const QString& subDir, int targetId) {
 
-    QString casePath = caseName + "/" + subDir;
+    QString casePath = caseName;
+    if (!subDir.isEmpty()) {
+        casePath += "/" + subDir;
+    }
+
     QString fullPath = m_caseMap[caseName].casePath + "/" + casePath;
     QStringList files = targetSystems[targetId]->getFiles(fullPath);
+
     if(!files.isEmpty()) {
-        navigator->updatePath(casePath, files);
+        m_navigator->updatePath(casePath, files);
     }
 }
 
@@ -746,12 +925,12 @@ void MainWindow::onDirtyStateChanged(bool isDirty, QWidget* widget) {
     // Get the index of the editor
     // QWidget* senderWidget = qobject_cast<QWidget*>(sender());
     if (!widget) return;
-    int index = tabWidget->indexOf(widget);
+    int index = m_tabWidget->indexOf(widget);
 
     if (index != -1) {
 
         // Get the current tab text
-        QString tabText = tabWidget->tabText(index);
+        QString tabText = m_tabWidget->tabText(index);
 
         // Remove trailing " *"
         if (tabText.endsWith(" *")) {
@@ -763,10 +942,10 @@ void MainWindow::onDirtyStateChanged(bool isDirty, QWidget* widget) {
             tabText += " *";
         }
 
-        tabWidget->setTabText(index, tabText);
+        m_tabWidget->setTabText(index, tabText);
 
         // 4. Update the save action if the modified file is currently being viewed
-        if (tabWidget->currentIndex() == index) {
+        if (m_tabWidget->currentIndex() == index) {
             saveFileAction->setEnabled(isDirty);
         }
     }
@@ -780,15 +959,17 @@ void MainWindow::runNewCaseWizard() {
 
 // Launch mesh configuration wizard
 void MainWindow::runMeshConfiguration() {
-    MeshWizard wizard(this);
+    QString caseName = getSelectedCase();
+    QStringList cases = m_caseMap.keys();
+    MeshWizard wizard(caseName, cases, this);
     wizard.exec();
 }
 
 // Launch mesh execution wizard
 void MainWindow::runMeshExecution() {
-    QStringList availableCases = navigator->getCases();
-    QString selectedCase = navigator->getSelectedCase();
-    RunMeshDialog dialog(selectedCase, availableCases, this);
+    QString caseName = getSelectedCase();
+    QStringList cases = m_caseMap.keys();
+    RunMeshDialog dialog(caseName, cases, this);
     dialog.exec();
 }
 
@@ -867,8 +1048,8 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath,
         RenderDataPtr renderData = watcher->result();
 
         if (renderData) {
-            MeshEditor* editor = qobject_cast<MeshEditor*>(tabWidget->currentWidget());
-            editor->updateModel(renderData);
+            MeshEditor* editor = qobject_cast<MeshEditor*>(m_tabWidget->currentWidget());
+            editor->updateMesh(renderData);
         }
 
         // Clean up the watcher
@@ -880,6 +1061,8 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath,
         QtConcurrent::run(&MainWindow::getMeshData, this,
                           caseName, casePath, openFoamPath, targetId);
     watcher->setFuture(future);
+
+    updatePath(caseName, "constant/polyMesh", targetId);
 }
 
 void MainWindow::runMeshCheck(const QString& casePath, int targetId) {
@@ -905,34 +1088,74 @@ void MainWindow::runMeshCheck(const QString& casePath, int targetId) {
                       .arg(casePath, openFoamPath);
 
     // Get output
-    QString result;
-    targetSystems[targetId]->launchShortUtility(cmd, result);
-    if(result.isEmpty()) { return; }
+    QString logText;
+    targetSystems[targetId]->launchShortUtility(cmd, logText);
+    if(logText.isEmpty()) { return; }
 
-    // Display dialog containing result
+    // Parse output
+    QString status = "Unknown";
+    QString cells = "?", faces = "?", points = "?";
+    QString boundingBox = "Unknown";
+    QString maxAspectRatio = "Unknown";
+    QString nonOrthoMax = "?", nonOrthoAvg = "?";
+    QString maxSkewness = "Unknown";
+    QString minVolume = "Unknown";
+    QString minFaceArea = "Unknown";
+
+    // Overall Status
+    QRegularExpression statusRegex("(Mesh OK\\.|Failed \\d+ mesh checks\\.)");
+    auto statusMatch = statusRegex.match(logText);
+    if (statusMatch.hasMatch()) status = statusMatch.captured(1);
+
+    // Topology Counts
+    QRegularExpression pointsRegex("points:\\s+(\\d+)");
+    if (auto match = pointsRegex.match(logText); match.hasMatch()) points = match.captured(1);
+
+    QRegularExpression facesRegex("faces:\\s+(\\d+)");
+    if (auto match = facesRegex.match(logText); match.hasMatch()) faces = match.captured(1);
+
+    QRegularExpression cellsRegex("cells:\\s+(\\d+)");
+    if (auto match = cellsRegex.match(logText); match.hasMatch()) cells = match.captured(1);
+
+    QRegularExpression bboxRegex("Overall domain bounding box\\s+(.*)");
+    if (auto match = bboxRegex.match(logText); match.hasMatch()) boundingBox = match.captured(1);
+
+    QRegularExpression aspectRegex("Max aspect ratio = ([\\d\\.]+)");
+    if (auto match = aspectRegex.match(logText); match.hasMatch()) maxAspectRatio = match.captured(1);
+
+    QRegularExpression orthoRegex("Mesh non-orthogonality Max:\\s+([\\d\\.]+)\\s+average:\\s+([\\d\\.]+)");
+    if (auto match = orthoRegex.match(logText); match.hasMatch()) {
+        nonOrthoMax = match.captured(1);
+        nonOrthoAvg = match.captured(2);
+    }
+
+    QRegularExpression skewRegex("Max skewness = ([\\d\\.]+)");
+    if (auto match = skewRegex.match(logText); match.hasMatch()) maxSkewness = match.captured(1);
+
+    QRegularExpression volRegex("Min volume = ([\\d\\.\\-eE\\+]+)");
+    if (auto match = volRegex.match(logText); match.hasMatch()) minVolume = match.captured(1);
+
+    QRegularExpression areaRegex("Minimum face area = ([\\d\\.\\-eE\\+]+)");
+    if (auto match = areaRegex.match(logText); match.hasMatch()) minFaceArea = match.captured(1);
+
+    // Construct the formatted string using chained .arg() calls for safety
     std::vector<QString> messageStrings;
-    if (result.contains("Mesh OK")) {
-        messageStrings.push_back("Mesh OK");
-    } else if (result.contains("Failed")) {
-        messageStrings.push_back("Failed");
-    }
-
-    /*
-    for (auto line : QStringTokenizer(result, u'\n')) {
-        if((line.startsWith(u"Surface")) || (line.startsWith(u"Number"))) {
-            messageStrings.push_back(line.toString());
-        }
-    }
-    */
+    messageStrings.push_back(QString("Overall Status: %1\n").arg(status));
+    messageStrings.push_back(QString("Topology: %1 Cells, %2 Faces, %3 Points\n").arg(cells, faces, points));
+    messageStrings.push_back(QString("Bounding Box: %1\n").arg(boundingBox));
+    messageStrings.push_back(QString("Max Aspect Ratio: %1\n").arg(maxAspectRatio));
+    messageStrings.push_back(QString("Non-Orthogonality: Max %1, Average %2\n").arg(nonOrthoMax, nonOrthoAvg));
+    messageStrings.push_back(QString("Max Face Skewness: %1\n").arg(maxSkewness));
+    messageStrings.push_back(QString("Min Cell Volume: %1\n").arg(minVolume));
+    messageStrings.push_back(QString("Min Face Area: %1\n").arg(minFaceArea));
 
     // Display dialog
-    UtilityOutputDialog dlg(tr("Mesh Check Results"),
-                            tr("Output of the checkMesh utiilty:"),
-                            messageStrings, result, this);
+    UtilityOutputDialog dlg(tr("Mesh Check Results"), tr("Output of checkMesh:"),
+                            messageStrings, logText, this);
     dlg.exec();
 }
 
-// Run autoPatch
+// Run renumberMesh
 void MainWindow::runMeshRenumber(const QString& casePath, int targetId) {
 
     QString openFoamPath;
@@ -944,11 +1167,7 @@ void MainWindow::runMeshRenumber(const QString& casePath, int targetId) {
         return;
     }
 
-    qDebug() << "casePath: " << casePath;
-    qDebug() << "caseName: " << caseName;
-    qDebug() << "openFoamPath: " << openFoamPath;
-
-    // Make sure autoPatch is present
+    // Make sure renumberMesh is present
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
     if (!utilMap.value("renumberMesh", false)) {
         QMessageBox::warning(this, tr("Utility Not Found"), tr("The renumberMesh utility could not be found."));
@@ -959,11 +1178,55 @@ void MainWindow::runMeshRenumber(const QString& casePath, int targetId) {
     QString cmd = QString("cd \"%1\"; source %2/etc/bashrc; renumberMesh -constant -overwrite")
                       .arg(casePath, openFoamPath);
 
-    qDebug() << cmd;
-
+    // Execute the tool
     QString result;
     targetSystems[targetId]->launchShortUtility(cmd, result);
-    qDebug() << result;
+
+    // Parse and display the result
+    QString meshSize = "Unknown";
+    QString beforeBand = "Unknown";
+    QString beforeProfile = "Unknown";
+    QString afterBand = "Unknown";
+    QString afterProfile = "Unknown";
+
+    // Extract Mesh Size
+    QRegularExpression sizeRegex("Mesh\\s+.*?size:\\s+(\\d+)");
+    QRegularExpressionMatch sizeMatch = sizeRegex.match(result);
+    if (sizeMatch.hasMatch()) {
+        meshSize = sizeMatch.captured(1).trimmed();
+    }
+
+    // Extract "Before renumbering" statistics
+    QRegularExpression beforeRegex("Before renumbering\\s+band\\s+:\\s+(\\S+)\\s+profile\\s+:\\s+(\\S+)");
+    QRegularExpressionMatch beforeMatch = beforeRegex.match(result);
+    if (beforeMatch.hasMatch()) {
+        beforeBand = beforeMatch.captured(1).trimmed();
+        beforeProfile = beforeMatch.captured(2).trimmed();
+    }
+
+    // Extract "After renumbering" statistics
+    QRegularExpression afterRegex("After renumbering\\s+band\\s+:\\s+(\\S+)\\s+profile\\s+:\\s+(\\S+)");
+    QRegularExpressionMatch afterMatch = afterRegex.match(result);
+    if (afterMatch.hasMatch()) {
+        afterBand = afterMatch.captured(1).trimmed();
+        afterProfile = afterMatch.captured(2).trimmed();
+    }
+
+    // Construct the three strings
+    std::vector<QString> messageStrings;
+    messageStrings.push_back(QString("Mesh size: %1\n").arg(meshSize));
+    messageStrings.push_back(QString("Before renumbering:"));
+    messageStrings.push_back(QString("     band: %1").arg(beforeBand));
+    messageStrings.push_back(QString("     profile: %1\n").arg(beforeProfile));
+    messageStrings.push_back(QString("After renumbering:"));
+    messageStrings.push_back(QString("     band: %1").arg(afterBand));
+    messageStrings.push_back(QString("     profile: %1\n").arg(afterProfile));
+
+    // Display dialog
+    UtilityOutputDialog dlg(tr("Renumber Results"),
+                            tr("Output of renumberMesh:"),
+                            messageStrings, result, this);
+    dlg.exec();
 }
 
 // Run surfacePatch
@@ -1038,7 +1301,7 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
                 std::shared_ptr<RenderData> meshData = std::make_shared<RenderData>(std::move(mesh));
 
                 // Pass data to ModelEditor
-                ModelEditor* editor = qobject_cast<ModelEditor*>(tabWidget->currentWidget());
+                ModelEditor* editor = qobject_cast<ModelEditor*>(m_tabWidget->currentWidget());
                 editor->updateModel(meshData);
             }
         } else if (result.contains("unchanged")) {
@@ -1055,7 +1318,8 @@ void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isB
     QStringList utils = { "surfaceCheck" };
     QMap<QString, bool> utilMap = checkUtilities(fullPath, targetId, utils);
     if (!utilMap["surfaceCheck"]) {
-        QMessageBox::warning(this, tr("Utility Not Found"), tr("The surfaceCheck utility could not be found."));
+        QMessageBox::warning(this, tr("Utility Not Found"),
+            tr("The surfaceCheck utility could not be found."));
         return;
     }
 
@@ -1073,23 +1337,19 @@ void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isB
     // Get output
     QString result;
     targetSystems[targetId]->launchShortUtility(cmd, result);
-
-    if(result.isEmpty()) {
-        return;
-    }
+    if(result.isEmpty()) { return; }
 
     // Display dialog containing result
     std::vector<QString> messageStrings;
     for (auto line : QStringTokenizer(result, u'\n')) {
         if((line.startsWith(u"Surface")) || (line.startsWith(u"Number"))) {
-            messageStrings.push_back(line.toString());
+            messageStrings.push_back(line.toString() + "\n");
         }
     }
 
     // Display dialog
     UtilityOutputDialog dlg(tr("Surface Check Results"),
-                            tr("Output of the surfaceCheck utiilty:"),
-                            messageStrings, result, this);
+        tr("Output of the surfaceCheck utiilty:"), messageStrings, result, this);
     dlg.exec();
 }
 
@@ -1120,8 +1380,8 @@ void MainWindow::runSurfaceScale(double scaleFactor, const QString& fullPath,
 
     // Create command
     QString cmd = QString("cd \"%1\"; source %2/etc/bashrc; "
-                          "surfaceTransformPoints -scale \"(%3 %3 %3)\" \"%4\" \"%4\"")
-                          .arg(path, openFoamPath, QString::number(scaleFactor), fileName);
+        "surfaceTransformPoints -scale \"(%3 %3 %3)\" \"%4\" \"%4\"")
+        .arg(path, openFoamPath, QString::number(scaleFactor), fileName);
 
     // Execute command
     QString result;
@@ -1130,59 +1390,50 @@ void MainWindow::runSurfaceScale(double scaleFactor, const QString& fullPath,
     // Display message
     if (result.contains("uniformly")) {
 
-        /*
-        // Update model
-        QByteArray newData = targetSystems[targetId]->getFileContent(fullPath);
-
-        qDebug() << "fullPath = " << fullPath;
-        qDebug() << "newData.size() = " << newData.size();
-
-        if (newData.size() > 0) {
-
-            // Create new RenderData
-            std::pair<RenderData, bool> res = StlReader::readStlFile(fileName, newData);
-            RenderData mesh = res.first;
-            std::shared_ptr<RenderData> meshData = std::make_shared<RenderData>(std::move(mesh));
-
-            // Pass data to ModelEditor
-            ModelEditor* editor = qobject_cast<ModelEditor*>(tabWidget->currentWidget());
-            editor->updateModel(meshData);
-        }
-        */
-
-        ModelEditor* editor = qobject_cast<ModelEditor*>(tabWidget->currentWidget());
+        ModelEditor* editor = qobject_cast<ModelEditor*>(m_tabWidget->currentWidget());
         editor->changeBounds(scaleFactor);
 
-        QMessageBox::information(this, tr("Operation Successful"), tr("The scale operation completed successfully."));
+        QMessageBox::information(this, tr("Operation Successful"),
+            tr("The scale operation completed successfully."));
     } else {
-        QMessageBox::information(this, tr("Operation Unsuccessful"), tr("The scale operation did not complete successfully."));
+        QMessageBox::information(this, tr("Operation Unsuccessful"),
+            tr("The scale operation did not complete successfully."));
     }
     return;
 }
 
-void MainWindow::runSolverWizard() {
+QString MainWindow::getSelectedCase() {
 
-    // Get the selected case
-    QString selectedCase = navigator->getSelectedCase();
-
-    // Respond if there are no cases
+    // Get selected case from the m_navigator
+    QString selectedCase = m_navigator->getSelectedCase();
     if (selectedCase.isEmpty()) {
 
-        // Launch selection dialog
-        QStringList availableCases = navigator->getCases();
-        SelectionDialog selectionDialog(tr("Case Selection Dialog"), tr("Select the case to be processed:"),
-                                        availableCases, this);
-        if (selectionDialog.exec() == QDialog::Accepted) {
-            selectedCase = selectionDialog.getSelectedItem();
-        } else {
-            return;
+        // Choose the case associated with the current tab
+        if (m_tabWidget->count() > 0) {
+            int index = m_tabWidget->currentIndex();
+            QString tabPath = m_tabWidget->tabBar()->tabData(index).toString();
+            selectedCase = tabPath.split("/")[0];
+        }
+
+        // Choose the last case in the list
+        else {
+            QStringList cases = m_navigator->getCases();
+            selectedCase = cases.back();
         }
     }
+    return selectedCase;
+}
+
+void MainWindow::runSolverConfiguration() {
+
+    // Get the selected case
+    QString caseName = getSelectedCase();
+    QStringList cases = m_caseMap.keys();
 
     // Create solver wizard if parsing succeeds
-    SolverWizard* wizard = new SolverWizard(selectedCase, m_solverFamilies,
-                                            m_turbulenceModels, m_fieldData,
-                                            m_boundaryConditions, this);
+    SolverWizard* wizard = new SolverWizard(caseName, cases, m_solverFamilies,
+        m_turbulenceModels, m_transportProperties, m_fieldData,
+        m_boundaryConditions, this);
     if (wizard->parseFiles()) {
         wizard->exec();
     } else {
@@ -1190,24 +1441,39 @@ void MainWindow::runSolverWizard() {
     }
 }
 
+// Launch solver execution wizard
+void MainWindow::runSolverExecution() {
+
+    // Launch the dialog
+    QString caseName = getSelectedCase();
+    QStringList cases = m_caseMap.keys();
+    RunSolverDialog dialog(caseName, cases, this);
+    dialog.exec();
+}
+
+// Stop solver execution
+void MainWindow::stopSolverExecution() {
+
+}
+
+void MainWindow::longUtilityFinished(const QString& status, const QString& caseName, UtilityType utilityType) {
+
+    int targetId = m_caseMap[caseName].targetSystemId;
+
+    switch(utilityType) {
+    case UtilityType::MESH:
+        updatePath(caseName, "constant/polyMesh", targetId);
+        updatePath(caseName, "system", targetId);
+        break;
+    case UtilityType::SOLVER:
+        updatePath(caseName, "", targetId);
+        break;
+    }
+}
+
 void MainWindow::loadSolverFamilies() {
 
-    static const QMap<QString, FlowCompute::Algorithm> algoMap = {
-        {"SIMPLE", FlowCompute::Algorithm::SIMPLE},
-        {"PIMPLE", FlowCompute::Algorithm::PIMPLE},
-        {"PISO", FlowCompute::Algorithm::PISO},
-        {"CENTRAL_UPWIND", FlowCompute::Algorithm::CENTRAL_UPWIND},
-        {"NONE", FlowCompute::Algorithm::NONE}
-    };
-
-    // Update families and categories
-    QString configDirPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    QDir configDir(configDirPath);
-    if (!configDir.exists()) {
-        configDir = QDir(".");
-    }
-
-    QFile file(configDir.filePath("solvers.json"));
+    QFile file(m_configDir.filePath("solvers.json"));
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray data = file.readAll();
         QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -1219,19 +1485,27 @@ void MainWindow::loadSolverFamilies() {
                 if (value.isObject()) {
                     QJsonObject obj = value.toObject();
                     FlowCompute::SolverFamily family;
-                    family.familyName = obj["category"].toString();
+                    family.name = obj["category"].toString();
                     QJsonArray solverArray = obj["solvers"].toArray();
                     for (const QJsonValue& solverVal : std::as_const(solverArray)) {
 
                         // Handle the case where it is an object with potential overrides
                         if (solverVal.isObject()) {
                             QJsonObject solverObj = solverVal.toObject();
-                            FlowCompute::SolverDetails details;
-                            details.name = solverObj["name"].toString();
-                            details.algorithm = algoMap[solverObj["algorithm"].toString()];
-                            details.fields = solverObj["fields"].toVariant().toStringList();
-                            details.isSteadyState = solverObj["is_steady_state"].toBool(details.isSteadyState);
-                            family.solvers.append(details);
+                            FlowCompute::SolverDef solverDef;
+                            solverDef.name = solverObj["name"].toString();
+                            QString algoStr = solverObj["algorithm"].toString();
+                            solverDef.algorithm = FlowCompute::Algorithm(QMetaEnum::fromType<FlowCompute::Algorithm>().
+                                                                      keyToValue(algoStr.toUtf8().constData()));
+                            solverDef.fields = solverObj["fields"].toVariant().toStringList();
+                            solverDef.transportProperties = solverObj["transportProperties"].toVariant().toStringList();
+                            if (solverObj.contains("thermalProperties")) {
+                                solverDef.thermalProperties = solverObj["thermalProperties"].toVariant().toStringList();
+                            } else {
+                                solverDef.thermalProperties = {};
+                            }
+                            solverDef.isSteadyState = solverObj["is_steady_state"].toBool(solverDef.isSteadyState);
+                            family.solvers.append(solverDef);
                         }
                     }
                     m_solverFamilies.push_back(family);
@@ -1242,16 +1516,57 @@ void MainWindow::loadSolverFamilies() {
     }
 }
 
+void MainWindow::loadMaterialProperties() {
+
+    QFile file(m_configDir.filePath("material_properties.json"));
+    if (file.open(QIODevice::ReadOnly)) {
+        QByteArray data = file.readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+
+        // Ensure the root of the JSON document is an object
+        if (doc.isObject()) {
+            QJsonObject rootObj = doc.object();
+
+            // Clear existing data
+            m_transportProperties.clear();
+
+            // Check the transportProperties object
+            if (rootObj.contains("transportProperties") && rootObj["transportProperties"].isObject()) {
+                QJsonObject transportObj = rootObj["transportProperties"].toObject();
+
+                // Iterate through items
+                for (auto it = transportObj.constBegin(); it != transportObj.constEnd(); ++it) {
+                    QString transportPropertyName = it.key();
+
+                    if (it.value().isObject()) {
+                        QJsonObject propDetails = it.value().toObject();
+                        FlowCompute::TransportPropertyDef propertyDef;
+
+                        // Extract fields
+                        propertyDef.name = propDetails["name"].toString();
+                        propertyDef.dimensions = propDetails["dimensions"].toString();
+                        propertyDef.defaultVal = propDetails["default"].toString();
+                        m_transportProperties[transportPropertyName] = propertyDef;
+                    } else {
+                        qWarning() << "Value for property" << transportPropertyName << "is not a valid JSON object.";
+                    }
+                }
+            } else {
+                qWarning() << "'transportProperties' object is missing or invalid in material_properties.json.";
+            }
+
+        } else {
+            qWarning() << "Failed to parse material_properties.json: Root is not a JSON Object.";
+        }
+        file.close();
+    } else {
+        qWarning() << "Failed to open material_properties.json at:" << file.fileName();
+    }
+}
+
 void MainWindow::loadTurbulenceModels() {
 
-    // Update families and categories
-    QString configDirPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    QDir configDir(configDirPath);
-    if (!configDir.exists()) {
-        configDir = QDir(".");
-    }
-
-    QFile file(configDir.filePath("turbulence.json"));
+    QFile file(m_configDir.filePath("turbulence.json"));
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray data = file.readAll();
         QJsonDocument doc = QJsonDocument::fromJson(data);
@@ -1307,14 +1622,7 @@ void MainWindow::loadTurbulenceModels() {
 
 void MainWindow::loadFieldData() {
 
-    // Update families and categories
-    QString configDirPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    QDir configDir(configDirPath);
-    if (!configDir.exists()) {
-        configDir = QDir(".");
-    }
-
-    QFile file(configDir.filePath("fields.json"));
+    QFile file(m_configDir.filePath("fields.json"));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return;
     }
@@ -1322,7 +1630,7 @@ void MainWindow::loadFieldData() {
     QByteArray jsonData = file.readAll();
     file.close();
 
-    // 2. Parse the JSON document
+    // Parse the JSON document
     QJsonParseError parseError;
     QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData, &parseError);
 
@@ -1336,35 +1644,19 @@ void MainWindow::loadFieldData() {
         return;
     }
 
-    // 3. Iterate through the root object and populate the QHash
+    // Iterate through the root object and populate the QHash
     QJsonObject rootObj = jsonDoc.object();
     for (auto it = rootObj.constBegin(); it != rootObj.constEnd(); ++it) {
         QString fieldName = it.key();
         QJsonObject fieldObj = it.value().toObject();
 
-        static const QHash<QString, FlowCompute::FieldClass> classMap = {
-            {"volScalarField", FlowCompute::FieldClass::VolScalarField},
-            {"volVectorField", FlowCompute::FieldClass::VolVectorField},
-            {"volSphericalTensorField", FlowCompute::FieldClass::VolSphericalTensorField},
-            {"volSymmTensorField", FlowCompute::FieldClass::VolSymmTensorField},
-            {"volTensorField", FlowCompute::FieldClass::VolTensorField},
-            {"surfaceScalarField", FlowCompute::FieldClass::SurfaceScalarField},
-            {"surfaceVectorField", FlowCompute::FieldClass::SurfaceVectorField},
-            {"surfaceSphericalTensorField", FlowCompute::FieldClass::SurfaceSphericalTensorField},
-            {"surfaceSymmTensorField", FlowCompute::FieldClass::SurfaceSymmTensorField},
-            {"surfaceTensorField", FlowCompute::FieldClass::SurfaceTensorField},
-            {"pointScalarField", FlowCompute::FieldClass::PointScalarField},
-            {"pointVectorField", FlowCompute::FieldClass::PointVectorField},
-            {"pointSphericalTensorField", FlowCompute::FieldClass::PointSphericalTensorField},
-            {"pointSymmTensorField", FlowCompute::FieldClass::PointSymmTensorField},
-            {"pointTensorField", FlowCompute::FieldClass::PointTensorField}
-        };
-
         FlowCompute::FieldDef data;
-        data.fieldClass = classMap[fieldObj.value("class").toString()];
+        QString classStr = fieldObj.value("class").toString();
+        data.fieldClass = FlowCompute::FieldClass(QMetaEnum::fromType<FlowCompute::FieldClass>().
+                                                  keyToValue(classStr.toUtf8().constData()));
         data.dimensions = fieldObj.value("dimensions").toString();
 
-        // 4. Handle default value conversion (Scalar vs OpenFOAM Vector Array)
+        // Handle default value conversion
         QJsonValue defValue = fieldObj.value("default");
         if (defValue.isArray()) {
             QJsonArray arr = defValue.toArray();
@@ -1383,15 +1675,8 @@ void MainWindow::loadFieldData() {
 
 void MainWindow::loadBoundaryConditions() {
 
-    // Update families and categories
-    QString configDirPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
-    QDir configDir(configDirPath);
-    if (!configDir.exists()) {
-        configDir = QDir(".");
-    }
-
     // Read file content
-    QFile file(configDir.filePath("boundary_conditions.json"));
+    QFile file(m_configDir.filePath("boundary_conditions.json"));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return;
     }
@@ -1444,19 +1729,20 @@ void MainWindow::loadBoundaryConditions() {
 void MainWindow::closeEvent(QCloseEvent *event) {
 
     // Check tabs
-    for (int i = 0; i < tabWidget->count(); ++i) {
-        if (!tabWidget->promptToSave(i)) {
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        if (!m_tabWidget->promptToSave(i)) {
             return;
         }
     }
 
     // Access settings
     QSettings settings;
+    settings.setValue("Theme/file", m_themeFile);
 
     // Save cases to settings
     settings.remove("Cases");
     settings.beginWriteArray("Cases");
-    QStringList cases = navigator->getCases();
+    QStringList cases = m_navigator->getCases();
 
     // We need an integer index for the array, so we use a traditional for-loop
     for (int i = 0; i < cases.size(); ++i) {
@@ -1478,9 +1764,9 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     settings.beginWriteArray("Tabs");
     const QString suffix = " (mesh)";
 
-    for (int i = 0; i < tabWidget->count(); ++i) {
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
         settings.setArrayIndex(i);
-        QString fileName = tabWidget->tabText(i);
+        QString fileName = m_tabWidget->tabText(i);
         if (fileName.endsWith(suffix)) {
             fileName.chop(suffix.length());
         }

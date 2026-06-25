@@ -331,7 +331,7 @@ LayerControlConfig MeshIO::parseLayerControlConfig(const std::shared_ptr<OpenFoa
     // Parse the patch-specific layer counts
     // OpenFOAM structure: addLayersControls { layers { "patchName" { nSurfaceLayers 3; } } }
     QString layersPath = "addLayersControls/layers";
-    QStringList patchNames = dict->getSubDictKeys(layersPath);
+    QStringList patchNames = dict->getDictKeys(layersPath);
 
     for (const QString& patchName : std::as_const(patchNames)) {
         // Construct the full path to the nSurfaceLayers entry for this patch
@@ -851,14 +851,17 @@ QString MeshIO::createSnappyHexMeshDict(
     out << "addLayersControls\n{\n";
     out << "    relativeSizes " << boolToStr(layerConfig.relativeSizes) << ";\n";
 
-    out << "    layers\n    {\n";
-    for (auto it = layerConfig.nSurfaceLayers.begin(); it != layerConfig.nSurfaceLayers.end(); ++it) {
-        out << "        " << it->first << "\n"
-            << "        {\n"
-            << "            nSurfaceLayers " << it->second << ";\n"
-            << "        }\n";
+    // Set surface layers
+    if (!layerConfig.nSurfaceLayers.empty()) {
+        out << "    layers\n    {\n";
+        for (auto it = layerConfig.nSurfaceLayers.begin(); it != layerConfig.nSurfaceLayers.end(); ++it) {
+            out << "        " << it->first << "\n"
+                << "        {\n"
+                << "            nSurfaceLayers " << it->second << ";\n"
+                << "        }\n";
+        }
+        out << "    }\n";
     }
-    out << "    }\n\n";
 
     out << "    expansionRatio " << layerConfig.expansionRatio << ";\n";
     out << "    finalLayerThickness " << layerConfig.finalLayerThickness << ";\n";

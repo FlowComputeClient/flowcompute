@@ -16,12 +16,12 @@ public:
                   const QStringList& caseList,
                   QWidget* parent = nullptr);
 
-    QCheckBox *m_runBlockMeshCheck, *m_runFeatureExtractCheck, *m_runSnappyHexMeshCheck;
-    QCheckBox *m_meshOverwriteCheck, *m_displayMeshCheck, *m_meshReconstructCheck;
-    QComboBox *m_meshModeCombo, *m_caseCombo, *m_numCoresCombo;
-
 private:
     MainWindow* m_mainWin;
+
+    QCheckBox *m_runBlockMeshCheck, *m_runFeatureExtractCheck, *m_runSnappyHexMeshCheck;
+    QCheckBox *m_meshOverwriteCheck, *m_meshReconstructCheck;
+    QComboBox *m_meshModeCombo, *m_caseCombo, *m_numCoresCombo;
 
 private slots:
     void onOkClicked();

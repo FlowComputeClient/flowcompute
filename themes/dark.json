@@ -1,0 +1,9 @@
+{
+  "theme_name": "Dark",
+  "qt_stylesheet": "QWidget { background-color: #28282E; color: #DADADA; } QPushButton, QComboBox, QLineEdit, QTableWidget, QTreeView { background-color: #28282E; color: #DADADA; border: 1px solid #3C3C3C; padding: 4px; } QPushButton:hover, QComboBox:hover, QLineEdit:hover { background-color: #2A2D2E; } QPushButton:pressed { background-color: #094771; } QSplitter::handle { background-color: #3C3C3C; width: 2px; } QTreeView::item { color: #DADADA; padding: 2px; } QTreeView::item:hover { background-color: #2A2D2E; } QTreeView::item:selected { background-color: #007ACC; color: #FFFFFF; } QRadioButton::indicator { width: 14px; height: 14px; border-radius: 8px; border: 1px solid #4A4A58; } QRadioButton::indicator:checked { border: 1px solid #007ACC; background-color: qradialgradient(cx: 0.5, cy: 0.5, radius: 0.4, fx: 0.5, fy: 0.5, stop: 0 #007ACC, stop: 0.6 #007ACC, stop: 0.7 transparent, stop: 1 transparent); } QWizardPage { background-color: #2A2A32; color: #DEDEDE; } QLineEdit, QComboBox, QTreeWidget { border: 1px solid #D4D4D4; } QSpinBox, QDoubleSpinBox { border: 1px solid #444444; } QFrame[lineStyle='hline'] { border: none; background-color: #007ACC; max-height: 2px; } QToolBar { border: none; background-color: #28282E; border-bottom: 1px solid #3C3C3C; }",
+  "rendering_colors": {
+    "viewport_clear": "#111111",
+    "wireframe_base": "#00FFCC",
+    "selection_highlight": "#FF5500"
+  }
+}

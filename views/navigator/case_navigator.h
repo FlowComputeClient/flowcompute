@@ -11,6 +11,14 @@
 
 class MainWindow;
 
+enum class EditorType : int {
+    TEXT = 0,
+    SURFACE,
+    MESH,
+    RESULT,
+    COUNT
+};
+
 class CaseNavigator : public QTreeView {
     Q_OBJECT
 
@@ -25,10 +33,13 @@ public:
 protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
+signals:
+    void createEditor(EditorType type, QString& fileName, const QString& fullPath);
+
 private:
     // Menu and actions
     QMenu *m_contextMenu;
-    QAction *m_deleteAction, *m_viewMeshAction;
+    QAction *m_deleteAction, *m_viewMeshAction, *m_viewResultAction;
     void createActions();
 
 private slots:
@@ -41,6 +52,7 @@ private slots:
     // Responds to actions
     void deleteNode();
     void viewMesh();
+    void viewResult();
 
 private:
     NavigatorModel* model;

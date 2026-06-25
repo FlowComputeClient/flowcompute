@@ -3,12 +3,14 @@
 
 #include "wizard_mesh.h"
 
+QWidget* centerCheckBox(QCheckBox* box);
+
 // Introduction page asks for the case name and platform
 SurfaceExtractionPage::SurfaceExtractionPage(QWidget *parent): QWizardPage(parent) {
 
     // Inside your ExtractPage constructor
-    setTitle(tr("Feature Edge Extraction"));
-    setSubTitle(tr("Configure how sharp corners are detected on the surface geometry."));
+    setTitle(tr("Surface Feature Extraction"));
+    setSubTitle(tr("Configure how sharp corners are detected."));
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
@@ -90,14 +92,14 @@ void SurfaceExtractionPage::initializePage() {
     }
 
     // Set the table height
-    int height = featureTable->horizontalHeader()->height() + featureTable->frameWidth() * 2;
-    for (int row = 0; row < featureTable->rowCount(); ++row) {
-        height += featureTable->rowHeight(row);
-    }
-    featureTable->setFixedHeight(height);
+    int height = featureTable->horizontalHeader()->height() +
+        (featureTable->rowCount() * featureTable->rowHeight(0))
+        + featureTable->frameWidth() * 2;
+    featureTable->setFixedHeight(height);    
 }
+
 // Center checkboxes visually in a table cell
-QWidget* SurfaceExtractionPage::centerCheckBox(QCheckBox* box) {
+QWidget* centerCheckBox(QCheckBox* box) {
     QWidget* widget = new QWidget();
     QHBoxLayout* layout = new QHBoxLayout(widget);
     layout->addWidget(box);

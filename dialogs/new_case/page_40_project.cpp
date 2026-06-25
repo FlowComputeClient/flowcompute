@@ -14,11 +14,11 @@ ProjectPage::ProjectPage(QWidget *parent): QWizardPage(parent) {
 
     // Ask for case folder name
     layout->addWidget(new QLabel(tr("Geometry file:")), 0, 0);
-    geometryFileEdit = new QLineEdit(this);
-    geometryFileEdit->setReadOnly(true);
-    geometryFileEdit->setText("C:/Users/mscarpin/Desktop/y_junction.stl");
-    registerField("geometryFile", geometryFileEdit);
-    layout->addWidget(geometryFileEdit, 0, 1);
+    m_geometryFileEdit = new QLineEdit(this);
+    m_geometryFileEdit->setReadOnly(true);
+    m_geometryFileEdit->setText("C:/Users/mscarpin/Desktop/y_junction.stl");
+    registerField("geometryFile", m_geometryFileEdit);
+    layout->addWidget(m_geometryFileEdit, 0, 1);
 
     // Create Browse button to search for geometry file
     QPushButton *browseButton = new QPushButton("Browse...", this);
@@ -33,24 +33,24 @@ ProjectPage::ProjectPage(QWidget *parent): QWizardPage(parent) {
 
         // Update the text edit with the path
         if (!geometryFilePath.isEmpty()) {
-            geometryFileEdit->setText(geometryFilePath);
+            m_geometryFileEdit->setText(geometryFilePath);
         }
     });
     layout->addWidget(browseButton, 0, 2);
 
     // Create a text edit box for the project path
     layout->addWidget(new QLabel(tr("New Case Location:")), 1, 0);
-    casePathEdit = new QLineEdit(this);
-    casePathEdit->setReadOnly(true);
-    registerField("casePath*", casePathEdit);
-    layout->addWidget(casePathEdit, 1, 1);
+    m_casePathEdit = new QLineEdit(this);
+    m_casePathEdit->setReadOnly(true);
+    registerField("casePath*", m_casePathEdit);
+    layout->addWidget(m_casePathEdit, 1, 1);
 
     // Create tree to display directories
-    directoryTree = new QTreeWidget(this);
-    layout->addWidget(directoryTree, 2, 1);
+    m_directoryTree = new QTreeWidget(this);
+    layout->addWidget(m_directoryTree, 2, 1);
 
     // Set event handling for the tree
-    connect(directoryTree, &QTreeWidget::itemSelectionChanged,
+    connect(m_directoryTree, &QTreeWidget::itemSelectionChanged,
             this, &ProjectPage::onTreeSelectionChanged);
 
     // Set the page layout
@@ -77,22 +77,22 @@ void ProjectPage::initializePage() {
     }
 
     // Set the text box to initially display the WSL home directory
-    casePathEdit->setText(wslHomePath);
+    m_casePathEdit->setText(wslHomePath);
 
     // Populate the tree
-    populateDirectoryTree(directoryTree, pathList);
+    populateDirectoryTree(m_directoryTree, pathList);
 }
 
 void ProjectPage::onTreeSelectionChanged() {
     // Get the currently selected item(s) from the tree
-    QList<QTreeWidgetItem*> selected = directoryTree->selectedItems();
+    QList<QTreeWidgetItem*> selected = m_directoryTree->selectedItems();
 
     if (!selected.isEmpty()) {
         // Retrieve the full absolute path we stored in the UserRole data
         QString selectedPath = selected.first()->data(0, Qt::UserRole).toString();
 
         // Update the LineEdit box
-        casePathEdit->setText(selectedPath);
+        m_casePathEdit->setText(selectedPath);
     }
 }
 

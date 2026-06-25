@@ -33,7 +33,7 @@ class MeshWizard : public QWizard {
     Q_OBJECT
 
 public:
-    explicit MeshWizard(QWidget *parent);
+    explicit MeshWizard(const QString& caseName, const QStringList& cases, QWidget *parent);
 
     // Load and parse mesh files
     bool loadParseFiles();
@@ -58,7 +58,6 @@ private:
     QString m_caseName, m_casePath;
     int m_targetId = 0;
 
-    bool showParsingErrorMessage(QString fileName);
     QMap<QString, GeometryMetrics> m_geometryMap;
     QMap<QString, std::shared_ptr<OpenFoamDictionary>> m_dictMap;
 

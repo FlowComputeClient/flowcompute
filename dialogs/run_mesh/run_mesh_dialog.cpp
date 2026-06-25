@@ -17,7 +17,6 @@ RunMeshDialog::RunMeshDialog(const QString& selectedCase,
 
     // Set title and style
     setWindowTitle(tr("Mesh Execution"));
-    setStyleSheet("color: black;");
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
     // Use a standard vertical layout for stacking the group boxes
@@ -68,16 +67,11 @@ RunMeshDialog::RunMeshDialog(const QString& selectedCase,
     m_meshModeCombo->addItems({ tr("Generate Mesh"), tr("Dry Run"), tr("Check Geometry") });
     formLayout->addRow(tr("Execution mode:"), m_meshModeCombo);
     connect(m_meshModeCombo, &QComboBox::currentIndexChanged,
-            this, &RunMeshDialog::snappyHexMeshModeChanged);
+        this, &RunMeshDialog::snappyHexMeshModeChanged);
 
     // Create combo box for number of cores
     m_numCoresCombo = new QComboBox(snappyWidget);
     formLayout->addRow(tr("Number of cores:"), m_numCoresCombo);
-
-    // Display mesh
-    m_displayMeshCheck = new QCheckBox(tr("Display mesh in editor"), snappyWidget);
-    formLayout->addRow(m_displayMeshCheck);
-    m_displayMeshCheck->setChecked(true);
 
     // Allow mesh overwrite
     m_meshOverwriteCheck = new QCheckBox(tr("Overwrite existing mesh"), snappyWidget);
@@ -98,10 +92,13 @@ RunMeshDialog::RunMeshDialog(const QString& selectedCase,
     connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
     // Configure layout
-    mainLayout->setSizeConstraint(QLayout::SetFixedSize);
+    // mainLayout->setSizeConstraint(QLayout::SetFixedSize);
 
     // Set number of cores
     onCaseChanged(selectedCase);
+
+    setMinimumWidth(300);
+    this->adjustSize();
 }
 
 void RunMeshDialog::onOkClicked() {
@@ -151,7 +148,7 @@ void RunMeshDialog::onOkClicked() {
     m_mainWin->runMesh(caseName, m_runBlockMeshCheck->isChecked(),
                        m_runFeatureExtractCheck->isChecked(),
                        m_runSnappyHexMeshCheck->isChecked(),
-                       snappyCmd, numCores, m_displayMeshCheck->isChecked());
+                       snappyCmd, numCores);
 
     QDialog::accept();
 }
@@ -188,12 +185,10 @@ void RunMeshDialog::onCaseChanged(QString caseName) {
 void RunMeshDialog::snappyCheckToggled(bool enabled) {
     m_meshModeCombo->setEnabled(enabled);
     m_numCoresCombo->setEnabled(enabled);
-    m_displayMeshCheck->setEnabled(enabled);
     m_meshOverwriteCheck->setEnabled(enabled);
     m_meshReconstructCheck->setEnabled(enabled);
 
     if (!enabled) {
-        m_displayMeshCheck->setChecked(false);
         m_meshOverwriteCheck->setChecked(false);
         m_meshReconstructCheck->setChecked(false);
     }
@@ -203,12 +198,10 @@ void RunMeshDialog::snappyHexMeshModeChanged(int index) {
     bool isGenerating = (index == 0);
 
     m_numCoresCombo->setEnabled(isGenerating);
-    m_displayMeshCheck->setEnabled(isGenerating);
     m_meshOverwriteCheck->setEnabled(isGenerating);
     m_meshReconstructCheck->setEnabled(isGenerating);
 
     if (!isGenerating) {
-        m_displayMeshCheck->setEnabled(false);
         m_meshOverwriteCheck->setEnabled(false);
         m_meshReconstructCheck->setEnabled(false);
     }

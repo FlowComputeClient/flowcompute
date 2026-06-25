@@ -37,7 +37,6 @@ protected:
 private:
     MeshWizard* meshWizard;
     QTableWidget* featureTable;
-    QWidget* centerCheckBox(QCheckBox* box);
 };
 
 #endif  // PAGE_40_SURFACE_EXTRACTION_H

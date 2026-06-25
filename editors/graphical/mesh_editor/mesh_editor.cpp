@@ -7,15 +7,14 @@
 #include "../../../dialogs/solver/solver_io.h"
 #include "../../../main_window.h"
 #include "../../../parser/open_foam_dictionary.h"
-#include "../../../utils.h"
 
 MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
-                       const QString& casePath, int targetId,
-                       const std::vector<FlowCompute::SolverFamily>& families,
-                       const FlowCompute::TurbulenceDatabase& turbModels,
-                       const QHash<QString, FlowCompute::FieldDef>& fieldData,
-                       const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
-                       QVulkanInstance* instance, QWidget* parent):
+       const QString& casePath, int targetId,
+       const std::vector<FlowCompute::SolverFamily>& families,
+       const FlowCompute::TurbulenceDatabase& turbModels,
+       const QHash<QString, FlowCompute::FieldDef>& fieldData,
+       const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
+       QVulkanInstance* instance, QWidget* parent):
     QWidget(parent), m_renderData(renderData), m_casePath(casePath), m_targetId(targetId),
     m_families(families), m_turbModels(turbModels), m_fieldData(fieldData), m_vulkanInstance(instance) {
 
@@ -142,7 +141,7 @@ QStringList MeshEditor::getTurbulenceFields(const QString& simulationType, const
 }
 
 // Update surface data
-void MeshEditor::updateModel(std::shared_ptr<RenderData> newMesh) {
+void MeshEditor::updateMesh(std::shared_ptr<RenderData> newMesh) {
 
     // Update data
     m_renderData = newMesh;
@@ -160,13 +159,15 @@ void MeshEditor::updateModel(std::shared_ptr<RenderData> newMesh) {
 
 void MeshEditor::updatePatches() {
 
-    // Get list of boundaries
+    // Filter empty boundaries and get boundary list
     QByteArray fileData = m_mainWin->targetSystems[m_targetId]->getFileContent(m_casePath + "/constant/polyMesh/boundary");
     if (!fileData.isEmpty()) {
         m_boundaries = SolverIO::parseBoundaryPatches(fileData);
+        // auto [newData, m_boundaries] = SolverIO::removeEmptyPatches(fileData);
+        // m_mainWin->targetSystems[m_targetId]->writeData(newData, m_casePath + "/constant/polyMesh/boundary");
     }
 
-    // Get list of patch names
+    // Update list of patch names
     for(const auto& patch: m_renderData->patches) {
         m_patchNames.push_back(std::string(patch.name));
     }
@@ -209,6 +210,15 @@ void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
 
         // Update data
         m_mainWin->targetSystems[m_targetId]->writeData(finalFileData, m_casePath + "/constant/polyMesh/boundary");
+
+        // Refresh navigator
+        QString caseName = m_casePath.split("/").last();
+        m_mainWin->updatePath(caseName, "constant/polyMesh", m_targetId);
+
+        // Display message
+        QMessageBox::information(nullptr, tr("Operation Report"),
+            tr("Boundary changes applied successfully."));
+
     } else {
         QMessageBox errorDialog(this);
         errorDialog.setWindowTitle("Parse Error");
@@ -216,37 +226,6 @@ void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
         errorDialog.setInformativeText("The file may contain syntax errors or unsupported keywords.");
         errorDialog.setIcon(QMessageBox::Warning);
         errorDialog.exec();
-    }
-
-    // Create field map
-    QMetaEnum metaEnum = QMetaEnum::fromType<FlowCompute::FieldClass>();
-    std::unordered_map<QString, FlowCompute::FieldData> fieldMap;
-    for(auto const& patch: patches) {
-        for (const auto& [fieldName, bcData] : patch.bcs) {
-
-            if (!fieldMap.contains(fieldName)) {
-
-                // Create FieldData for field
-                FlowCompute::FieldData fieldData;
-                fieldData.fieldClass = metaEnum.valueToKey(static_cast<int>(
-                    m_fieldData[fieldName].fieldClass));
-                fieldData.dimension = m_fieldData[fieldName].dimensions;
-                fieldData.internalField = m_fieldData[fieldName].defaultValue;
-                fieldMap[fieldName] = fieldData;
-            }
-            fieldMap[fieldName].bcs[patch.name] = bcData;
-        }
-    }
-
-    // Get OpenFoamPath
-    QString caseName = m_casePath.split("/").last();
-    QString openFoamPath = m_mainWin->m_caseMap[caseName].openFoamPath;
-
-    // Create field files
-    QString path = m_casePath + "/0.orig/";
-    for (const auto& [fieldName, fieldData] : fieldMap) {
-        QString fieldFile = Utils::createFieldFile(openFoamPath, fieldName, fieldData);
-        m_mainWin->targetSystems[m_targetId]->writeData(fieldFile.toUtf8(), path + fieldName);
     }
 }
 

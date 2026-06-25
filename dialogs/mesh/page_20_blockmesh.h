@@ -39,7 +39,7 @@ private:
     BlockMeshConfig* m_cfg;
     MeshWizard* meshWizard;
     BoundingBox m_rawGeomBox;
-    QComboBox *scaleFactorBox;
+    QComboBox *m_scaleFactorCombo;
     QLabel* geometryLabel;
     std::array<QDoubleSpinBox*, 6> dimSpin;
     std::array<double, 3> minGeometry, maxGeometry;
@@ -51,7 +51,6 @@ private:
     QLineEdit *cellCountTotalEdit, *maxAspectRatioEdit;
 
     double m_previousScaleFactor = 1.0;
-    // double getCurrentScaleFactor() const;
     double getCurrentScaleFactor(const QString& text) const;
 
 private slots:

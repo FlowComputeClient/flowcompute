@@ -6,12 +6,11 @@
 #include <QStringList>
 
 enum class UtilityType {
-    UTILITY_CHECK = 1,
-    SURFACE_CHECK,
-    SURFACE_AUTO_PATCH,
-    MESH,
+    MESH = 0,
     SOLVER
 };
+
+#include "../geometry/graphic_data.h"
 
 // Abstract class that represents a target running OpenFOAM
 class TargetSystem: public QObject {
@@ -27,11 +26,13 @@ public:
     virtual QStringList copyTutorialFolders(QString tutPath, QString projPath) = 0;
     virtual QString checkPath(QString projPath) = 0;
     virtual QByteArray getFileContent(QString path) = 0;
+    virtual RenderData getResultData(QString path) = 0;
     virtual bool writeData(const QByteArray& payload, const QString& remoteFilePath) = 0;
     virtual bool writeData(const QString& localPath, const QString& remoteFilePath) = 0;
     virtual int launchShortUtility(const QString& cmd, QString& output) = 0;
-    virtual void launchLongUtility(const QString& cmd) = 0;
+    virtual void launchLongUtility(const QString& cmd, const QString& caseName, UtilityType type) = 0;
     virtual bool createDirectories(QStringList dirPaths) = 0;
+    virtual QString getResultFolders(QString path) = 0;
 };
 
 #endif // TARGET_SYSTEM_H

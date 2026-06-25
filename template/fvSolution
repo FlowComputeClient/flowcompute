@@ -28,8 +28,7 @@ solvers
 }
 
 %5
-    nNonOrthogonalCorrectors 0;
-    consistent yes;
+    nNonOrthogonalCorrectors   2;
     residualControl
     {
         p                   1e-3;

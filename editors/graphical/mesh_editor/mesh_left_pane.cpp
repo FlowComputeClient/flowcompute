@@ -1,34 +1,23 @@
 #include "mesh_left_pane.h"
 
-#include <QDialog>
-#include <QDialogButtonBox>
-#include <QFormLayout>
-#include <QLineEdit>
+#include <QComboBox>
+#include <QVBoxLayout>
 
-#include "../../../dialogs/boundary/boundary_dialog.h"
 #include "../../../geometry/graphic_data.h"
+#include "../table_delegate.h"
 
 MeshLeftPane::MeshLeftPane(QStringList fields,
                            const QHash<QString, FlowCompute::FieldDef>& fieldData,
                            const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
                            QWidget* parent):
-    QWidget(parent), m_fields(fields), m_fieldData(fieldData), m_boundaryConditions(boundaryConditions) {
+    QWidget(parent), m_fields(fields), m_fieldData(fieldData),
+    m_boundaryConditions(boundaryConditions) {
 
     // Vertical layout
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setSpacing(15);
     setLayout(layout);
-
-    // Set stylesheet
-    setStyleSheet(R"(
-        QPushButton    { color: black; }
-        QLabel         { color: black; }
-        QCheckBox      { color: black; }
-        QComboBox      { color: black; }
-        QDoubleSpinBox { color: black; }
-        QTableWidget   { color: black; }
-        QHeaderView    { color: black; }
-    )");
+    setProperty("widgetType", "pane");
 
     // Label
     layout->addSpacing(5);
@@ -51,6 +40,7 @@ MeshLeftPane::MeshLeftPane(QStringList fields,
     QFrame *line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
+    line->setProperty("lineStyle", "hline");
     layout->addWidget(line);
 
     // Renumber mesh
@@ -64,6 +54,7 @@ MeshLeftPane::MeshLeftPane(QStringList fields,
     line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
+    line->setProperty("lineStyle", "hline");
     layout->addWidget(line);
 
     // Create horizontal layout
@@ -95,6 +86,7 @@ MeshLeftPane::MeshLeftPane(QStringList fields,
     line = new QFrame();
     line->setFrameShape(QFrame::HLine);
     line->setFrameShadow(QFrame::Sunken);
+    line->setProperty("lineStyle", "hline");
     layout->addWidget(line);
 
     // Set table title
@@ -103,14 +95,14 @@ MeshLeftPane::MeshLeftPane(QStringList fields,
 
     // Patch table
     m_patchTable = new QTableWidget(this);
-    m_patchTable->setColumnCount(4);
+    m_patchTable->setColumnCount(3);
     m_patchTable->horizontalHeader()->setVisible(false);
     m_patchTable->setColumnWidth(0, 30);
-    m_patchTable->setColumnWidth(2, 70);
-    m_patchTable->resizeColumnToContents(3);
     m_patchTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     m_patchTable->verticalHeader()->setVisible(false);
     m_patchTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    m_patchTable->setTabKeyNavigation(true);
+    m_patchTable->setItemDelegateForColumn(1, new TableDelegate(m_patchTable));
     layout->addWidget(m_patchTable, 0, Qt::AlignHCenter);
 
     // Button to apply changes
@@ -185,20 +177,6 @@ void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>& patches
                 m_applyButton->setEnabled(true);
             }
         });
-
-        // Create button for boundary conditions
-        QPushButton* bcButton = new QPushButton(tr("BCs"), m_patchTable);
-        bcButton->setEnabled(true);
-        m_patchTable->setCellWidget(i, 3, bcButton);
-
-        // Set event-handling for the button
-        connect(bcButton, &QPushButton::clicked, this, [this, i, patchName = patches[i].name]() {
-
-            // Access the patch type
-            QComboBox* typeBox = qobject_cast<QComboBox*>(m_patchTable->cellWidget(i, 2));
-            QString selectedPatchType = typeBox ? typeBox->currentText() : "patch";
-            createConditionDialog(patchName, selectedPatchType, i);
-        });
     }
 
     m_patchTable->blockSignals(false);
@@ -216,14 +194,6 @@ void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>& patches
 // Respond when the apply button is pressed
 void MeshLeftPane::onApplyButtonClicked() {
     emit patchApplyRequested(m_boundaryPatches);
-}
-
-void MeshLeftPane::createConditionDialog(const QString& patchName, const QString& patchType, int row) {
-    BoundaryDialog dlg(patchName, patchType, m_fields, m_fieldData, m_boundaryConditions, this);
-    if (dlg.exec() == QDialog::Accepted) {
-        m_boundaryPatches[row].bcs = dlg.getPatchStates();
-        m_applyButton->setEnabled(true);
-    }
 }
 
 // Respond when the check button is pressed

@@ -1,5 +1,5 @@
-#ifndef PAGE_20_PHYSICS_H
-#define PAGE_20_PHYSICS_H
+#ifndef PAGE_30_PHYSICS_H
+#define PAGE_30_PHYSICS_H
 
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -28,18 +28,11 @@ class SolverWizard;
 class PhysicsPage : public QWizardPage {
     Q_OBJECT
 
-    // Define properties for tree selection
-    Q_PROPERTY(QString turbulenceModel READ getTurbulenceModel
-                   WRITE setTurbulenceModel NOTIFY selectionChanged)
-    Q_PROPERTY(QString turbulenceCategory READ getTurbulenceCategory
-                   WRITE setTurbulenceCategory NOTIFY selectionChanged)
-    Q_PROPERTY(QString turbulenceSubCategory READ getTurbulenceSubCategory
-                   WRITE setTurbulenceSubCategory NOTIFY selectionChanged)
-
 public:
-    explicit PhysicsPage(const FlowCompute::TurbulenceDatabase& turbModels,
+    explicit PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
+                         const FlowCompute::TurbulenceDatabase& turbModels,
+                         const std::map<QString, FlowCompute::TransportPropertyDef>& transportProperties,
                          QWidget *parent);
-    // int nextId() const override;
 
     // Accessors for the properties
     QString getTurbulenceModel() const { return m_selectedModel; }
@@ -49,21 +42,20 @@ public:
     QString getTurbulenceSubCategory() const { return m_selectedSubCategory; }
     void setTurbulenceSubCategory(QString arg) { m_selectedSubCategory = arg; }
 
-signals:
-    void selectionChanged();
-
 protected:
     void initializePage() override;
-    // bool validatePage() override;
+    bool validatePage() override;
 
 private:
     SolverWizard* solverWizard;
     PhysicsConfig* m_cfg;
+    std::vector<FlowCompute::SolverFamily> m_families;
     FlowCompute::TurbulenceDatabase m_turbModels;
+    std::map<QString, FlowCompute::TransportPropertyDef> m_transportProperties;
 
     QTreeWidget* turbulenceTree;
-    QComboBox *transportModelBox;
-    QTableWidget* propertiesTable;
+    QComboBox *m_transportModelCombo, *m_deltaModelCombo;
+    QTableWidget* m_propertiesTable;
     QStringList standardProperties;
 
     // Backing variables for the properties
@@ -75,4 +67,4 @@ private slots:
     void modelChanged();
 };
 
-#endif  // PAGE_20_PHYSICS_H
+#endif  // PAGE_30_PHYSICS_H

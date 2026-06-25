@@ -1,5 +1,5 @@
-#ifndef PAGE_50_PARALLEL_H
-#define PAGE_50_PARALLEL_H
+#ifndef PAGE_90_PARALLEL_H
+#define PAGE_90_PARALLEL_H
 
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -19,7 +19,6 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "../../core_types.h"
 #include "solver_structs.h"
 
 class SolverWizard;
@@ -41,6 +40,7 @@ private:
 
     QCheckBox *m_parallelCheck;
     QComboBox *m_methodCombo, *m_hierOrderCombo;
+    QDoubleSpinBox *m_simpleDeltaSpin, *m_hierDeltaSpin;
     QSpinBox *m_simpleXSpin, *m_simpleYSpin, *m_simpleZSpin;
     QSpinBox *m_subdomainsSpin, *m_hierXSpin, *m_hierYSpin, *m_hierZSpin;
     QStackedWidget* m_methodStack;
@@ -50,4 +50,4 @@ private slots:
     void methodChanged(int);
 };
 
-#endif  // PAGE_50_PARALLEL_H
+#endif  // PAGE_90_PARALLEL_H

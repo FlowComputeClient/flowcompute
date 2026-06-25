@@ -9,7 +9,7 @@
 BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
 
     // Set title and style
-    setTitle(tr("Define Mesh Domain"));
+    setTitle(tr("BlockMesh Configuration: Define Mesh Domain"));
 
     // Create a grid layout with two columns
     QFormLayout* layout = new QFormLayout(this);
@@ -25,15 +25,15 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     }
 
     // Set scale factor
-    scaleFactorBox = new QComboBox(this);
-    scaleFactorBox->setEditable(true);
-    scaleFactorBox->addItem(tr("1 meter (1.0)"), 1.0);
-    scaleFactorBox->addItem(tr("10 centimeters (0.1)"), 0.1);
-    scaleFactorBox->addItem(tr("1 centimeter (0.01)"), 0.01);
-    scaleFactorBox->addItem(tr("1 millimeter (0.001)"), 0.001);
-    scaleFactorBox->addItem(tr("1 inch (0.0254)"), 0.0254);
-    layout->addRow(tr("Geometry scale factor:"), scaleFactorBox);
-    connect(scaleFactorBox, &QComboBox::currentTextChanged, this, &BlockMeshPage1::onScaleFactorChanged);
+    m_scaleFactorCombo = new QComboBox(this);
+    m_scaleFactorCombo->setEditable(true);
+    m_scaleFactorCombo->addItem(tr("1 meter (1.0)"), 1.0);
+    m_scaleFactorCombo->addItem(tr("10 centimeters (0.1)"), 0.1);
+    m_scaleFactorCombo->addItem(tr("1 centimeter (0.01)"), 0.01);
+    m_scaleFactorCombo->addItem(tr("1 millimeter (0.001)"), 0.001);
+    m_scaleFactorCombo->addItem(tr("1 inch (0.0254)"), 0.0254);
+    layout->addRow(tr("Geometry scale factor:"), m_scaleFactorCombo);
+    connect(m_scaleFactorCombo, &QComboBox::currentTextChanged, this, &BlockMeshPage1::onScaleFactorChanged);
 
     // Set group box for domain bounds
     QGroupBox* domainBox = new QGroupBox(tr("Domain Bounds"), this);
@@ -82,7 +82,7 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     for(int i=0; i<3; i++) {
         actualSizeEdits[i] = new QLineEdit();
         actualSizeEdits[i]->setReadOnly(true);
-        actualSizeEdits[i]->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
+        // actualSizeEdits[i]->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
         sizesLayout->addWidget(actualSizeEdits[i]);
     }
     cellLayout->addRow(tr("Actual cell sizes:"), sizesLayout);
@@ -93,7 +93,7 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     for(int i=0; i<3; i++) {
         cellCountEdits[i] = new QLineEdit();
         cellCountEdits[i]->setReadOnly(true);
-        cellCountEdits[i]->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
+        // cellCountEdits[i]->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
         numCellsLayout->addWidget(cellCountEdits[i]);
     }
     cellLayout->addRow(tr("Number of cells (Nx, Ny, Nz):"), numCellsLayout);
@@ -101,13 +101,13 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     // Display total cell count
     cellCountTotalEdit = new QLineEdit();
     cellCountTotalEdit->setReadOnly(true);
-    cellCountTotalEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
+    // cellCountTotalEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
     cellLayout->addRow(tr("Estimated cell count:"), cellCountTotalEdit);
 
     // Display maximum aspect ratio
     maxAspectRatioEdit = new QLineEdit();
     maxAspectRatioEdit->setReadOnly(true);
-    maxAspectRatioEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
+    // maxAspectRatioEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
     cellLayout->addRow(tr("Maximum aspect ratio:"), maxAspectRatioEdit);
 
     // Set the page layout
@@ -125,16 +125,16 @@ void BlockMeshPage1::initializePage() {
     m_cfg = &(meshWizard->getBlockMeshConfig());
 
     {
-        const QSignalBlocker blocker(scaleFactorBox);
+        const QSignalBlocker blocker(m_scaleFactorCombo);
 
         // Set scale factor from file
         double scaleValue = m_cfg->convertToMeters;
         m_previousScaleFactor = scaleValue;
-        int index = scaleFactorBox->findData(scaleValue);
+        int index = m_scaleFactorCombo->findData(scaleValue);
         if (index != -1) {
-            scaleFactorBox->setCurrentIndex(index);
+            m_scaleFactorCombo->setCurrentIndex(index);
         } else {
-            scaleFactorBox->setCurrentText(QString::number(scaleValue, 'f', 4));
+            m_scaleFactorCombo->setCurrentText(QString::number(scaleValue, 'f', 4));
         }
     }
 
@@ -197,7 +197,7 @@ void BlockMeshPage1::setBoundingBox() {
     targetCellSizeSpin->blockSignals(false);
 
     // Run scale update
-    onScaleFactorChanged(scaleFactorBox->currentText());
+    onScaleFactorChanged(m_scaleFactorCombo->currentText());
 }
 
 void BlockMeshPage1::updateCellCount() {
@@ -253,7 +253,7 @@ bool BlockMeshPage1::validatePage() {
     }
 
     // Write scale factor to struct
-    m_cfg->convertToMeters = getCurrentScaleFactor(scaleFactorBox->currentText());
+    m_cfg->convertToMeters = getCurrentScaleFactor(m_scaleFactorCombo->currentText());
 
     // Write cell counts to struct
     m_cfg->nX = cellCountEdits[0]->text().toInt();
@@ -352,9 +352,9 @@ void BlockMeshPage1::fitBoundsPressed() {
 
 double BlockMeshPage1::getCurrentScaleFactor(const QString& text) const {
     // 1. Try to find a perfectly matching dropdown item first
-    int index = scaleFactorBox->findText(text);
+    int index = m_scaleFactorCombo->findText(text);
     if (index != -1) {
-        return scaleFactorBox->itemData(index).toDouble();
+        return m_scaleFactorCombo->itemData(index).toDouble();
     }
 
     // 2. Otherwise, attempt to parse it as custom typed input

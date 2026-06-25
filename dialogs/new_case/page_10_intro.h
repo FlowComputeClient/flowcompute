@@ -21,11 +21,11 @@ class IntroPage : public QWizardPage {
 public:
     explicit IntroPage(QWidget *parent);
     int nextId() const override;
-    QString& getOpenFoamPath() { return openFoamPath; };
+    QString& getOpenFoamPath() { return m_openFoamPath; };
 
     // Getter functions
-    int targetSystemId() const { return targetButtonGroup->checkedId(); }
-    int caseCreationType() const { return caseCreationButtonGroup->checkedId(); }
+    int targetSystemId() const { return m_targetButtonGroup->checkedId(); }
+    int caseCreationType() const { return m_caseCreationButtonGroup->checkedId(); }
 
     // Setter functions
     void setTargetSystemId(int id);
@@ -39,9 +39,9 @@ protected:
     QString createSelectionDialog(const QStringList& paths);
 
 private:
-    QString openFoamPath;
-    QLineEdit *caseNameEdit, *remoteIPAddrEdit;
-    QButtonGroup *targetButtonGroup, *caseCreationButtonGroup;
+    QString m_openFoamPath;
+    QLineEdit *m_caseNameEdit, *m_remoteIPAddrEdit;
+    QButtonGroup *m_targetButtonGroup, *m_caseCreationButtonGroup;
     QRadioButton *m_tutorialRadio, *m_interactiveRadio;
 };
 

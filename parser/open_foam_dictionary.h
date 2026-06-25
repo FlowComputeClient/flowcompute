@@ -6,6 +6,13 @@
 #include <QByteArray>
 #include <QString>
 
+struct SyntaxError {
+    uint32_t line;
+    uint32_t column;
+    QString text;
+    QString message;
+};
+
 struct TSTreeDeleter {
     void operator()(TSTree* tree) const {
         if (tree) {
@@ -32,9 +39,12 @@ public:
     double getNumber(const QString& path) const;
     void setValue(const QString& path, const QString& newValue);
     QStringList getList(const QString& path) const;
-    QStringList getSubDictKeys(const QString& path) const;
+    QStringList getDictKeys(const QString& path) const;
     bool hasSyntaxErrors() const;
     void renameKey(const QString& path, const QString& newName);
+    QList<SyntaxError> getSyntaxErrors() const;
+    void insertIntoDict(const QString& path, const QByteArray& content);
+    void removeEntry(const QString& path);
 
     // Get the final mutated text to send back over ASIO
     QByteArray getRawText() const;

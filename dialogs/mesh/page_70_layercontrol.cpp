@@ -2,6 +2,8 @@
 
 #include "wizard_mesh.h"
 
+QWidget* centerBox(QCheckBox* box);
+
 // Introduction page asks for the case name and platform
 LayerControlPage::LayerControlPage(QWidget *parent): QWizardPage(parent) {
 
@@ -73,6 +75,7 @@ LayerControlPage::LayerControlPage(QWidget *parent): QWizardPage(parent) {
     surfaceLayerTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
     surfaceLayerTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     surfaceLayerTable->verticalHeader()->setVisible(false);
+    surfaceLayerTable->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter);
     surfaceAssignmentLayout->addWidget(surfaceLayerTable);
 
     // Create the group box and layout
@@ -148,11 +151,12 @@ void LayerControlPage::initializePage() {
         // Enable Layer
         QCheckBox* enableLayersCheck = new QCheckBox(this);
         enableLayersCheck->setChecked(false);
-        surfaceLayerTable->setCellWidget(i, 0, enableLayersCheck);
+        surfaceLayerTable->setCellWidget(i, 0, centerBox(enableLayersCheck));
 
         // Layer name
         QTableWidgetItem* fileItem = new QTableWidgetItem(layerName);
         fileItem->setFlags(fileItem->flags() & ~Qt::ItemIsEditable);
+        fileItem->setTextAlignment(Qt::AlignCenter);
         surfaceLayerTable->setItem(i, 1, fileItem);
 
         // Number of layers
@@ -174,6 +178,16 @@ void LayerControlPage::initializePage() {
     internalSmoothingSpin->setValue(m_cfg->nSmoothNormals);
 }
 
+// Center checkboxes visually in a table cell
+QWidget* centerBox(QCheckBox* box) {
+    QWidget* widget = new QWidget();
+    QHBoxLayout* layout = new QHBoxLayout(widget);
+    layout->addWidget(box);
+    layout->setAlignment(Qt::AlignCenter);
+    layout->setContentsMargins(0, 0, 0, 0);
+    return widget;
+}
+
 bool LayerControlPage::validatePage() {
 
     // Update struct from global geometry widgets
@@ -186,14 +200,21 @@ bool LayerControlPage::validatePage() {
     m_cfg->nSurfaceLayers.clear();
     for (int i = 0; i < surfaceLayerTable->rowCount(); ++i) {
 
-        // Safely retrieve the widgets using the correct column indices
-        QCheckBox* enableBox = qobject_cast<QCheckBox*>(surfaceLayerTable->cellWidget(i, 0));
+        // Access widgets for table items
+        QWidget* wrapperWidget = surfaceLayerTable->cellWidget(i, 0);
+        QCheckBox* enableBox = wrapperWidget ? wrapperWidget->findChild<QCheckBox*>() : nullptr;
+
+        // Retrieve the other elements
         QTableWidgetItem* fileItem = surfaceLayerTable->item(i, 1);
         QSpinBox* layerBox = qobject_cast<QSpinBox*>(surfaceLayerTable->cellWidget(i, 2));
 
-        // Ensure pointers are valid and the user explicitly checked the box
-        if (enableBox && fileItem && layerBox && enableBox->isChecked()) {
-            m_cfg->nSurfaceLayers[fileItem->text()] = layerBox->value();
+        // Ensure pointers are valid
+        if (enableBox && fileItem && layerBox) {
+            if (enableBox->isChecked()) {
+                m_cfg->nSurfaceLayers[fileItem->text()] = layerBox->value();
+            }
+        } else {
+            qWarning() << "Failed to retrieve one or more widgets for row" << i;
         }
     }
 
@@ -203,5 +224,6 @@ bool LayerControlPage::validatePage() {
     m_cfg->nSmoothThickness = thicknessSmoothingSpin->value();
     m_cfg->nSmoothSurfaceNormals = surfaceSmoothingSpin->value();
     m_cfg->nSmoothNormals = internalSmoothingSpin->value();
+
     return true;
 }

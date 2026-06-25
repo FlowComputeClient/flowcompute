@@ -4,7 +4,8 @@
 #include "../../main_window.h"
 
 // Introduction page asks for the case name and platform
-GeometryPage::GeometryPage(QWidget *parent): QWizardPage(parent) {
+GeometryPage::GeometryPage(const QString& caseName, const QStringList& cases, QWidget *parent):
+    m_caseName(caseName), m_cases(cases), QWizardPage(parent) {
 
     // Set title and style
     setTitle(tr("Overall Mesh Configuration"));
@@ -14,16 +15,18 @@ GeometryPage::GeometryPage(QWidget *parent): QWizardPage(parent) {
     layout->setSpacing(20);
 
     // Get selected case
-    layout->addWidget(new QLabel(tr("Select an OpenFOAM case:")), 0, 0);
-    caseBox = new QComboBox(this);
-    layout->addWidget(caseBox, 0, 1);
-    connect(caseBox, &QComboBox::currentIndexChanged, this, &GeometryPage::caseChanged);
+    layout->addWidget(new QLabel(tr("Select the OpenFOAM case:")), 0, 0);
+    m_caseCombo = new QComboBox(this);
+    m_caseCombo->addItems(m_cases);
+    m_caseCombo->setCurrentText(m_caseName);
+    layout->addWidget(m_caseCombo, 0, 1);
+    connect(m_caseCombo, &QComboBox::currentTextChanged, this, &GeometryPage::caseChanged);
 
     // Select one or more geometry files
     layout->addWidget(new QLabel(tr("Select one or more geometry files:")), 1, 0, Qt::AlignTop);
-    listWidget = new QListWidget(this);
-    listWidget->setMaximumHeight(100);
-    layout->addWidget(listWidget, 1, 1);
+    m_geometryList = new QListWidget(this);
+    m_geometryList->setMaximumHeight(100);
+    layout->addWidget(m_geometryList, 1, 1);
 
     // Select meshing stages
     QGroupBox* stageBox = new QGroupBox(tr("Mesh Stage Selection"), this);
@@ -51,7 +54,7 @@ GeometryPage::GeometryPage(QWidget *parent): QWizardPage(parent) {
     m_layersCheck->setChecked(true);
 
     // Register case name
-    registerField("caseName", caseBox, "currentText");
+    registerField("caseName", m_caseCombo, "currentText");
 
     // Set the page layout
     setLayout(layout);
@@ -62,28 +65,24 @@ void GeometryPage::initializePage() {
     // Get cases
     meshWizard = qobject_cast<MeshWizard*>(this->wizard());
     mainWin = qobject_cast<MainWindow*>(this->wizard()->parentWidget());
-    QStringList cases = mainWin->m_caseMap.keys();
-    QString selectedCase = mainWin->getSelectedCase();
 
-    caseBox->addItems(cases);
-    if(!selectedCase.isEmpty()) {
-        caseBox->setCurrentText(selectedCase);
-    }
+    // Start event processing
+    caseChanged(m_caseName);
 }
 
 // Populate list of geometry files based on selected case
-void GeometryPage::caseChanged(int index) {
+void GeometryPage::caseChanged(const QString& caseName) {
 
     // Clear list widget
-    listWidget->clear();
+    m_geometryList->clear();
 
     // Get case path
-    caseName = caseBox->currentText();
-    int targetSystemId = mainWin->m_caseMap[caseName].targetSystemId;
-    QString casePath = mainWin->m_caseMap[caseName].casePath;
+    m_caseName = caseName;
+    int targetSystemId = mainWin->m_caseMap[m_caseName].targetSystemId;
+    QString casePath = mainWin->m_caseMap[m_caseName].casePath;
 
-    // Transfer geometry file
-    QString path = casePath + "/" + caseName + "/constant/triSurface";
+    // Read geometry file
+    QString path = casePath + "/" + m_caseName + "/constant/triSurface";
     QStringList geometryFiles = mainWin->targetSystems[targetSystemId]->getFiles(path);
     QListWidgetItem *item;
     for (int i = geometryFiles.size() - 1; i >= 0; --i) {        
@@ -95,7 +94,7 @@ void GeometryPage::caseChanged(int index) {
             }
 
             // Add list item
-            item = new QListWidgetItem(geometryFiles[i], listWidget);
+            item = new QListWidgetItem(geometryFiles[i], m_geometryList);
             item->setData(Qt::UserRole, geometryFiles[i]);
             item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
             item->setCheckState(Qt::Checked);
@@ -115,22 +114,22 @@ bool GeometryPage::validatePage() {
     meshWizard->m_runLayers = m_layersCheck->isChecked();
 
     // Set case name
-    caseName = caseBox->currentText();
+    m_caseName = m_caseCombo->currentText();
 
     // Make sure at least one geometry file is selected
-    geometryFiles.clear();
-    for (int i = 0; i < listWidget->count(); ++i) {
-        QListWidgetItem *item = listWidget->item(i);
+    m_geometryFiles.clear();
+    for (int i = 0; i < m_geometryList->count(); ++i) {
+        QListWidgetItem *item = m_geometryList->item(i);
         if (item->checkState() == Qt::Checked) {
-            geometryFiles << item->data(Qt::UserRole).toString();
+            m_geometryFiles << item->data(Qt::UserRole).toString();
         }
     }
-    if (geometryFiles.empty()) {
+    if (m_geometryFiles.empty()) {
         QMessageBox::critical(this, tr("No Geometry"),
             tr("No geometry files selected. Please select at least one file."));
         return false;
     } else {
-        geometryFiles.sort();
+        m_geometryFiles.sort();
     }
 
     return meshWizard->loadParseFiles();

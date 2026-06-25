@@ -110,5 +110,12 @@
     "types": [ "scalar" ],
     "patchTypes": [ "patch" ],
     "parameters": [ "mixingLength", "value" ]
-  }  
+  },
+  {
+    "name": "turbulentIntensityKineticEnergyInlet",
+    "categories": [ "inlet" ],
+    "types": [ "scalar" ],
+    "patchTypes": [ "patch" ],
+    "parameters": [ "intensity", "value" ]
+  }
 ]

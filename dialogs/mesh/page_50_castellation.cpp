@@ -92,6 +92,8 @@ CastellationPage::CastellationPage(QWidget *parent): QWizardPage(parent) {
     meshRefinementTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
     meshRefinementTable->verticalHeader()->setVisible(false);
     surfaceRefinementLayout->addWidget(meshRefinementTable);
+
+    layout->addStretch();
 }
 
 void CastellationPage::initializePage() {

@@ -44,7 +44,7 @@ void main() {
     // It approaches 0.0 at the edges and is 1.0 in the center of the triangle.
     float edgeFactor = min(min(a3.x, a3.y), a3.z);
     
-    // --- 3. Final Color Mixing ---
+    // Final Color Mixing ---
     if (enableWireframe > 0.5) {
         vec3 finalColor = mix(shadedColor, wireColor.rgb, (1.0 - edgeFactor) * wireOpacity);
         outColor = vec4(finalColor, 1.0);

@@ -6,36 +6,42 @@
         "name": "simpleFoam",
         "algorithm": "SIMPLE",
         "fields": ["p", "U"],
+        "transportProperties": [ "nu" ],
         "is_steady_state": true
       },
       {
         "name": "pimpleFoam",
         "algorithm": "PIMPLE",
         "fields": ["p", "U"],
+        "transportProperties": [ "nu" ],
         "is_steady_state": false
       },
       {
         "name": "pisoFoam",
         "algorithm": "PISO",
-        "fields": ["p", "U"],        
+        "fields": ["p", "U"],
+        "transportProperties": [ "nu" ],
         "is_steady_state": false
       },
       {
         "name": "icoFoam",
         "algorithm": "PISO",
-        "fields": ["p", "U"],        
+        "fields": ["p", "U"],
+        "transportProperties": [ "nu" ],
         "is_steady_state": false
       },
       {
         "name": "SRFPimpleFoam",
         "algorithm": "PIMPLE",
-        "fields": ["p", "U"],        
+        "fields": ["p", "U"],
+        "transportProperties": [ "nu" ],
         "is_steady_state": false
       },
       {
         "name": "SRFSimpleFoam",
         "algorithm": "SIMPLE",
         "fields": ["p", "U"],
+        "transportProperties": [ "nu" ],
         "is_steady_state": true
       }
     ]
@@ -46,31 +52,41 @@
       {
         "name": "interFoam",
         "algorithm": "PIMPLE",
-        "fields": ["U", "alpha.*", "p_rgh"],        
+        "fields": [ "U", "alpha.*", "p_rgh"],
+        "transportProperties": [ "sigma" ],
+        "thermalProperties": [],
         "is_steady_state": false
       },
       {
         "name": "cavitatingFoam",
         "algorithm": "PIMPLE",
-        "fields": ["U", "alpha.*", "p_rgh"],        
+        "fields": ["U", "alpha.*", "p_rgh"],
+        "transportProperties": [ "sigma", "psat" ],
+        "thermalProperties": [],
         "is_steady_state": false
       },
       {
         "name": "compressibleInterFoam",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T", "alpha.*", "p_rgh"],
+        "transportProperties": [ "sigma" ],
+        "thermalProperties": [],
         "is_steady_state": false
       },
       {
         "name": "interIsoFoam",
         "algorithm": "PIMPLE",
-        "fields": ["U", "alpha.*", "p_rgh"],         
+        "fields": ["U", "alpha.*", "p_rgh"],
+        "transportProperties": [ "sigma" ],
+        "thermalProperties": [],
         "is_steady_state": false
       },
       {
         "name": "multiphaseInterFoam",
         "algorithm": "PIMPLE",
-        "fields": ["U", "alpha.*", "p_rgh"],        
+        "fields": ["U", "alpha.*", "p_rgh"],
+        "transportProperties": [ "sigma" ],
+        "thermalProperties": [],
         "is_steady_state": false
       }
     ]
@@ -81,25 +97,37 @@
       {
         "name": "rhoSimpleFoam",
         "algorithm": "SIMPLE",
-        "fields": ["p", "U", "T"],        
+        "fields": ["p", "U", "T"],
+        "transportProperties": [],
+        "thermalProperties": [
+          "type", "mixture", "transport", "thermo", "equationOfState", "specie", "energy" ],
         "is_steady_state": true
       },
       {
         "name": "rhoPimpleFoam",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T"],
+        "transportProperties": [],
+        "thermalProperties": [
+          "type", "mixture", "transport", "thermo", "equationOfState", "specie", "energy" ],
         "is_steady_state": false
       },
       {
         "name": "rhoCentralFoam",
         "algorithm": "CENTRAL_UPWIND",
         "fields": ["p", "U", "T"],
+        "transportProperties": [],        
+        "thermalProperties": [
+          "type", "mixture", "transport", "thermo", "equationOfState", "specie", "energy" ],
         "is_steady_state": false
       },
       {
         "name": "sonicFoam",
         "algorithm": "PISO",
         "fields": ["p", "U", "T"],
+        "transportProperties": [],
+        "thermalProperties": [
+          "type", "mixture", "transport", "thermo", "equationOfState", "specie", "energy" ],
         "is_steady_state": false
       }
     ]
@@ -111,36 +139,52 @@
         "name": "chtMultiRegionFoam",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
+        "transportProperties": [],
+        "thermalProperties": [
+          "type", "mixture", "transport", "thermo", "equationOfState", "specie", "energy" ],
         "is_steady_state": false
       },
       {
         "name": "chtMultiRegionSimpleFoam",
         "algorithm": "SIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
+        "transportProperties": [],
+        "thermalProperties": [
+          "type", "mixture", "transport", "thermo", "equationOfState", "specie", "energy" ],
         "is_steady_state": true
       },
       {
         "name": "buoyantBoussinesqPimpleFoam",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
+        "transportProperties": [ "nu", "Pr", "TRef", "beta" ],
+        "thermalProperties": [],
         "is_steady_state": false
       },
       {
         "name": "buoyantBoussinesqSimpleFoam",
         "algorithm": "SIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
+        "transportProperties": [ "nu", "Pr", "TRef", "beta" ],
+        "thermalProperties": [],
         "is_steady_state": true
       },
       {
         "name": "buoyantPimpleFoam",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
+        "transportProperties": [],
+        "thermalProperties": [
+          "type", "mixture", "transport", "thermo", "equationOfState", "specie", "energy" ],
         "is_steady_state": false
       },
       {
         "name": "buoyantSimpleFoam",
         "algorithm": "SIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
+        "transportProperties": [],
+        "thermalProperties": [
+          "type", "mixture", "transport", "thermo", "equationOfState", "specie", "energy" ],
         "is_steady_state": true
       }
     ]
@@ -151,19 +195,22 @@
       {
         "name": "laplacianFoam",
         "algorithm": "NONE",
-        "fields": ["T"],        
+        "fields": ["T"],
+        "transportProperties": [ "DT" ],
         "is_steady_state": false
       },
       {
         "name": "potentialFoam",
         "algorithm": "NONE",
         "fields": ["p", "U"],
+        "transportProperties": [],
         "is_steady_state": true
       },
       {
         "name": "scalarTransportFoam",
         "algorithm": "NONE",
-        "fields": ["U", "T"],        
+        "fields": ["U", "T"],
+        "transportProperties": [ "DT" ],
         "is_steady_state": false
       }
     ]

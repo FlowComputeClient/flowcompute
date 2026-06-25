@@ -104,9 +104,13 @@ void VulkanRenderer::startNextFrame() {
 
     // Set clear colors
     VkClearValue clearValues[3] = {};
-    clearValues[0].color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+    // clearValues[0].color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+    clearValues[0].color = {{ 0.1f, 0.1f, 0.12f, 1.0f }};
     clearValues[1].depthStencil = { 1.0f, 0 };
     clearValues[2].color = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
+
+    // Compute scaled maximum dimension
+    float scaledDim = m_maxDim / 5.0f;
 
     // Begin the render pass
     const QSize sz = m_window->swapChainImageSize();
@@ -127,7 +131,7 @@ void VulkanRenderer::startNextFrame() {
     // Create viewport
     VkDeviceSize vbOffset = 0;
     m_devFuncs->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m_vertexBuffer, &vbOffset);
-    if (m_renderData->format == RenderType::Surface) {
+    if (!m_renderData->indices.empty()) {
         m_devFuncs->vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     }
     VkViewport viewport = {
@@ -150,7 +154,7 @@ void VulkanRenderer::startNextFrame() {
                                         &m_descriptorSets[m_window->currentFrame()], 0, nullptr);
     m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[0]);
 
-    // Draw the mesh
+    // Render the data
     switch(m_renderData->format) {
     case RenderType::Surface:
         for (int i=0; i<m_renderData->patches.size(); i++) {
@@ -177,6 +181,7 @@ void VulkanRenderer::startNextFrame() {
         }
         break;
     case RenderType::Color:
+        m_devFuncs->vkCmdDrawIndexed(cmdBuf, m_renderData->indices.size(), 1, 0, 0, 0);
         break;
 
     default:
@@ -190,9 +195,12 @@ void VulkanRenderer::startNextFrame() {
     // Bind pipeline
     m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[1]);
 
+    // Set push constants -
+    m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                   0, sizeof(float), &scaledDim);
+
     // Draw the axes
     m_devFuncs->vkCmdDraw(cmdBuf, 6, 1, 0, 0);
-
     m_devFuncs->vkCmdEndRenderPass(cmdBuf);
     m_window->frameReady();
 }
@@ -216,7 +224,7 @@ void VulkanRenderer::createPipelineStorage() {
     // Create the descriptor pool
     VkDescriptorPoolCreateInfo descPoolInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = m_concurrentFrameCount * static_cast<uint32_t>(poolSizes.size()),
+        .maxSets = m_concurrentFrameCount,
         .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
         .pPoolSizes = poolSizes.data()
     };
@@ -293,7 +301,8 @@ void VulkanRenderer::createDescriptorSets() {
                 .pImageInfo = &m_colorMapImageInfo
             });
         }
-        m_devFuncs->vkUpdateDescriptorSets(m_device, 1, descriptorWrites.data(), 0, nullptr);
+        m_devFuncs->vkUpdateDescriptorSets(m_device, static_cast<uint32_t>(descriptorWrites.size()),
+                                           descriptorWrites.data(), 0, nullptr);
     }
 }
 
@@ -307,13 +316,22 @@ void VulkanRenderer::createPipelines() {
     };
 
     // Pipeline Layout
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 1,
-        .pSetLayouts = &m_descriptorSetLayout,
-        .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &range
-    };
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo;
+    if (m_renderData->format != RenderType::Color) {
+        pipelineLayoutInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &m_descriptorSetLayout,
+            .pushConstantRangeCount = 1,
+            .pPushConstantRanges = &range
+        };
+    } else {
+        pipelineLayoutInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &m_descriptorSetLayout
+        };
+    }
     VkResult err = m_devFuncs->vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
     if (err != VK_SUCCESS) qFatal("Failed to create flat pipeline layout: %d", err);
 
@@ -347,7 +365,10 @@ void VulkanRenderer::createPipelines() {
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment = {
         .blendEnable = VK_FALSE,
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+                          VK_COLOR_COMPONENT_G_BIT |
+                          VK_COLOR_COMPONENT_B_BIT |
+                          VK_COLOR_COMPONENT_A_BIT
     };
 
     VkPipelineColorBlendStateCreateInfo colorBlending = {
@@ -398,6 +419,20 @@ void VulkanRenderer::createPipelines() {
         shaderModules[1] = createShader(QStringLiteral(":/shaders/mesh/frag.spv"));
     }
     else if (m_renderData->format == RenderType::Color) {
+        vertexBindingDesc = {
+            .binding = 0,
+            .stride = 4 * sizeof(float),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+        };
+        vertexAttrDescs.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
+        vertexAttrDescs.push_back({ 1, 0, VK_FORMAT_R32_SFLOAT, 3 * sizeof(float) });
+        vertexInputInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            .vertexBindingDescriptionCount = 1,
+            .pVertexBindingDescriptions = &vertexBindingDesc,
+            .vertexAttributeDescriptionCount = 2,
+            .pVertexAttributeDescriptions = vertexAttrDescs.data()
+        };
         shaderModules[0] = createShader(QStringLiteral(":/shaders/color/vert.spv"));
         shaderModules[1] = createShader(QStringLiteral(":/shaders/color/frag.spv"));
     }
@@ -446,23 +481,54 @@ void VulkanRenderer::createPipelines() {
         .renderPass = m_window->defaultRenderPass()
     };
 
+    // Disable depth writes for transparent axes
+    VkPipelineDepthStencilStateCreateInfo axisDepthStencil = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_FALSE,
+        .depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL
+    };
+
+    VkPipelineColorBlendAttachmentState axisColorBlendAttachment = {
+        .blendEnable = VK_TRUE,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .colorBlendOp = VK_BLEND_OP_ADD,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .alphaBlendOp = VK_BLEND_OP_ADD,
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+                          VK_COLOR_COMPONENT_G_BIT |
+                          VK_COLOR_COMPONENT_B_BIT |
+                          VK_COLOR_COMPONENT_A_BIT
+    };
+
+    VkPipelineColorBlendStateCreateInfo axisColorBlending = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments = &axisColorBlendAttachment
+    };
+
     // Set axis binding and attributes
     VkVertexInputBindingDescription axisVertexBindingDesc = {
         .binding = 0,
-        .stride = 6 * sizeof(float),
+        .stride = 3 * sizeof(float),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
-    VkVertexInputAttributeDescription axisVertexAttrDescs[2] = {
-        { .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0 },
-        { .location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 3 * sizeof(float) }
+
+    VkVertexInputAttributeDescription axisVertexAttrDesc = {
+        .location = 0,
+        .binding = 0,
+        .format = VK_FORMAT_R32G32B32_SFLOAT,
+        .offset = 0
     };
 
     VkPipelineVertexInputStateCreateInfo axisVertexInputInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount = 1,
         .pVertexBindingDescriptions = &axisVertexBindingDesc,
-        .vertexAttributeDescriptionCount = 2,
-        .pVertexAttributeDescriptions = axisVertexAttrDescs
+        .vertexAttributeDescriptionCount = 1,
+        .pVertexAttributeDescriptions = &axisVertexAttrDesc
     };
 
     VkShaderModule axisShaderModules[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
@@ -484,7 +550,7 @@ void VulkanRenderer::createPipelines() {
 
     VkPipelineInputAssemblyStateCreateInfo axisAssemblyState = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-        .topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
     };
 
     // Rasterization
@@ -505,8 +571,8 @@ void VulkanRenderer::createPipelines() {
         .pViewportState = &viewportState,
         .pRasterizationState = &axisRasterizer,
         .pMultisampleState = &multisampling,
-        .pDepthStencilState = &depthStencil,
-        .pColorBlendState = &colorBlending,
+        .pDepthStencilState = &axisDepthStencil,
+        .pColorBlendState = &axisColorBlending,
         .pDynamicState = &dynamicState,
         .layout = m_pipelineLayout,
         .renderPass = m_window->defaultRenderPass()
@@ -552,12 +618,12 @@ VkShaderModule VulkanRenderer::createShader(const QString &name) {
         .pCode = reinterpret_cast<const uint32_t *>(blob.constData())
     };
     VkShaderModule shaderModule;
-    VkResult err = m_devFuncs->vkCreateShaderModule(m_window->device(), &shaderInfo, nullptr, &shaderModule);
+    VkResult err = m_devFuncs->vkCreateShaderModule(m_window->device(), &shaderInfo,
+                                                    nullptr, &shaderModule);
     if (err != VK_SUCCESS) {
         qWarning("Failed to create shader module: %d", err);
         return VK_NULL_HANDLE;
     }
-
     return shaderModule;
 }
 
@@ -584,13 +650,13 @@ void VulkanRenderer::releaseResources() {
     }
 
     // Destroy descriptor objects
-    if (m_descriptorSetLayout != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
-        m_descriptorSetLayout = VK_NULL_HANDLE;
-    }
     if (m_descPool != VK_NULL_HANDLE) {
         m_devFuncs->vkDestroyDescriptorPool(m_device, m_descPool, nullptr);
         m_descPool = VK_NULL_HANDLE;
+    }
+    if (m_descriptorSetLayout != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
+        m_descriptorSetLayout = VK_NULL_HANDLE;
     }
 
     // Destroy axis buffer
@@ -623,15 +689,39 @@ void VulkanRenderer::releaseResources() {
         m_vertexBufferMemory = VK_NULL_HANDLE;
     }
 
+    // Destroy sampler
+    if (m_sampler != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroySampler(m_device, m_sampler, nullptr);
+        m_sampler = VK_NULL_HANDLE;
+    }
+
+    // Destroy image view
+    if (m_imageView != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyImageView(m_device, m_imageView, nullptr);
+        m_imageView = VK_NULL_HANDLE;
+    }
+
+    // Destroy the image
+    if (m_textureImage != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyImage(m_device, m_textureImage, nullptr);
+        m_textureImage = VK_NULL_HANDLE;
+    }
+
+    // Free image memory
+    if (m_textureImageMemory != VK_NULL_HANDLE) {
+        m_devFuncs->vkFreeMemory(m_device, m_textureImageMemory, nullptr);
+        m_textureImageMemory = VK_NULL_HANDLE;
+    }
+
     // Unmap/destroy uniform buffer
+    if (m_uniformBuffer != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyBuffer(m_device, m_uniformBuffer, nullptr);
+        m_uniformBuffer = VK_NULL_HANDLE;
+    }
     if (m_uniformBufferMemory != VK_NULL_HANDLE) {
         m_devFuncs->vkUnmapMemory(m_device, m_uniformBufferMemory);
         m_devFuncs->vkFreeMemory(m_device, m_uniformBufferMemory, nullptr);
         m_uniformBufferMemory = VK_NULL_HANDLE;
-    }
-    if (m_uniformBuffer != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyBuffer(m_device, m_uniformBuffer, nullptr);
-        m_uniformBuffer = VK_NULL_HANDLE;
     }
 }
 

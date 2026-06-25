@@ -22,7 +22,7 @@ public:
                         const QHash<QString, FlowCompute::FieldDef>& fieldData,
                         const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
                         QVulkanInstance* instance, QWidget* parent = nullptr);
-    void updateModel(std::shared_ptr<RenderData> newMesh);
+    void updateMesh(std::shared_ptr<RenderData> newData);
 
 signals:
     void dirtyStateChanged(bool isDirty);

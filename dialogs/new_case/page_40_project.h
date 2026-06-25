@@ -30,8 +30,8 @@ protected:
     void initializePage() override;
 
 private:
-    QLineEdit *geometryFileEdit, *casePathEdit;
-    QTreeWidget *directoryTree;
+    QLineEdit *m_geometryFileEdit, *m_casePathEdit;
+    QTreeWidget *m_directoryTree;
 
     void onTreeSelectionChanged();
     void populateDirectoryTree(QTreeWidget* treeWidget, const QStringList& paths);

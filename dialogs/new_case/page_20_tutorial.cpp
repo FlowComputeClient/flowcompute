@@ -9,18 +9,18 @@ TutorialPage::TutorialPage(QWidget *parent): QWizardPage(parent) {
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setSpacing(20);
 
-    tutorialTree = new QTreeWidget(this);
-    layout->addWidget(tutorialTree);
+    m_tutorialTree = new QTreeWidget(this);
+    layout->addWidget(m_tutorialTree);
 
     // Create hidden text field
-    hiddenPathField = new QLineEdit(this);
-    hiddenPathField->hide();
-    layout->addWidget(hiddenPathField);
+    m_hiddenPathEdit = new QLineEdit(this);
+    m_hiddenPathEdit->hide();
+    layout->addWidget(m_hiddenPathEdit);
 
     // Register the field
-    registerField("tutorialPath*", hiddenPathField);
+    registerField("tutorialPath*", m_hiddenPathEdit);
 
-    connect(tutorialTree, &QTreeWidget::itemSelectionChanged,
+    connect(m_tutorialTree, &QTreeWidget::itemSelectionChanged,
             this, &TutorialPage::onTreeSelectionChanged);
 
     setLayout(layout);
@@ -32,7 +32,7 @@ void TutorialPage::initializePage() {
     NewCaseWizard* newWizard = qobject_cast<NewCaseWizard*>(wizard());
     if (newWizard) {
         QStringList pathList = newWizard->getTutorials();
-        populateTutorialTree(tutorialTree, pathList);
+        populateTutorialTree(m_tutorialTree, pathList);
     }
 }
 
@@ -41,7 +41,7 @@ int TutorialPage::nextId() const {
 }
 
 void TutorialPage::onTreeSelectionChanged() {
-    QList<QTreeWidgetItem*> selectedItems = tutorialTree->selectedItems();
+    QList<QTreeWidgetItem*> selectedItems = m_tutorialTree->selectedItems();
 
     if (!selectedItems.isEmpty()) {
         QTreeWidgetItem* item = selectedItems.first();
@@ -49,13 +49,13 @@ void TutorialPage::onTreeSelectionChanged() {
 
         // Validate: Is it a valid case (leaf node)?
         if (pathData.isValid() && !pathData.toString().isEmpty()) {
-            hiddenPathField->setText(pathData.toString());
+            m_hiddenPathEdit->setText(pathData.toString());
             return;
         }
     }
 
     // If nothing is selected, clear the field
-    hiddenPathField->clear();
+    m_hiddenPathEdit->clear();
 }
 
 void TutorialPage::populateTutorialTree(QTreeWidget* treeWidget, const QStringList& paths) {

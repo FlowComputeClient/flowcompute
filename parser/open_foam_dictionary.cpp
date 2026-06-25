@@ -10,7 +10,7 @@ static QString getNodeText(TSNode node, const QByteArray& sourceText) {
     if (ts_node_is_null(node)) return QString();
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
-    return QString::fromUtf8(sourceText.mid(start, end - start));
+    return QString::fromUtf8(sourceText.constData() + start, end - start);
 }
 
 // --- Constructor & Destructor ---
@@ -115,11 +115,11 @@ static QString unquote(const QString& text) {
 TSNode OpenFoamDictionary::findNode(const QString& path) const {
     if (!m_tree || path.isEmpty()) return {};
 
-    QStringList parts = path.split('/', Qt::SkipEmptyParts);
+    auto parts = QStringView(path).split('/', Qt::SkipEmptyParts);
     TSNode currentNode = ts_tree_root_node(m_tree.get());
 
     for (int i = 0; i < parts.size(); ++i) {
-        const QString& currentKey = parts[i];
+        QStringView currentKey = parts[i];
         bool isLastPart = (i == parts.size() - 1);
         bool foundNextLevel = false;
 
@@ -210,23 +210,31 @@ QStringList OpenFoamDictionary::getList(const QString& path) const {
     return result;
 }
 
-QStringList OpenFoamDictionary::getSubDictKeys(const QString& path) const {
+QStringList OpenFoamDictionary::getDictKeys(const QString& path) const {
     QStringList keys;
+    if (!m_tree) return keys;
 
-    // 1. Find the target node
-    TSNode dictNode = findNode(path);
+    TSNode targetNode;
 
-    // 2. Validate that it actually exists and is a dictionary
-    if (ts_node_is_null(dictNode) || QString(ts_node_type(dictNode)) != "dict") {
-        return keys;
+    // 1. Determine the target node based on the path
+    if (path.isEmpty()) {
+        targetNode = ts_tree_root_node(m_tree.get());
+    } else {
+        // Target the specific sub-dictionary
+        targetNode = findNode(path);
+
+        // Validate that it actually exists and is a dictionary
+        if (ts_node_is_null(targetNode) || QString(ts_node_type(targetNode)) != "dict") {
+            return keys;
+        }
     }
 
-    // 3. Iterate through the children of the dictionary
-    uint32_t childCount = ts_node_child_count(dictNode);
+    // 2. Iterate through the children of the target node
+    uint32_t childCount = ts_node_child_count(targetNode);
     for (uint32_t i = 0; i < childCount; ++i) {
-        TSNode child = ts_node_child(dictNode, i);
+        TSNode child = ts_node_child(targetNode, i);
 
-        // According to grammar.js, dictionaries are made of 'entry' nodes
+        // According to grammar.js, both root documents and dicts contain 'entry' nodes
         if (QString(ts_node_type(child)) == "entry") {
 
             // Extract just the 'key' field, ignoring the value block completely
@@ -255,11 +263,11 @@ void OpenFoamDictionary::renameKey(const QString& path, const QString& newName) 
         return;
     }
 
-    QStringList parts = path.split('/', Qt::SkipEmptyParts);
+    auto parts = QStringView(path).split('/', Qt::SkipEmptyParts);
     TSNode currentNode = ts_tree_root_node(m_tree.get());
 
     for (int i = 0; i < parts.size(); ++i) {
-        const QString& currentKey = parts[i];
+        QStringView currentKey = parts[i];
         bool isLastPart = (i == parts.size() - 1);
         bool foundNextLevel = false;
 
@@ -339,4 +347,126 @@ bool OpenFoamDictionary::hasSyntaxErrors() const {
 
     // Tree-sitter's built-in check for any error anywhere in the tree
     return ts_node_has_error(rootNode);
+}
+
+static void collectSyntaxErrors(TSNode node, const QByteArray& sourceText, QList<SyntaxError>& errors) {
+    if (ts_node_is_null(node)) return;
+
+    // Check if this specific node represents a syntax error or a missing token
+    if (ts_node_is_error(node) || ts_node_is_missing(node)) {
+        SyntaxError err;
+
+        // Tree-sitter uses 0-based indexing for rows and columns
+        TSPoint startPoint = ts_node_start_point(node);
+        err.line = startPoint.row + 1;
+        err.column = startPoint.column + 1;
+
+        if (ts_node_is_missing(node)) {
+            // The parser expected a token here but didn't find it
+            QString expectedToken = QString(ts_node_type(node));
+            err.message = QString("Missing expected token: '%1'").arg(expectedToken);
+            err.text = "";
+        } else {
+            // The parser found unexpected text
+            err.message = "Unexpected syntax or unrecognized keyword";
+            err.text = getNodeText(node, sourceText).trimmed();
+        }
+
+        errors.append(err);
+    }
+
+    // Recursively check all children
+    uint32_t childCount = ts_node_child_count(node);
+    for (uint32_t i = 0; i < childCount; ++i) {
+        TSNode child = ts_node_child(node, i);
+
+        // Optimization: Only traverse branches that actually contain errors
+        if (ts_node_has_error(child)) {
+            collectSyntaxErrors(child, sourceText, errors);
+        }
+    }
+}
+
+QList<SyntaxError> OpenFoamDictionary::getSyntaxErrors() const {
+    QList<SyntaxError> errors;
+
+    if (!m_tree) {
+        errors.append({0, 0, "", "Fatal parse failure: Abstract Syntax Tree could not be generated."});
+        return errors;
+    }
+
+    TSNode rootNode = ts_tree_root_node(m_tree.get());
+
+    // Only initiate the traversal if the root node indicates an error exists anywhere in the tree
+    if (ts_node_has_error(rootNode)) {
+        collectSyntaxErrors(rootNode, m_sourceText, errors);
+    }
+
+    return errors;
+}
+
+void OpenFoamDictionary::insertIntoDict(const QString& path, const QByteArray& content) {
+    TSNode dictNode = findNode(path);
+
+    // Ensure the target is actually a dictionary node
+    if (ts_node_is_null(dictNode) || QString(ts_node_type(dictNode)) != "dict") {
+        qWarning() << "Cannot insert: Path is not a valid dictionary ->" << path;
+        return;
+    }
+
+    // Get the end byte of the dictionary block
+    uint32_t endByte = ts_node_end_byte(dictNode);
+
+    // Step backwards to find the closing brace '}' so we insert *inside* the dict
+    int insertPos = static_cast<int>(endByte) - 1;
+    while (insertPos > 0 && m_sourceText.at(insertPos) != '}') {
+        insertPos--;
+    }
+
+    if (insertPos > 0) {
+        // Insert the new content right before the closing brace
+        m_sourceText.insert(insertPos, content);
+
+        // Re-parse immediately to keep the AST and byte offsets synchronized
+        TSTree* newTree = ts_parser_parse_string(
+            m_parser,
+            nullptr,
+            m_sourceText.constData(),
+            m_sourceText.size()
+            );
+        m_tree.reset(newTree);
+    } else {
+        qWarning() << "Failed to locate closing brace for dictionary insertion at path:" << path;
+    }
+}
+
+void OpenFoamDictionary::removeEntry(const QString& path) {
+    if (!m_tree || path.isEmpty()) return;
+
+    // Use your existing findNode to locate the patch dictionary
+    // Note: You need to find the parent 'entry' node, not just the 'dict' node,
+    // to ensure you remove the key as well as the {} block.
+    TSNode dictNode = findNode(path);
+    if (ts_node_is_null(dictNode)) return;
+
+    TSNode parentEntry = ts_node_parent(dictNode);
+    if (QString(ts_node_type(parentEntry)) != "entry") {
+        parentEntry = dictNode; // Fallback just in case
+    }
+
+    uint32_t startByte = ts_node_start_byte(parentEntry);
+    uint32_t endByte = ts_node_end_byte(parentEntry);
+    uint32_t length = endByte - startByte;
+
+    // Remove the block from the raw text
+    m_sourceText.remove(startByte, length);
+
+    // Re-parse to keep the AST in sync
+    TSTree* newTree = ts_parser_parse_string(
+        m_parser,
+        nullptr,
+        m_sourceText.constData(),
+        m_sourceText.size()
+        );
+    m_tree.reset(newTree);
 }

@@ -13,7 +13,7 @@ const std::array<int, 4> Z_MAX = {4, 5, 6, 7};
 BlockMeshPage2::BlockMeshPage2(QWidget *parent): QWizardPage(parent) {
 
     // Set title and style
-    setTitle(tr("Define Mesh Domain"));
+    setTitle(tr("BlockMesh Configuration: Patches and Grading"));
 
     // Create a grid layout with two columns
     QVBoxLayout* layout = new QVBoxLayout(this);
@@ -44,7 +44,6 @@ BlockMeshPage2::BlockMeshPage2(QWidget *parent): QWizardPage(parent) {
     patchTable->verticalHeader()->setVisible(false);
     patchTable->setSelectionMode(QAbstractItemView::NoSelection);
     // patchTable->setAlternatingRowColors(true);
-    patchTable->setFixedHeight(patchTable->verticalHeader()->length() + patchTable->horizontalHeader()->height() + 2);
     patchLayout->addWidget(patchTable);
 
     // Set group box for mesh grading
@@ -175,6 +174,16 @@ void BlockMeshPage2::updateBoundaryGroup() {
         typeCombo->setCurrentText(faceData[i].type);
         patchTable->setCellWidget(i, 2, typeCombo);
     }
+
+    // Resize the rows
+    // patchTable->resizeRowsToContents();
+
+    // Calculate the height using the newly updated row height
+    int height = patchTable->horizontalHeader()->height() +
+                 (patchTable->rowCount() * patchTable->rowHeight(0)) +
+                 (patchTable->frameWidth() * 2) + 2;
+
+    patchTable->setFixedHeight(height);
 }
 
 // Update widgets in grading group

@@ -59,7 +59,8 @@ void initializeConfig() {
         configDir.mkpath(".");
     }
 
-    QStringList configFiles = { "solvers.json", "turbulence.json", "fields.json", "boundary_conditions.json" };
+    QStringList configFiles = { "solvers.json", "turbulence.json", "fields.json", "boundary_conditions.json",
+                                "material_properties.json" };
     for (const auto& configFile: configFiles) {
 
         // Define the path for the writable JSON file
@@ -69,8 +70,8 @@ void initializeConfig() {
             QString resourceFilePath = ":/config/" + configFile;
             if (QFile::copy(resourceFilePath, writableFilePath)) {
                 QFile::setPermissions(writableFilePath,
-                                      QFileDevice::ReadOwner | QFileDevice::WriteOwner |
-                                          QFileDevice::ReadUser | QFileDevice::WriteUser);
+                    QFileDevice::ReadOwner | QFileDevice::WriteOwner |
+                    QFileDevice::ReadUser | QFileDevice::WriteUser);
                 qDebug() << "Deployed config file to:" << writableFilePath;
             } else {
                 qCritical() << "Failed to deploy config file!";
@@ -85,9 +86,12 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     app.setOrganizationName("FlowCompute");
     app.setApplicationName("FlowCompute");
-    app.setApplicationVersion("1.0.0");
+    app.setApplicationVersion("0.8.0");
     app.setWindowIcon(QIcon(":/images/flowcompute.ico"));
+
+    /*
     app.setStyleSheet("QToolTip { color: black; background-color: #F4F1EA; border: 1px solid gray; }");
+    */
     QApplication::setStyle(QStyleFactory::create("Fusion"));
 
     // Set QSettings format to .ini

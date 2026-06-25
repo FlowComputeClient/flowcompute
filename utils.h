@@ -1,13 +1,18 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <QRegularExpression>
 #include <QString>
-#include <QTextStream>
+#include <QWidget>
 
 #include "core_types.h"
 
 namespace Utils {
+
+    enum class ParseErrorAction {
+        EditFile,
+        Overwrite,
+        Cancel
+    };
 
     QString createFoamHeader(const QString& objectName, const QString& foamPath);
     QString createFoamFooter();
@@ -16,5 +21,6 @@ namespace Utils {
     QString createDecomposeParDict(const QString& openFoamPath, int numCores);
     QString createFieldFile(const QString& openFoamPath, QString fieldName,
                             FlowCompute::FieldData data);
+    ParseErrorAction showParsingErrorMessage(QString fileName, QWidget* parent);
 };
 #endif // UTILS_H

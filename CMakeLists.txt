@@ -17,9 +17,10 @@ qt_add_executable(FlowCompute
     main_window.h
     resources.qrc
     core_types.h
+    utils.h utils.cpp
 
-    dialogs/boundary/boundary_dialog.h
-    dialogs/boundary/boundary_dialog.cpp
+    dialogs/surface/surface_dialog.h
+    dialogs/surface/surface_dialog.cpp
 
     dialogs/new_case/wizard_new_case.h
     dialogs/new_case/wizard_new_case.cpp
@@ -27,15 +28,15 @@ qt_add_executable(FlowCompute
     dialogs/new_case/page_10_intro.cpp
     dialogs/new_case/page_20_tutorial.h
     dialogs/new_case/page_20_tutorial.cpp
-    dialogs/new_case/page_30_interactive.h 
-    dialogs/new_case/page_30_interactive.cpp    
+    dialogs/new_case/page_30_interactive.h
+    dialogs/new_case/page_30_interactive.cpp
     dialogs/new_case/page_40_project.cpp
     dialogs/new_case/page_40_project.h
     dialogs/new_case/template_strings.h
-    
+
     dialogs/mesh/mesh_structs.h
     dialogs/mesh/mesh_io.h
-    dialogs/mesh/mesh_io.cpp    
+    dialogs/mesh/mesh_io.cpp
     dialogs/mesh/wizard_mesh.h
     dialogs/mesh/wizard_mesh.cpp
     dialogs/mesh/page_10_geometry.h
@@ -52,11 +53,12 @@ qt_add_executable(FlowCompute
     dialogs/mesh/page_60_snapcontrol.cpp
     dialogs/mesh/page_70_layercontrol.h
     dialogs/mesh/page_70_layercontrol.cpp
-    dialogs/mesh/page_80_execution.h
-    dialogs/mesh/page_80_execution.cpp
 
     dialogs/run_mesh/run_mesh_dialog.h
     dialogs/run_mesh/run_mesh_dialog.cpp
+
+    dialogs/run_solver/run_solver_dialog.h
+    dialogs/run_solver/run_solver_dialog.cpp
 
     dialogs/selection/selection_dialog.h
     dialogs/selection/selection_dialog.cpp
@@ -68,17 +70,24 @@ qt_add_executable(FlowCompute
     dialogs/solver/solver_io.cpp
     dialogs/solver/page_10_control.cpp
     dialogs/solver/page_10_control.h
-    dialogs/solver/page_20_physics.cpp
-    dialogs/solver/page_20_physics.h
-    dialogs/solver/page_30_boundary.cpp
-    dialogs/solver/page_30_boundary.h
-    dialogs/solver/page_40_algorithm.cpp
-    dialogs/solver/page_40_algorithm.h
-    dialogs/solver/pimple_widget.h dialogs/solver/pimple_widget.cpp
-    dialogs/solver/simple_widget.h dialogs/solver/simple_widget.cpp
-    dialogs/solver/piso_widget.h dialogs/solver/piso_widget.cpp
-    dialogs/solver/page_50_parallel.cpp
-    dialogs/solver/page_50_parallel.h
+    dialogs/solver/page_20_transient.h
+    dialogs/solver/page_20_transient.cpp
+    dialogs/solver/page_30_physics.cpp
+    dialogs/solver/page_30_physics.h
+    dialogs/solver/page_40_boundary.cpp
+    dialogs/solver/page_40_boundary.h
+    dialogs/solver/page_50_algorithm.cpp
+    dialogs/solver/page_50_algorithm.h
+    dialogs/solver/page_70_pimple.h
+    dialogs/solver/page_70_pimple.cpp
+    dialogs/solver/page_60_simple.h
+    dialogs/solver/page_60_simple.cpp
+    dialogs/solver/page_80_piso.h
+    dialogs/solver/page_80_piso.cpp
+    dialogs/solver/page_90_parallel.cpp
+    dialogs/solver/page_90_parallel.h
+    dialogs/solver/page_93_visualization.h
+    dialogs/solver/page_93_visualization.cpp
 
     dialogs/utility_output/utility_output_dialog.h
     dialogs/utility_output/utility_output_dialog.cpp
@@ -90,27 +99,37 @@ qt_add_executable(FlowCompute
     editors/text/tree_sitter_highlighter.h
     editors/text/tree_sitter_highlighter.cpp
 
+    editors/graphical/table_delegate.h
+    editors/graphical/table_delegate.cpp
+
     editors/graphical/vulkan/vulkan_window.h
     editors/graphical/vulkan/vulkan_window.cpp
     editors/graphical/vulkan/vulkan_renderer.h
     editors/graphical/vulkan/vulkan_renderer.cpp
     editors/graphical/vulkan/vulkan_renderer_resources.cpp
 
-    editors/graphical/mesh_editor/mesh_editor.h 
+    editors/graphical/mesh_editor/mesh_editor.h
     editors/graphical/mesh_editor/mesh_editor.cpp
-    editors/graphical/mesh_editor/mesh_left_pane.h 
+    editors/graphical/mesh_editor/mesh_left_pane.h
     editors/graphical/mesh_editor/mesh_left_pane.cpp
 
     editors/graphical/model_editor/model_editor.cpp
-    editors/graphical/model_editor/model_editor.h    
+    editors/graphical/model_editor/model_editor.h
     editors/graphical/model_editor/model_left_pane.h
     editors/graphical/model_editor/model_left_pane.cpp
-    
+
+    editors/graphical/result_editor/result_editor.h
+    editors/graphical/result_editor/result_editor.cpp
+    editors/graphical/result_editor/result_left_pane.h
+    editors/graphical/result_editor/result_left_pane.cpp
+    editors/graphical/result_editor/color_bar_widget.h
+    editors/graphical/result_editor/color_bar_widget.cpp
+
     geometry/graphic_data.h
     geometry/mesh/mesh_reader.h
-    geometry/mesh/mesh_reader.cpp       
+    geometry/mesh/mesh_reader.cpp
     geometry/stl/stl_reader.h
-    geometry/stl/stl_reader.cpp 
+    geometry/stl/stl_reader.cpp
 
     parser/open_foam_dictionary.h
     parser/open_foam_dictionary.cpp
@@ -131,7 +150,8 @@ qt_add_executable(FlowCompute
     views/navigator/case_navigator.h
     views/navigator/case_navigator.cpp
     views/navigator/node_data.cpp
-    utils.h utils.cpp
+    dialogs/solver/surface_widget.cpp
+    dialogs/solver/surface_widget.h
 )
 
 set_source_files_properties(

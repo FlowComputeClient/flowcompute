@@ -24,9 +24,9 @@ class GeometryPage : public QWizardPage {
     Q_OBJECT
 
 public:
-    explicit GeometryPage(QWidget *parent);
-    QString getCaseName() { return caseName; };
-    QStringList getGeometryFiles() { return geometryFiles; };
+    explicit GeometryPage(const QString& caseName, const QStringList& cases, QWidget *parent);
+    QString getCaseName() { return m_caseName; };
+    QStringList getGeometryFiles() { return m_geometryFiles; };
     int nextId() const override;
 
 protected:
@@ -38,15 +38,13 @@ private:
     MeshWizard* meshWizard;
 
     QCheckBox *m_blockMeshCheck, *m_extractCheck, *m_castellatedCheck, *m_snapCheck, *m_layersCheck;
-
-    QString caseName;
-    QStringList geometryFiles;
-    QComboBox* caseBox;
-    QListWidget *listWidget;
-    int targetSystemId;
+    QString m_caseName;
+    QStringList m_cases, m_geometryFiles;
+    QComboBox* m_caseCombo;
+    QListWidget *m_geometryList;
 
 private slots:
-    void caseChanged(int);
+    void caseChanged(const QString& caseName);
 };
 
 #endif  // PAGE_10_GEOMETRY_H

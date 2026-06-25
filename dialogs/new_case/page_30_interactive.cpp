@@ -12,11 +12,11 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
 
     // Create vertical layout
     QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->setSpacing(20);
+    layout->setSpacing(25);
 
     // Create question for flow type
     QVBoxLayout* flowLayout = new QVBoxLayout();
-    flowLayout->setSpacing(7);
+    flowLayout->setSpacing(10);
     QLabel* flowLabel = new QLabel(tr("<b>1. What best describes the flow in your simulation?</b>"));
     flowLayout->addWidget(flowLabel);
     QRadioButton* incompressibleButton =
@@ -39,7 +39,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
 
     // Create question for turbulence
     QVBoxLayout* turbulenceLayout = new QVBoxLayout();
-    turbulenceLayout->setSpacing(7);
+    turbulenceLayout->setSpacing(10);
     QLabel* turbulenceLabel = new QLabel(tr("<b>2. How should turbulence be modeled?</b>"));
     turbulenceLayout->addWidget(turbulenceLabel);
     QRadioButton* laminarButton =
@@ -62,7 +62,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
 
     // Create question for time handling
     QVBoxLayout* timeLayout = new QVBoxLayout();
-    timeLayout->setSpacing(7);
+    timeLayout->setSpacing(10);
     QLabel* timeLabel = new QLabel(tr("<b>3. How should time be handled in the simulation?</b>"));
     timeLayout->addWidget(timeLabel);
     QRadioButton* steadyButton =
@@ -81,7 +81,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
 
     // Create question for physics
     QVBoxLayout* physicsLayout = new QVBoxLayout();
-    physicsLayout->setSpacing(7);
+    physicsLayout->setSpacing(10);
     QLabel* physicsLabel = new QLabel(tr("<b>4. What other physical effects should be included in the simulation?</b>"));
     physicsLayout->addWidget(physicsLabel);
     m_heatCheck = new QCheckBox(tr("Heat transfer - Temperature changes and thermal conduction"));
@@ -94,7 +94,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
 
     // Select priority of computation speed and accuracy
     QVBoxLayout* priorityLayout = new QVBoxLayout();
-    priorityLayout->setSpacing(7);
+    priorityLayout->setSpacing(10);
     QLabel* priorityLabel = new QLabel(tr("<b>5. Move the slider to indicate priority of speed versus accuracy</b>"));
     priorityLayout->addWidget(priorityLabel);
     m_prioritySlider = new QSlider(Qt::Horizontal, this);

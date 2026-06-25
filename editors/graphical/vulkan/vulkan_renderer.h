@@ -50,6 +50,9 @@ protected:
     uint32_t m_concurrentFrameCount;
     std::vector<bool> m_uboDirty;
 
+    // Maximum dimension
+    float m_maxDim;
+
     // Called by initResources
     void createVertexBuffer();
     void createIndexBuffer();
@@ -84,7 +87,11 @@ protected:
     std::array<VkDescriptorSet, QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_descriptorSets;
 
     // Texture data
+    VkImage m_textureImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_textureImageMemory = VK_NULL_HANDLE;
+    VkImageView m_imageView = VK_NULL_HANDLE;
     VkDescriptorImageInfo m_colorMapImageInfo;
+    VkSampler m_sampler = VK_NULL_HANDLE;
 
     // Pipeline structs
     VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;

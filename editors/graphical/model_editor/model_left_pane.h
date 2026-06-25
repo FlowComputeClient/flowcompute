@@ -24,6 +24,9 @@ public:
     void setBounds(std::array<float, 3> bounds);
     void changeBounds(double scaleFactor);
 
+protected:
+    void paintEvent(QPaintEvent *event) override;
+
 signals:
     void surfaceCheckRequested();
     void surfaceScaleRequested(double scaleFactor);

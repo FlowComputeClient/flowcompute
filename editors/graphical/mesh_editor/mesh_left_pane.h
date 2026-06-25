@@ -46,7 +46,7 @@ private:
     std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
     std::vector<FlowCompute::MeshPatch> m_boundaryPatches;
 
-    void createConditionDialog(const QString& patchName, const QString& patchType, int i);
+    // void createConditionDialog(const QString& patchName, const QString& patchType, int i);
 
 private slots:
     void onCheckButtonClicked();

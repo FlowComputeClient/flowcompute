@@ -7,6 +7,7 @@ CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
     setHeaderHidden(true);
     setExpandsOnDoubleClick(true);
     setSelectionMode(QAbstractItemView::SingleSelection);
+    /*
     setStyleSheet(R"(
         QTreeView {
             background-color: white;
@@ -33,16 +34,10 @@ CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
             background-color: #0078D7; color: white;
         }
     )");
+    */
 
     // Access main window
     mainWin = qobject_cast<MainWindow*>(this->parentWidget());
-
-    // Set palette
-    QPalette p = this->palette();
-    p.setColor(QPalette::Text, Qt::black);
-    p.setColor(QPalette::WindowText, Qt::black);
-    p.setColor(QPalette::ButtonText, Qt::black);
-    this->setPalette(p);
 
     // Create model
     model = new NavigatorModel(this);
@@ -64,6 +59,11 @@ CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
 
 // Create actions for the context menu
 void CaseNavigator::createActions() {
+
+    // View result
+    m_viewResultAction = new QAction(QIcon(":/images/view_result.png"), tr("&View Result"), this);
+    m_viewResultAction->setStatusTip(tr("View Result"));
+    connect(m_viewResultAction, &QAction::triggered, this, &CaseNavigator::viewResult);
 
     // View mesh
     m_viewMeshAction = new QAction(QIcon(":/images/view_mesh.png"), tr("&View Mesh"), this);
@@ -280,7 +280,17 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
         QString part = pathParts[i];
         bool found = false;
 
+        // Remove the dummy "Loading..." node
+        if (currentNode->rowCount() == 1) {
+            QStandardItem* firstChild = currentNode->child(0);
+            if (firstChild->data(Qt::UserRole + 1).toBool() == true) {
+                currentNode->removeRow(0); // Safely destroy the dummy
+            }
+        }
+
+        // Search for the existing folder
         for (int j = 0; j < currentNode->rowCount(); ++j) {
+            // This static_cast is now 100% safe because the dummy is gone
             NodeData* child = static_cast<NodeData*>(currentNode->child(j));
             if (child && child->name == part) {
                 currentNode = child;
@@ -289,7 +299,7 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
             }
         }
 
-        // If the intermediate folder node does not exist, create it
+        // Create intermediate folders
         if (!found) {
             QString parentPath;
             if (currentNode->nodeType == NodeType::CaseFolder) {
@@ -300,7 +310,7 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
 
             NodeData* newFolder = new NodeData(part, parentPath, NodeType::Folder);
             currentNode->appendRow(newFolder);
-            currentNode = newFolder; // Step into the newly created folder
+            currentNode = newFolder;
         }
     }
 
@@ -412,6 +422,12 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
     // Add actions based on type
     switch(node->nodeType) {
     case NodeType::CaseFolder:
+
+        // Add view result action
+        m_viewResultAction->setData(QVariant::fromValue(node));
+        m_contextMenu->addAction(m_viewResultAction);
+
+        // Add view mesh action
         m_viewMeshAction->setData(QVariant::fromValue(node));
         m_contextMenu->addAction(m_viewMeshAction);
         break;
@@ -434,7 +450,7 @@ void CaseNavigator::deleteNode() {
 void CaseNavigator::viewMesh() {
 
     // Access node
-    QVariant data = m_deleteAction->data();
+    QVariant data = m_viewMeshAction->data();
     NodeData* node = data.value<NodeData*>();
     if (!node) { return; }
 
@@ -442,5 +458,19 @@ void CaseNavigator::viewMesh() {
     mainWin->createEditor(EditorType::MESH, node->name, node->fullPath);
 
     // Clear data
-    m_deleteAction->setData(QVariant());
+    m_viewMeshAction->setData(QVariant());
+}
+
+void CaseNavigator::viewResult() {
+
+    // Access node
+    QVariant data = m_viewResultAction->data();
+    NodeData* node = data.value<NodeData*>();
+    if (!node) { return; }
+
+    // Create editor for mesh
+    mainWin->createEditor(EditorType::RESULT, node->name, node->fullPath);
+
+    // Clear data
+    m_viewResultAction->setData(QVariant());
 }
