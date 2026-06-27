@@ -14,16 +14,19 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+// Time-derivative schemes
 ddtSchemes
 {
     default          %3;
 }
 
+// Configures how cell-centered gradients are calculated
 gradSchemes
 {
     default          Gauss linear;
 }
 
+// Configures how convective terms are discretized
 divSchemes
 {
     default          none;
@@ -38,21 +41,25 @@ divSchemes
     %5
 }
 
+// Configures how diffusion terms are discretized
 laplacianSchemes
 {
     default          Gauss linear %6;
 }
 
+// Specifies how cell-centered values are interpolated
 interpolationSchemes
 {
     default          linear;
 }
 
+// Configures how surface normal gradients are evaluated
 snGradSchemes
 {
     default          %6;
 }
 
+// Computes distance to the nearest wall
 wallDist
 {
     method           meshWave;

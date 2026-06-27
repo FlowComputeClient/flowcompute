@@ -26,7 +26,7 @@ public:
     virtual QStringList copyTutorialFolders(QString tutPath, QString projPath) = 0;
     virtual QString checkPath(const QString& path) = 0;
     virtual QByteArray getFileContent(const QString& path) = 0;
-    virtual RenderData getResultData(QString path) = 0;
+    virtual RenderData getResultData(const QString& path) = 0;
     virtual bool writeData(const QByteArray& payload, const QString& remoteFilePath) = 0;
     virtual bool writeData(const QString& localPath, const QString& remoteFilePath) = 0;
     virtual int launchShortUtility(const QString& cmd, QString& output) = 0;

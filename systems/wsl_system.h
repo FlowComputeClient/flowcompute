@@ -47,7 +47,7 @@ public:
     QStringList copyTutorialFolders(QString tutPath, QString projPath) override;
     QString checkPath(const QString& path) override;
     QByteArray getFileContent(const QString& path) override;
-    RenderData getResultData(QString path) override;
+    RenderData getResultData(const QString& path) override;
     bool writeData(const QByteArray& payload, const QString& remoteFilePath) override;
     bool writeData(const QString& localPath, const QString& remoteFilePath) override;
     int launchShortUtility(const QString& cmd, QString& output) override;

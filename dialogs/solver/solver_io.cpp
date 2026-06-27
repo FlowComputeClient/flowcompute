@@ -651,12 +651,12 @@ QString SolverIO::createControlDict(const ControlConfig& cfg, const Visualizatio
     auto toFoamBool = [](bool val) { return val ? "yes" : "no"; };
 
     // Application
-    out << "// Solver application\n";
+    out << "// Simulation executable\n";
     writeEntry("application", cfg.solver);
     out << "\n";
 
-    // Run control
-    out << "// Simulation start and time settings\n";
+    // Time control
+    out << "// Time control\n";
     writeEntry("startFrom", enumToString(cfg.startFrom, "startTime"));
     writeEntry("startTime", QString::number(cfg.startTime));
     writeEntry("stopAt", enumToString(cfg.stopAt, "endTime"));
@@ -665,18 +665,23 @@ QString SolverIO::createControlDict(const ControlConfig& cfg, const Visualizatio
     out << "\n";
 
     // Data writing
-    out << "// Writing controls\n";
+    out << "// Data writing\n";
     writeEntry("writeControl", enumToString(cfg.writeControl, "timeStep"));
     writeEntry("writeInterval", QString::number(cfg.writeInterval));
     writeEntry("purgeWrite", QString::number(cfg.purgeWrite));
+    out << "\n";
+
+    // Output format
+    out << "// Output format\n";
     writeEntry("writeFormat", enumToString(cfg.writeFormat, "binary"));
+    writeEntry("writePrecision", "6");
     writeEntry("writeCompression", cfg.writeCompression ? "on" : "off");
+    writeEntry("timeFormat", "general");
+    writeEntry("timePrecision", "6");
     out << "\n";
 
     // Standard default entries
-    out << "// Time formatting and runtime options\n";
-    writeEntry("timeFormat", "general");
-    writeEntry("timePrecision", "6");
+    out << "// Runtime configuration\n";
     writeEntry("runTimeModifiable", toFoamBool(cfg.runTimeModifiable));
 
     // Evaluate and write functions block if visualization data is present
@@ -774,7 +779,7 @@ QString SolverIO::createTransportProperties(const PhysicsConfig& cfg, const QStr
     QTextStream out(&dictStr);
 
     // Write the standard OpenFOAM header
-    out << Utils::createFoamHeader("turbulenceProperties", openFoamPath);
+    out << Utils::createFoamHeader("transportProperties", openFoamPath);
 
     // Standard lambda for formatting dictionary entries
     auto writeEntry = [&out](const QString& keyword, const QString& value, bool addEmptyLine = false) {
@@ -782,12 +787,10 @@ QString SolverIO::createTransportProperties(const PhysicsConfig& cfg, const QStr
         if (addEmptyLine) out << "\n";
     };
 
-    // 1. Write the transport model using the enum template
+    // Write the transport model using the enum template
     writeEntry("transportModel", enumToString(cfg.transportModel, "Newtonian"), true);
 
-    // 2. Iterate through the fluid properties map
-    // OpenFOAM typically expects the dimensions and values here.
-    // For example, a key might be "nu" and the value "[0 2 -1 0 0 0 0] 1e-05"
+    // Iterate through the fluid properties map
     if (!cfg.fluidProperties.isEmpty()) {
         for (auto it = cfg.fluidProperties.cbegin(); it != cfg.fluidProperties.cend(); ++it) {
             writeEntry(it.key(), it.value());
@@ -869,6 +872,7 @@ QString SolverIO::createSolutionFile(const MathConfig& cfg, const QString& openF
     auto toFoamSwitch = [](bool val) { return val ? "yes" : "no"; };
 
     // Solvers sub-dictionary
+    out << "// Solver settings for each variable\n";
     out << "solvers\n{\n";
     for (auto it = cfg.fieldMathConfigs.cbegin(); it != cfg.fieldMathConfigs.cend(); ++it) {
         const QString& fieldName = it.key();
@@ -905,8 +909,6 @@ QString SolverIO::createSolutionFile(const MathConfig& cfg, const QString& openF
     }
     out << "}\n\n";
 
-
-    // Algorithm Configuration
     // Algorithm Configuration
     std::visit([&](auto&& algoCfg) {
         using T = std::decay_t<decltype(algoCfg)>;
@@ -933,6 +935,8 @@ QString SolverIO::createSolutionFile(const MathConfig& cfg, const QString& openF
             }
         };
 
+        // Print algorithm-specific settings
+        out << "// Algorithm-specific settings\n";
         if constexpr (std::is_same_v<T, SimpleConfig>) {
             out << "SIMPLE\n{\n";
             writeEntry("nNonOrthogonalCorrectors   ", QString::number(algoCfg.nNonOrthogonalCorrectors), 1);
@@ -979,8 +983,8 @@ QString SolverIO::createSolutionFile(const MathConfig& cfg, const QString& openF
     // ---------------------------------------------------------------------
     // 3. Relaxation Factors
     // ---------------------------------------------------------------------
+    out << "// Under-relaxation factors used to improve stability\n";
     out << "relaxationFactors\n{\n";
-
     QString fieldsStr, eqStr;
     QTextStream fOut(&fieldsStr), eOut(&eqStr);
     int fieldCount = 0, eqCount = 0;

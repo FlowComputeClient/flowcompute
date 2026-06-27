@@ -14,24 +14,29 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+// Simulation executable
 application     %3;
 
+// Time control
 startFrom       startTime;
 startTime       0;
 stopAt          endTime;
 endTime         %4;
-
 deltaT          %5;
 
+// Data writing
 writeControl    %6;
 writeInterval   %7;
-
 purgeWrite      0;
+
+// Output format
 writeFormat     ascii;
 writePrecision  6;
 writeCompression off;
 timeFormat      general;
 timePrecision   6;
+
+// Runtime configuration
 runTimeModifiable true;
 
 // ************************************************************************* //

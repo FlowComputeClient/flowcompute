@@ -401,7 +401,7 @@ QByteArray WslSystem::getFileContent(const QString& path) {
     return payload;
 }
 
-RenderData WslSystem::getResultData(QString path) {
+RenderData WslSystem::getResultData(const QString& path) {
     RenderData result;
     QTcpSocket socket;
     socket.connectToHost(QHostAddress::LocalHost, 8080);

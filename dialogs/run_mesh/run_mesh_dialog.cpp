@@ -155,18 +155,15 @@ void RunMeshDialog::onOkClicked() {
 
 void RunMeshDialog::onCaseChanged(QString caseName) {
 
-    // Get the number of cores
     int numCores = 1;
     CaseData caseData = m_mainWin->m_caseMap[caseName];
     int targetId = caseData.targetSystemId;
 
-    // WSL
-    if (targetId == 0) {
-        QString output;
-        if (m_mainWin->targetSystems[targetId]->launchShortUtility("nproc", output) == 0) {
-            output.remove("\n");
-            numCores = output.toInt();
-        }
+    // Get the number of cores
+    QString output;
+    if (m_mainWin->targetSystems[targetId]->launchShortUtility("nproc", output) == 0) {
+        output.remove("\n");
+        numCores = output.toInt();
     }
 
     // Generate QStringList for number of cores

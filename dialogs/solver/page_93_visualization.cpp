@@ -43,6 +43,7 @@ VisualizationPage::VisualizationPage(QWidget *parent): QWizardPage(parent) {
     // Write interval
     m_writeIntervalEdit = new QLineEdit(this);
     globalLayout->addRow(tr("Write interval: "), m_writeIntervalEdit);
+    m_writeIntervalEdit->setText("50");
 
     // Create validator for write interval
     m_intValidator = new QIntValidator(1, 9999999, this);

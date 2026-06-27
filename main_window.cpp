@@ -79,6 +79,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Create Local Linux communication system
     targetSystems[1] = &localSystem;
+    connect(&localSystem, &LocalSystem::longUtilityOutputReceived,
+            this, &MainWindow::log);
+    connect(&localSystem, &LocalSystem::longUtilityFinished,
+            this, &MainWindow::longUtilityFinished);
+    connect(&localSystem, &LocalSystem::longUtilityError,
+            this, &MainWindow::log);
 
     // Create actions, menus, and toolbars
     createActions();
@@ -691,7 +697,7 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
 
         // Get list of time folders
         QString resultPath = casePath + "/postProcessing/surfaces";
-        QString res = targetSystems[0]->getResultFolders(resultPath);
+        QString res = targetSystems[targetId]->getResultFolders(resultPath);
 
         if(!res.isEmpty()) {
             QStringList timeFolders = res.split(',');
@@ -984,10 +990,21 @@ QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath, int targ
                                                const QStringList& utilities) {
 
     QMap<QString, bool> utilMap;
-    QString path = fullPath.left(fullPath.lastIndexOf('/'));
+    QString casePath = fullPath.left(fullPath.lastIndexOf('/'));
+
+    // Get OpenFOAM path
+    QString openFoamPath;
+    QString caseName = QFileInfo(casePath).fileName();
+    if(m_caseMap.contains(caseName)) {
+        openFoamPath = m_caseMap[caseName].openFoamPath;
+    } else {
+        qWarning() << "Case " << caseName << " is not in case map.";
+        return {};
+    }
+
     QString utilityList = utilities.join(" ");
-    QString cmd = QString("cd %1; out=\"\"; for u in %2; do command -v $u >/dev/null 2>&1 && out+=\"$u:true,\""
-                  "|| out+=\"$u:false,\"; done; echo \"${out%,}\"").arg(path, utilityList);
+    QString cmd = QString("cd %1; source %2/etc/bashrc; out=\"\"; for u in %3; do command -v $u >/dev/null 2>&1 && out+=\"$u:true,\""
+                  "|| out+=\"$u:false,\"; done; echo \"${out%,}\"").arg(casePath, openFoamPath, utilityList);
 
     // Get result from checking utilities
     QString output;
@@ -1256,6 +1273,7 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
         qWarning() << "STL file is not located in a valid OpenFOAM triSurface directory.";
         return;
     }
+
     caseName = QFileInfo(casePath).fileName();
     if (m_caseMap.contains(caseName)) {
         openFoamPath = m_caseMap[caseName].openFoamPath;
@@ -1263,20 +1281,7 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
         qWarning() << "Case" << caseName << "is not in case map.";
         return;
     }
-
-    qDebug() << "openFoamPath = " << openFoamPath;
-
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
-
-    // Update utilities if necessary
-    if (!utilMap.value("surfaceAutoPatch", true) && !utilMap.value("surfacePatch", true)) {
-        checkUtilities(fullPath, targetId, m_utilities);
-        utilMap = m_utilMap[openFoamPath];
-    }
-
-    if (!utilMap.value("surfaceAutoPatch", true) && !utilMap.value("surfacePatch", true)) {
-        qDebug() << "Crud";
-    }
 
     // Run surfaceAutoPatch if present
     if (utilMap.value("surfaceAutoPatch", false)) {
@@ -1296,20 +1301,14 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
     }
     else if (utilMap.value("surfacePatch", false)) {
 
-        qDebug() << "Running surfacePatch";
-
         // Create surfacePatchDict
         QString dictText = Utils::createSurfacePatchDict(openFoamPath, fileName, angle);
         targetSystems[targetId]->writeData(dictText.toUtf8(), casePath + "/system/surfacePatchDict");
 
-        qDebug() << casePath + "/system/surfacePatchDict";
-
         // Run surfacePatch
-        cmd = QString("cd \"%1\" && surfacePatch").arg(casePath);
+        cmd = QString("cd \"%1\"; source %2/etc/bashrc; surfacePatch").arg(casePath, openFoamPath);
         QString result;
         targetSystems[targetId]->launchShortUtility(cmd, result);
-
-        qDebug() << "Hello?";
 
         // Check if a new file has been created
         if (result.contains("Writing repatched surface")) {
@@ -1339,12 +1338,33 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
 
 void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isBinary) {
 
-    // Check if surfaceCheck is present
-    QStringList utils = { "surfaceCheck" };
-    QMap<QString, bool> utilMap = checkUtilities(fullPath, targetId, utils);
-    if (!utilMap["surfaceCheck"]) {
-        QMessageBox::warning(this, tr("Utility Not Found"),
-            tr("The surfaceCheck utility could not be found."));
+    // Variables for command string
+    QFileInfo info(fullPath);
+    QString path = info.path();
+    QString fileName = info.fileName();
+
+    // Get the OpenFOAM path
+    QString casePath, caseName, openFoamPath;
+    int index = fullPath.lastIndexOf("/constant/triSurface");
+    if (index != -1) {
+        casePath = fullPath.left(index);
+    } else {
+        qWarning() << "STL file is not located in a valid OpenFOAM triSurface directory.";
+        return;
+    }
+
+    caseName = QFileInfo(casePath).fileName();
+    if (m_caseMap.contains(caseName)) {
+        openFoamPath = m_caseMap[caseName].openFoamPath;
+    } else {
+        qWarning() << "Case" << caseName << "is not in case map.";
+        return;
+    }
+
+    // Access utility map
+    QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
+    if(!utilMap.value("surfaceCheck", true)) {
+        qDebug() << "The surfaceCheck utility can't be found";
         return;
     }
 
@@ -1356,7 +1376,7 @@ void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isB
         cmd = QString("ln -s %1 %2 && surfaceCheck %2 ; rm -f %2")
                   .arg(safePath, symlinkPath);
     } else {
-        cmd = QString("surfaceCheck %1").arg(safePath);
+        cmd = QString("source %1/etc/bashrc; surfaceCheck %2").arg(openFoamPath, safePath);
     }
 
     // Get output

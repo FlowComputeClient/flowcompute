@@ -61,7 +61,7 @@ void initializeConfig() {
 
     QStringList configFiles = { "solvers.json", "turbulence.json", "fields.json", "boundary_conditions.json",
                                 "material_properties.json" };
-    for (const auto& configFile: configFiles) {
+    for (const auto& configFile : configFiles) {
 
         // Define the path for the writable JSON file
         QString writableFilePath = configDir.filePath(configFile);
@@ -72,7 +72,6 @@ void initializeConfig() {
                 QFile::setPermissions(writableFilePath,
                     QFileDevice::ReadOwner | QFileDevice::WriteOwner |
                     QFileDevice::ReadUser | QFileDevice::WriteUser);
-                qDebug() << "Deployed config file to:" << writableFilePath;
             } else {
                 qCritical() << "Failed to deploy config file!";
             }

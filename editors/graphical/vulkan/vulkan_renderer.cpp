@@ -316,22 +316,14 @@ void VulkanRenderer::createPipelines() {
     };
 
     // Pipeline Layout
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo;
-    if (m_renderData->format != RenderType::Color) {
-        pipelineLayoutInfo = {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &m_descriptorSetLayout,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &range
-        };
-    } else {
-        pipelineLayoutInfo = {
-            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-            .setLayoutCount = 1,
-            .pSetLayouts = &m_descriptorSetLayout
-        };
-    }
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &m_descriptorSetLayout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &range
+    };
+
     VkResult err = m_devFuncs->vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
     if (err != VK_SUCCESS) qFatal("Failed to create flat pipeline layout: %d", err);
 
