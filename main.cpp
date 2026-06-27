@@ -84,10 +84,18 @@ int main(int argc, char *argv[]) {
 
     // Create application
     QApplication app(argc, argv);
+
+    // Set icon
+    #if defined(Q_OS_WIN)
+        app.setWindowIcon(QIcon(":/images/flowcompute.ico"));
+    #else
+        app.setWindowIcon(QIcon(":/images/flowcompute.png"));
+    #endif
+
+    // Set application properties
     app.setOrganizationName("FlowCompute");
     app.setApplicationName("FlowCompute");
     app.setApplicationVersion("0.8.0");
-    app.setWindowIcon(QIcon(":/images/flowcompute.ico"));
 
     /*
     app.setStyleSheet("QToolTip { color: black; background-color: #F4F1EA; border: 1px solid gray; }");

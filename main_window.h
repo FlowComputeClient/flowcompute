@@ -8,6 +8,7 @@
 #include "editors/text/text_editor.h"
 #include "geometry/graphic_data.h"
 #include "systems/wsl_system.h"
+#include "systems/local_system.h"
 #include "views/navigator/case_navigator.h"
 #include "views/console/console.h"
 
@@ -147,6 +148,7 @@ private:
     static bool s_isWindows, s_isWslAvailable;
 
     WslSystem wslSystem;
+    LocalSystem localSystem;
     QVulkanInstance m_vulkanInstance;
 
 private slots:

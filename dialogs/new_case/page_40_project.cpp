@@ -16,7 +16,7 @@ ProjectPage::ProjectPage(QWidget *parent): QWizardPage(parent) {
     layout->addWidget(new QLabel(tr("Geometry file:")), 0, 0);
     m_geometryFileEdit = new QLineEdit(this);
     m_geometryFileEdit->setReadOnly(true);
-    m_geometryFileEdit->setText("C:/Users/mscarpin/Desktop/y_junction.stl");
+    m_geometryFileEdit->setText("/home/mattscar/y_junction.stl");
     registerField("geometryFile", m_geometryFileEdit);
     layout->addWidget(m_geometryFileEdit, 0, 1);
 
@@ -63,8 +63,7 @@ void ProjectPage::initializePage() {
     NewCaseWizard* newWizard = qobject_cast<NewCaseWizard*>(this->wizard());
     QStringList pathList = newWizard->getHomeFolders();
 
-    // Dynamically extract the WSL home directory (e.g., "/home/xyz")
-    // from the first string provided by the backend.
+    // Etract the WSL home directory
     QString wslHomePath = "";
     if (!pathList.isEmpty()) {
         QString firstPath = pathList.first().trimmed();

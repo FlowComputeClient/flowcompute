@@ -852,17 +852,16 @@ QString MeshIO::createSnappyHexMeshDict(
     out << "    relativeSizes " << boolToStr(layerConfig.relativeSizes) << ";\n";
 
     // Set surface layers
+    out << "    layers\n    {\n";
     if (!layerConfig.nSurfaceLayers.empty()) {
-        out << "    layers\n    {\n";
         for (auto it = layerConfig.nSurfaceLayers.begin(); it != layerConfig.nSurfaceLayers.end(); ++it) {
             out << "        " << it->first << "\n"
                 << "        {\n"
                 << "            nSurfaceLayers " << it->second << ";\n"
                 << "        }\n";
         }
-        out << "    }\n";
     }
-
+    out << "    }\n";
     out << "    expansionRatio " << layerConfig.expansionRatio << ";\n";
     out << "    finalLayerThickness " << layerConfig.finalLayerThickness << ";\n";
     out << "    minThickness " << layerConfig.minThickness << ";\n";

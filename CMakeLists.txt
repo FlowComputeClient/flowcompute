@@ -152,6 +152,7 @@ qt_add_executable(FlowCompute
     views/navigator/node_data.cpp
     dialogs/solver/surface_widget.cpp
     dialogs/solver/surface_widget.h
+    systems/local_system.h systems/local_system.cpp
 )
 
 set_source_files_properties(
@@ -171,7 +172,13 @@ install(TARGETS FlowCompute
 )
 
 # Find the Vulkan shader compiler
-find_program(GLSL_VALIDATOR glslangValidator)
+find_package(Vulkan REQUIRED)
+if(TARGET Vulkan::glslangValidator)
+    get_target_property(GLSL_VALIDATOR Vulkan::glslangValidator IMPORTED_LOCATION)
+else()
+    find_program(GLSL_VALIDATOR glslangValidator HINTS $ENV{VULKAN_SDK}/bin)
+endif()
+
 if(NOT GLSL_VALIDATOR)
     message(FATAL_ERROR "glslangValidator not found! Make sure the Vulkan SDK is in your system PATH.")
 endif()

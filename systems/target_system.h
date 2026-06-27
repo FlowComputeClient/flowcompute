@@ -24,14 +24,14 @@ public:
     virtual QStringList getHomeFolders() = 0;
     virtual QStringList getFiles(QString path) = 0;
     virtual QStringList copyTutorialFolders(QString tutPath, QString projPath) = 0;
-    virtual QString checkPath(QString projPath) = 0;
-    virtual QByteArray getFileContent(QString path) = 0;
+    virtual QString checkPath(const QString& path) = 0;
+    virtual QByteArray getFileContent(const QString& path) = 0;
     virtual RenderData getResultData(QString path) = 0;
     virtual bool writeData(const QByteArray& payload, const QString& remoteFilePath) = 0;
     virtual bool writeData(const QString& localPath, const QString& remoteFilePath) = 0;
     virtual int launchShortUtility(const QString& cmd, QString& output) = 0;
     virtual void launchLongUtility(const QString& cmd, const QString& caseName, UtilityType type) = 0;
-    virtual bool createDirectories(QStringList dirPaths) = 0;
+    virtual bool createDirectories(const QStringList& dirPaths) = 0;
     virtual QString getResultFolders(QString path) = 0;
 };
 

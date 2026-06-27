@@ -27,13 +27,16 @@ bool MainWindow::s_isWslAvailable = false;
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
-    // Check environment
+// Check environment
 #ifdef Q_OS_WIN
     s_isWindows = true;
 
     // Check for wsl.exe
     QString wslPath = QStandardPaths::findExecutable("wsl.exe");
     s_isWslAvailable = !wslPath.isEmpty();
+    setWindowIcon(QIcon(":/images/flowcompute.ico"));
+#else
+    setWindowIcon(QIcon(":/images/flowcompute.png"));
 #endif
 
     /*
@@ -65,7 +68,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         m_font.setFixedPitch(true);
     }
 
-    // Create communication systems
+    // Create WSL communication system
     targetSystems[0] = &wslSystem;
     connect(&wslSystem, &WslSystem::longUtilityOutputReceived,
             this, &MainWindow::log);
@@ -73,6 +76,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             this, &MainWindow::longUtilityFinished);
     connect(&wslSystem, &WslSystem::longUtilityError,
             this, &MainWindow::log);
+
+    // Create Local Linux communication system
+    targetSystems[1] = &localSystem;
 
     // Create actions, menus, and toolbars
     createActions();
@@ -617,17 +623,17 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
 
         // Create editor
         ModelEditor* modelEditor = new ModelEditor(modelData, path, targetId,
-                                              &m_vulkanInstance, isBinary, this);
+            &m_vulkanInstance, isBinary, this);
         tabIndex = m_tabWidget->addTab(modelEditor, fileName);
         connect(modelEditor, &ModelEditor::surfacePatchRequested,
-                this, &MainWindow::runSurfacePatch);
+            this, &MainWindow::runSurfacePatch);
         connect(modelEditor, &ModelEditor::surfaceCheckRequested,
-                this, &MainWindow::runSurfaceCheck);
+            this, &MainWindow::runSurfaceCheck);
         connect(modelEditor, &ModelEditor::surfaceScaleRequested,
-                this, &MainWindow::runSurfaceScale);
+            this, &MainWindow::runSurfaceScale);
         connect(modelEditor, &ModelEditor::dirtyStateChanged,
-                this, [this, modelEditor](bool isDirty) {
-                    onDirtyStateChanged(isDirty, modelEditor);
+            this, [this, modelEditor](bool isDirty) {
+                onDirtyStateChanged(isDirty, modelEditor);
         });
     }
     if (type == EditorType::MESH) {
@@ -1257,7 +1263,20 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
         qWarning() << "Case" << caseName << "is not in case map.";
         return;
     }
+
+    qDebug() << "openFoamPath = " << openFoamPath;
+
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
+
+    // Update utilities if necessary
+    if (!utilMap.value("surfaceAutoPatch", true) && !utilMap.value("surfacePatch", true)) {
+        checkUtilities(fullPath, targetId, m_utilities);
+        utilMap = m_utilMap[openFoamPath];
+    }
+
+    if (!utilMap.value("surfaceAutoPatch", true) && !utilMap.value("surfacePatch", true)) {
+        qDebug() << "Crud";
+    }
 
     // Run surfaceAutoPatch if present
     if (utilMap.value("surfaceAutoPatch", false)) {
@@ -1277,14 +1296,20 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
     }
     else if (utilMap.value("surfacePatch", false)) {
 
+        qDebug() << "Running surfacePatch";
+
         // Create surfacePatchDict
         QString dictText = Utils::createSurfacePatchDict(openFoamPath, fileName, angle);
         targetSystems[targetId]->writeData(dictText.toUtf8(), casePath + "/system/surfacePatchDict");
+
+        qDebug() << casePath + "/system/surfacePatchDict";
 
         // Run surfacePatch
         cmd = QString("cd \"%1\" && surfacePatch").arg(casePath);
         QString result;
         targetSystems[targetId]->launchShortUtility(cmd, result);
+
+        qDebug() << "Hello?";
 
         // Check if a new file has been created
         if (result.contains("Writing repatched surface")) {

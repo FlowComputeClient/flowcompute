@@ -3,37 +3,37 @@
     "nu": {
       "name": "Kinematic viscosity",
       "dimensions": "[0 2 -1 0 0 0 0]",
-      "placeholder": "1e-5"
+      "default": "1e-5"
     },
     "sigma": {
       "name": "Surface tension",
       "dimensions": "[1 0 -2 0 0 0 0]",
-      "placeholder": "0.072"
+      "default": "0.072"
     },
     "psat": {
       "name": "Saturation pressure",
       "dimensions": "[1 -1 -2 0 0 0 0]",
-      "placeholder": "2340"
+      "default": "2340"
     },
     "Pr": {
       "name": "Prandtl number",
       "dimensions": "[0 0 0 0 0 0 0]",
-      "placeholder": "0.7"
+      "default": "0.7"
     },
     "TRef": {
       "name": "Reference temperature",
       "dimensions": "[0 0 0 1 0 0 0]",
-      "placeholder": "300"
+      "default": "300"
     },
     "beta": {
       "name": "Volumetric thermal expansion",
       "dimensions": "[0 0 0 -1 0 0 0]",
-      "placeholder": "3e-3"
+      "default": "3e-3"
     },
     "DT": {
       "name": "Diffusion coefficient",
       "dimensions": "[0 2 -1 0 0 0 0]",
-      "placeholder": "1e-5"
+      "default": "1e-5"
     }    
   },
   "thermophysicalProperties": {

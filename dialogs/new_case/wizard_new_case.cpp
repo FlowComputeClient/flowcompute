@@ -58,6 +58,7 @@ bool NewCaseWizard::validateCurrentPage() {
 
         // If name is in case map, ask user
         if (count > 0) {
+
             QMessageBox::StandardButton reply;
             QString msg = tr("There is already a case named '%1'.\nCreate '%2' instead?")
                               .arg(m_caseName, newName);
@@ -170,46 +171,42 @@ void NewCaseWizard::accept() {
         }
     }
 
-    // Create case in WSL
-    if (m_targetId == TargetType::LOCAL_WINDOWS) {
+    // Determine the path of the new case
+    newCasePath = casePath + "/" + m_caseName;
 
-        // Determine the path of the new case
-        newCasePath = casePath + "/" + m_caseName;
+    QStringList files;
+    if (caseCreationType == CaseCreationType::TUTORIAL) {
 
-        QStringList files;
-        if (caseCreationType == CaseCreationType::TUTORIAL) {
-
-            // Copy files from tutorial to new case folder
-            QString tutorialPath = field("tutorialPath").toString();
-            files = mainWin->targetSystems[m_targetId]->copyTutorialFolders(tutorialPath, newCasePath);
-        }
-        else if (caseCreationType == CaseCreationType::INTERACTIVE) {
-            if (createCase(newCasePath)) {
-                files = { "0.orig", "constant", "system", "Allclean|", "Allrun|" };
-            } else {
-                QMessageBox::critical(this, tr("Case Creation Issue"), tr("Failed to create case folder"));
-                return;
-            }
-        }
-
-        // Copy geometry file if given
-        if (!m_geometryFile.isEmpty()) {
-
-            QFileInfo info(m_geometryFile);
-            if (info.exists() && info.isFile()) {
-                QString remotePath = newCasePath + "/constant/triSurface/" + info.fileName();
-                bool success = mainWin->targetSystems[m_targetId]->writeData(m_geometryFile, remotePath);
-                if (!success) {
-                    qWarning() << "Failed to transfer geometry file:" << info.fileName();
-                }
-            } else {
-                qWarning() << "Geometry file does not exist or is invalid:" << m_geometryFile;
-            }
-        }
-
-        // Create case
-        mainWin->createCase(m_caseName, casePath, files, m_targetId, m_openFoamPath);
+        // Copy files from tutorial to new case folder
+        QString tutorialPath = field("tutorialPath").toString();
+        files = mainWin->targetSystems[m_targetId]->copyTutorialFolders(tutorialPath, newCasePath);
     }
+    else if (caseCreationType == CaseCreationType::INTERACTIVE) {
+        if (createCase(newCasePath)) {
+            files = { "0.orig", "constant", "system", "Allclean|", "Allrun|" };
+        } else {
+            QMessageBox::critical(this, tr("Case Creation Issue"), tr("Failed to create case folder"));
+            return;
+        }
+    }
+
+    // Copy geometry file if given
+    if (!m_geometryFile.isEmpty()) {
+
+        QFileInfo info(m_geometryFile);
+        if (info.exists() && info.isFile()) {
+            QString remotePath = newCasePath + "/constant/triSurface/" + info.fileName();
+            bool success = mainWin->targetSystems[m_targetId]->writeData(m_geometryFile, remotePath);
+            if (!success) {
+                qWarning() << "Failed to transfer geometry file:" << info.fileName();
+            }
+        } else {
+            qWarning() << "Geometry file does not exist or is invalid:" << m_geometryFile;
+        }
+    }
+
+    // Create case
+    mainWin->createCase(m_caseName, casePath, files, m_targetId, m_openFoamPath);
 
     QWizard::accept();
 }

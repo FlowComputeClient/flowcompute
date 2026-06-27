@@ -45,14 +45,14 @@ public:
     QStringList getHomeFolders() override;
     QStringList getFiles(QString path) override;
     QStringList copyTutorialFolders(QString tutPath, QString projPath) override;
-    QString checkPath(QString projPath) override;
-    QByteArray getFileContent(QString path) override;
+    QString checkPath(const QString& path) override;
+    QByteArray getFileContent(const QString& path) override;
     RenderData getResultData(QString path) override;
     bool writeData(const QByteArray& payload, const QString& remoteFilePath) override;
     bool writeData(const QString& localPath, const QString& remoteFilePath) override;
     int launchShortUtility(const QString& cmd, QString& output) override;
     void launchLongUtility(const QString& cmd, const QString& caseName, UtilityType utilityType) override;
-    bool createDirectories(QStringList dirPaths) override;
+    bool createDirectories(const QStringList& dirPaths) override;
     QString getResultFolders(QString path) override;
 
 signals:

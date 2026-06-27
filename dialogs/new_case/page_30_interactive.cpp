@@ -37,10 +37,29 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     m_flowButtonGroup->addButton(multiphaseButton, 2);
     incompressibleButton->setChecked(true);
 
+    // Create question for time handling
+    QVBoxLayout* timeLayout = new QVBoxLayout();
+    timeLayout->setSpacing(10);
+    QLabel* timeLabel = new QLabel(tr("<b>2. How should time be handled in the simulation?</b>"));
+    timeLayout->addWidget(timeLabel);
+    QRadioButton* steadyButton =
+        new QRadioButton(tr("Compute the final, settled flow (steady-state)"));
+    timeLayout->addWidget(steadyButton);
+    QRadioButton* transientButton =
+        new QRadioButton(tr("Compute changes moment-by-moment (transient)"));
+    timeLayout->addWidget(transientButton);
+    layout->addLayout(timeLayout);
+
+    // Create button group
+    m_timeButtonGroup = new QButtonGroup(this);
+    m_timeButtonGroup->addButton(steadyButton, 0);
+    m_timeButtonGroup->addButton(transientButton, 1);
+    steadyButton->setChecked(true);
+
     // Create question for turbulence
     QVBoxLayout* turbulenceLayout = new QVBoxLayout();
     turbulenceLayout->setSpacing(10);
-    QLabel* turbulenceLabel = new QLabel(tr("<b>2. How should turbulence be modeled?</b>"));
+    QLabel* turbulenceLabel = new QLabel(tr("<b>3. How should turbulence be modeled?</b>"));
     turbulenceLayout->addWidget(turbulenceLabel);
     QRadioButton* laminarButton =
         new QRadioButton(tr("No turbulence (laminar)"));
@@ -60,25 +79,6 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     m_turbulenceButtonGroup->addButton(lesButton, 2);
     rasButton->setChecked(true);
 
-    // Create question for time handling
-    QVBoxLayout* timeLayout = new QVBoxLayout();
-    timeLayout->setSpacing(10);
-    QLabel* timeLabel = new QLabel(tr("<b>3. How should time be handled in the simulation?</b>"));
-    timeLayout->addWidget(timeLabel);
-    QRadioButton* steadyButton =
-        new QRadioButton(tr("Compute the final, settled flow (steady-state)"));
-    timeLayout->addWidget(steadyButton);
-    QRadioButton* transientButton =
-        new QRadioButton(tr("Compute changes moment-by-moment (transient)"));
-    timeLayout->addWidget(transientButton);
-    layout->addLayout(timeLayout);
-
-    // Create button group
-    m_timeButtonGroup = new QButtonGroup(this);
-    m_timeButtonGroup->addButton(steadyButton, 0);
-    m_timeButtonGroup->addButton(transientButton, 1);
-    steadyButton->setChecked(true);
-
     // Create question for physics
     QVBoxLayout* physicsLayout = new QVBoxLayout();
     physicsLayout->setSpacing(10);
@@ -95,7 +95,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     // Select priority of computation speed and accuracy
     QVBoxLayout* priorityLayout = new QVBoxLayout();
     priorityLayout->setSpacing(10);
-    QLabel* priorityLabel = new QLabel(tr("<b>5. Move the slider to indicate priority of speed versus accuracy</b>"));
+    QLabel* priorityLabel = new QLabel(tr("<b>5. Move the slider to set priority of speed versus accuracy</b>"));
     priorityLayout->addWidget(priorityLabel);
     m_prioritySlider = new QSlider(Qt::Horizontal, this);
     m_prioritySlider->setRange(0, 4);

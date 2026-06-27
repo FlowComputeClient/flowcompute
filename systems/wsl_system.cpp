@@ -248,7 +248,7 @@ bool WslSystem::writeData(const QByteArray& payload, const QString& remoteFilePa
     }
 }
 
-bool WslSystem::createDirectories(QStringList dirPaths) {
+bool WslSystem::createDirectories(const QStringList& dirPaths) {
 
     QJsonObject result = contactServer("createDirectories", dirPaths.join("|"));
     QString status = result["status"].toString();
@@ -326,7 +326,7 @@ bool WslSystem::writeData(const QString& localPath, const QString& remoteFilePat
     }
 }
 
-QString WslSystem::checkPath(QString projPath) {
+QString WslSystem::checkPath(const QString& projPath) {
 
     QJsonObject result = contactServer("checkPath", projPath);
     QString path = result["message"].toString();
@@ -340,7 +340,7 @@ QString WslSystem::getResultFolders(QString projPath) {
     return res;
 }
 
-QByteArray WslSystem::getFileContent(QString path) {
+QByteArray WslSystem::getFileContent(const QString& path) {
 
     QTcpSocket socket;
     socket.connectToHost(QHostAddress::LocalHost, 8080);
@@ -501,7 +501,7 @@ RenderData WslSystem::getResultData(QString path) {
     return result;
 }
 
-// Check for installed Linux distributions
+// Check for installed WSL distributions
 bool WslSystem::checkDistributions() {
 
     QString selectedDistribution;
