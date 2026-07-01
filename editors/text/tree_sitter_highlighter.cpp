@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "tree_sitter_highlighter.h"
 
 TreeSitterHighlighter::TreeSitterHighlighter(QTextDocument *parent)
@@ -7,54 +24,100 @@ TreeSitterHighlighter::TreeSitterHighlighter(QTextDocument *parent)
     m_parser.reset(ts_parser_new());
     ts_parser_set_language(m_parser.get(), tree_sitter_openfoam());
 
-    /*
-      "keyword": { "color": "#569CD6", "bold": true, "italic": false },
-      "number": { "color": "#B5CEA8", "bold": false, "italic": false },
-      "string": { "color": "#CE9178", "bold": false, "italic": false },
-      "enum": { "color": "#4EC9B0", "bold": false, "italic": false },
-      "comment": { "color": "#6A9955", "bold": false, "italic": true },
-      "punctuation": { "color": "#808080", "bold": false, "italic": false },
-      "macro": { "color": "#C586C0", "bold": true, "italic": false }
-    */
-
-    // m_keywordFormat, m_numberFormat, m_stringFormat, m_enumFormat, m_macroFormat, m_commentFormat;
-
     // Setup some basic Qt text formats
-    m_keywordFormat.setForeground(QColor("#569CD6"));
+    m_keywordFormat.setForeground(QColor(0x56, 0x9C, 0xD6));
     m_keywordFormat.setFontWeight(QFont::Bold);
     m_keywordFormat.setFontItalic(false);
 
-    m_numberFormat.setForeground(QColor("#B5CEA8"));
+    m_numberFormat.setForeground(QColor(0xB5, 0xCE, 0xA8));
     m_numberFormat.setFontItalic(false);
 
-    m_stringFormat.setForeground(QColor("#CE9178"));
+    m_stringFormat.setForeground(QColor(0xCE, 0x91, 0x78));
     m_stringFormat.setFontItalic(false);
 
-    m_enumFormat.setForeground(QColor("#4EC9B0"));
+    m_enumFormat.setForeground(QColor(0x4E, 0xC9, 0xB0));
     m_enumFormat.setFontItalic(false);
 
-    m_macroFormat.setForeground(QColor("#C586C0"));
+    m_macroFormat.setForeground(QColor(0xC5, 0x86, 0xC0));
     m_macroFormat.setFontWeight(QFont::Bold);
     m_macroFormat.setFontItalic(false);
 
-    m_commentFormat.setForeground(QColor("#E5C07B"));
+    m_commentFormat.setForeground(QColor(0xE5, 0xC0, 0x7B));
     m_commentFormat.setFontItalic(true);
 }
 
 void TreeSitterHighlighter::setSyntaxConfig(const SyntaxConfig& cfg) {
 
+    // Set the keyword format
+    m_keywordFormat.setForeground(cfg.keyword.color);
+    if (cfg.keyword.bold) {
+        m_keywordFormat.setFontWeight(QFont::Bold);
+    } else {
+        m_keywordFormat.setFontWeight(QFont::Normal);
+    }
+    m_keywordFormat.setFontItalic(cfg.keyword.italic);
+
+    // Set the number format
+    m_numberFormat.setForeground(cfg.number.color);
+    if (cfg.number.bold) {
+        m_numberFormat.setFontWeight(QFont::Bold);
+    } else {
+        m_numberFormat.setFontWeight(QFont::Normal);
+    }
+    m_numberFormat.setFontItalic(cfg.number.italic);
+
+    // Set the string format
+    m_stringFormat.setForeground(cfg.string.color);
+    if (cfg.string.bold) {
+        m_stringFormat.setFontWeight(QFont::Bold);
+    } else {
+        m_stringFormat.setFontWeight(QFont::Normal);
+    }
+    m_stringFormat.setFontItalic(cfg.string.italic);
+
+    // Set the enumerated type format
+    m_enumFormat.setForeground(cfg.enumItem.color);
+    if (cfg.enumItem.bold) {
+        m_enumFormat.setFontWeight(QFont::Bold);
+    } else {
+        m_enumFormat.setFontWeight(QFont::Normal);
+    }
+    m_enumFormat.setFontItalic(cfg.enumItem.italic);
+
+    // Set the macro format
+    m_macroFormat.setForeground(cfg.macro.color);
+    if (cfg.macro.bold) {
+        m_macroFormat.setFontWeight(QFont::Bold);
+    } else {
+        m_macroFormat.setFontWeight(QFont::Normal);
+    }
+    m_macroFormat.setFontItalic(cfg.macro.italic);
+
+    // Set the comment format
+    m_commentFormat.setForeground(cfg.comment.color);
+    if (cfg.comment.bold) {
+        m_commentFormat.setFontWeight(QFont::Bold);
+    } else {
+        m_commentFormat.setFontWeight(QFont::Normal);
+    }
+    m_commentFormat.setFontItalic(cfg.comment.italic);
+
+    // Redraw text
+    rehighlight();
 }
 
-void TreeSitterHighlighter::setTree(TSTree* newTree, const QByteArray& documentUtf8) {
+void TreeSitterHighlighter::setTree(TSTree* newTree,
+                                    const QByteArray& documentUtf8) {
     m_tree.reset(newTree);
     m_documentUtf8 = documentUtf8;
 
-    // Force Qt to redraw the visible text using the new tree
+    // Redraw text
     rehighlight();
 }
 
 // Async parse hand-off: For massive files
-void TreeSitterHighlighter::setTreeAsync(TSTree* newTree, const QByteArray& utf8Text) {
+void TreeSitterHighlighter::setTreeAsync(TSTree* newTree,
+                                         const QByteArray& utf8Text) {
     m_documentUtf8 = utf8Text;
     m_tree.reset(newTree);
     rehighlight();
@@ -75,7 +138,8 @@ void TreeSitterHighlighter::parseStringSync(const QByteArray& utf8Text) {
     rehighlight();
 }
 
-void TreeSitterHighlighter::applyFormatting(TSNode node, int blockStart, int blockEnd) {
+void TreeSitterHighlighter::applyFormatting(TSNode node,
+                                            int blockStart, int blockEnd) {
     if (ts_node_is_null(node)) return;
 
     int nodeStart = ts_node_start_byte(node);
@@ -100,7 +164,7 @@ void TreeSitterHighlighter::applyFormatting(TSNode node, int blockStart, int blo
                 if (!ts_node_is_null(keyNode) && ts_node_eq(node, keyNode)) {
                     setFormat(relativeStart, length, m_keywordFormat);
                 } else {
-                    // Otherwise, it is an identifier acting as a value (e.g. 'timeStep')
+                    // Otherwise, it is an identifier acting as a value
                     setFormat(relativeStart, length, m_enumFormat);
                 }
             }
@@ -113,10 +177,13 @@ void TreeSitterHighlighter::applyFormatting(TSNode node, int blockStart, int blo
             else if (nodeType == "boolean") {
                 setFormat(relativeStart, length, m_keywordFormat);
             }
-            else if (nodeType == "line_comment" || nodeType == "block_comment") {
+            else if (nodeType == "line_comment" ||
+                       nodeType == "block_comment") {
                 setFormat(relativeStart, length, m_commentFormat);
             }
-            else if (nodeType == "include_directive" || nodeType == "calc_directive" || nodeType == "code_stream") {
+            else if (nodeType == "include_directive" ||
+                       nodeType == "calc_directive" ||
+                       nodeType == "code_stream") {
                 setFormat(relativeStart, length, m_macroFormat);
             }
         }

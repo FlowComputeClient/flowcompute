@@ -1,5 +1,22 @@
-#ifndef RUN_SOLVER_DIALOG_H
-#define RUN_SOLVER_DIALOG_H
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#ifndef RUN_SOLVER_DIALOG_H_
+#define RUN_SOLVER_DIALOG_H_
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -11,12 +28,13 @@ class MainWindow;
 
 class RunSolverDialog : public QDialog {
     Q_OBJECT
-public:
+
+ public:
     RunSolverDialog(const QString& selectedCase,
                   const QStringList& caseList,
                   QWidget* parent = nullptr);
 
-private:
+ private:
     MainWindow* m_mainWin;
     QString m_solverName;
 
@@ -24,11 +42,11 @@ private:
     QCheckBox *m_runSolverCheck, *m_deleteFilesCheck, *m_reconstructCheck, *m_deleteProcessorCheck;
     QComboBox *m_caseCombo, *m_numCoresCombo;
 
-private slots:
+ private slots:
     void onOkClicked();
     void onCaseChanged(QString caseName);
     void potentialCheckToggled(bool enabled);
     void simulationCheckToggled(bool state);
 };
 
-#endif // RUN_SOLVER_DIALOG_H
+#endif // RUN_SOLVER_DIALOG_H_

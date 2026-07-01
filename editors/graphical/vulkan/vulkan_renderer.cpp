@@ -1,23 +1,46 @@
-#include "vulkan_renderer.h"
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
+#include "vulkan_renderer.h"
 #include "vulkan_window.h"
 
-VulkanRenderer::VulkanRenderer(VulkanWindow *w, std::shared_ptr<RenderData> renderData):
+VulkanRenderer::VulkanRenderer(VulkanWindow *w,
+                               std::shared_ptr<RenderData> renderData):
     m_window(w), m_renderData(renderData) {}
 
-uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter,
+                                        VkMemoryPropertyFlags props) {
 
     VkPhysicalDevice physDev = m_window->physicalDevice();
     VkPhysicalDeviceMemoryProperties memProperties;
-    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceMemoryProperties(physDev, &memProperties);
+    m_window->vulkanInstance()->functions()->
+        vkGetPhysicalDeviceMemoryProperties(physDev, &memProperties);
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
         if ((typeFilter & (1 << i)) &&
-            (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            (memProperties.memoryTypes[i].propertyFlags & props) == props) {
             return i;
         }
     }
     qFatal("Failed to find suitable memory type!");
+
+    // Set default background to dark mode
+    m_clearColor = { 0.1f, 0.1f, 0.12f };
+
     return 0;
 }
 
@@ -26,7 +49,8 @@ void VulkanRenderer::initResources() {
     // Access device
     m_device = m_window->device();
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(m_device);
-    m_concurrentFrameCount = static_cast<uint32_t>(m_window->concurrentFrameCount());
+    m_concurrentFrameCount =
+        static_cast<uint32_t>(m_window->concurrentFrameCount());
     m_uboDirty.assign(m_concurrentFrameCount, true);
 
     // Create general resources
@@ -55,8 +79,19 @@ void VulkanRenderer::startNextFrame() {
         return;
     }
 
+    // Set theme
+    /*
+    if (m_window->takeThemeDirtyFlag()) {
+        m_clearColor = m_window->getClearColor();
+
+        qDebug() << m_clearColor[0];
+        qDebug() << m_clearColor[1];
+        qDebug() << m_clearColor[2];
+    }
+    */
+
     // Check if mesh data has changed
-    if (m_window->isDirty()) {
+    if (m_window->takeDataDirtyFlag()) {
 
         // Wait for the GPU to finish rendering
         m_devFuncs->vkDeviceWaitIdle(m_window->device());
@@ -71,15 +106,11 @@ void VulkanRenderer::startNextFrame() {
                 createIndexBuffer();
             }
         }
-
-        // Clear dirty status
-        m_window->clearDirty();
     }
 
     // Check if the uniform buffer has changed
-    if (m_window->isUboDirty()) {
+    if (m_window->takeUboDirtyFlag()) {
         std::fill(m_uboDirty.begin(), m_uboDirty.end(), true);
-        m_window->clearUboDirty();
     }
 
     // Update uniform data as needed
@@ -104,7 +135,10 @@ void VulkanRenderer::startNextFrame() {
 
     // Set clear colors
     VkClearValue clearValues[3] = {};
-    // clearValues[0].color = {{ 1.0f, 1.0f, 1.0f, 1.0f }};
+    /*
+    clearValues[0].color = {{ m_clearColor[0], m_clearColor[1],
+                             m_clearColor[2], 1.0f }};
+    */
     clearValues[0].color = {{ 0.1f, 0.1f, 0.12f, 1.0f }};
     clearValues[1].depthStencil = { 1.0f, 0 };
     clearValues[2].color = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
@@ -121,18 +155,23 @@ void VulkanRenderer::startNextFrame() {
         .framebuffer = m_window->currentFramebuffer(),
         .renderArea = {
             {0, 0},
-            {static_cast<uint32_t>(sz.width()), static_cast<uint32_t>(sz.height())}
+            {static_cast<uint32_t>(sz.width()),
+             static_cast<uint32_t>(sz.height())}
         },
-        .clearValueCount = m_window->sampleCountFlagBits() > VK_SAMPLE_COUNT_1_BIT ? 3u : 2u,
+        .clearValueCount =
+            m_window->sampleCountFlagBits() > VK_SAMPLE_COUNT_1_BIT ? 3u : 2u,
         .pClearValues = clearValues
     };
-    m_devFuncs->vkCmdBeginRenderPass(cmdBuf, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    m_devFuncs->vkCmdBeginRenderPass(cmdBuf, &rpBeginInfo,
+                                     VK_SUBPASS_CONTENTS_INLINE);
 
     // Create viewport
     VkDeviceSize vbOffset = 0;
-    m_devFuncs->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m_vertexBuffer, &vbOffset);
+    m_devFuncs->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m_vertexBuffer,
+                                       &vbOffset);
     if (!m_renderData->indices.empty()) {
-        m_devFuncs->vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        m_devFuncs->vkCmdBindIndexBuffer(cmdBuf, m_indexBuffer,
+                                         0, VK_INDEX_TYPE_UINT32);
     }
     VkViewport viewport = {
         .x = 0.0f, .y = 0.0f,
@@ -145,14 +184,17 @@ void VulkanRenderer::startNextFrame() {
     // Create scissor
     VkRect2D scissor = {
         .offset = {0, 0},
-        .extent = {static_cast<uint32_t>(sz.width()), static_cast<uint32_t>(sz.height())}
+        .extent = {static_cast<uint32_t>(sz.width()),
+                   static_cast<uint32_t>(sz.height())}
     };
     m_devFuncs->vkCmdSetScissor(cmdBuf, 0, 1, &scissor);
 
     // Bind descriptor set and pipeline
-    m_devFuncs->vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1,
-                                        &m_descriptorSets[m_window->currentFrame()], 0, nullptr);
-    m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[0]);
+    m_devFuncs->vkCmdBindDescriptorSets(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_pipelineLayout, 0, 1, &m_descriptorSets[m_window->currentFrame()], 0,
+        nullptr);
+    m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        m_pipelines[0]);
 
     // Render the data
     switch(m_renderData->format) {
@@ -160,20 +202,23 @@ void VulkanRenderer::startNextFrame() {
         for (int i=0; i<m_renderData->patches.size(); i++) {
 
             // Set push constants
-            m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
-                0, 4 * sizeof(float), &(patchColors[i]));
+            m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
+                VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4 * sizeof(float),
+                &(patchColors[i]));
 
             // Execute draw
             const auto& patch = m_renderData->patches[i];
-            m_devFuncs->vkCmdDrawIndexed(cmdBuf, patch.count, 1, patch.first, 0, 0);
+            m_devFuncs->vkCmdDrawIndexed(cmdBuf, patch.count, 1,
+                                         patch.first, 0, 0);
         }
         break;
     case RenderType::Mesh:
         for (int i=0; i<m_renderData->patches.size(); i++) {
 
             // Set push constants
-            m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                           0, 4 * sizeof(float), &(patchColors[i]));
+            m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
+                VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4 * sizeof(float),
+                &(patchColors[i]));
 
             // Execute draw
             const auto& patch = m_renderData->patches[i];
@@ -181,7 +226,8 @@ void VulkanRenderer::startNextFrame() {
         }
         break;
     case RenderType::Color:
-        m_devFuncs->vkCmdDrawIndexed(cmdBuf, m_renderData->indices.size(), 1, 0, 0, 0);
+        m_devFuncs->vkCmdDrawIndexed(cmdBuf, m_renderData->indices.size(),
+                                     1, 0, 0, 0);
         break;
 
     default:
@@ -190,14 +236,16 @@ void VulkanRenderer::startNextFrame() {
 
     // Draw the axes
     VkDeviceSize axisOffset = 0;
-    m_devFuncs->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m_axisBuffer, &axisOffset);
+    m_devFuncs->vkCmdBindVertexBuffers(cmdBuf, 0, 1, &m_axisBuffer,
+                                       &axisOffset);
 
     // Bind pipeline
-    m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[1]);
+    m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                  m_pipelines[1]);
 
     // Set push constants -
-    m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                   0, sizeof(float), &scaledDim);
+    m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
+        VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(float), &scaledDim);
 
     // Draw the axes
     m_devFuncs->vkCmdDraw(cmdBuf, 6, 1, 0, 0);
@@ -211,14 +259,17 @@ void VulkanRenderer::createPipelineStorage() {
     VkPipelineCacheCreateInfo pipelineCacheInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO
     };
-    VkResult err = m_devFuncs->vkCreatePipelineCache(m_device, &pipelineCacheInfo, nullptr, &m_pipelineCache);
+    VkResult err = m_devFuncs->vkCreatePipelineCache(m_device,
+        &pipelineCacheInfo, nullptr, &m_pipelineCache);
     if (err != VK_SUCCESS) qFatal("Failed to create pipeline cache: %d", err);
 
     // Build the pool sizes
     std::vector<VkDescriptorPoolSize> poolSizes;
-    poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, m_concurrentFrameCount });
+    poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                         m_concurrentFrameCount });
     if (m_renderData->format == RenderType::Color) {
-        poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, m_concurrentFrameCount });
+        poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                             m_concurrentFrameCount });
     }
 
     // Create the descriptor pool
@@ -228,7 +279,8 @@ void VulkanRenderer::createPipelineStorage() {
         .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
         .pPoolSizes = poolSizes.data()
     };
-    err = m_devFuncs->vkCreateDescriptorPool(m_device, &descPoolInfo, nullptr, &m_descPool);
+    err = m_devFuncs->vkCreateDescriptorPool(m_device, &descPoolInfo, nullptr,
+                                             &m_descPool);
     if (err != VK_SUCCESS) qFatal("Failed to create descriptor pool: %d", err);
 }
 
@@ -261,11 +313,13 @@ void VulkanRenderer::createDescriptorSets() {
         .bindingCount = static_cast<uint32_t>(bindings.size()),
         .pBindings = bindings.data()
     };
-    VkResult err = m_devFuncs->vkCreateDescriptorSetLayout(m_device, &layoutInfo, nullptr, &m_descriptorSetLayout);
+    VkResult err = m_devFuncs->vkCreateDescriptorSetLayout(m_device,
+        &layoutInfo, nullptr, &m_descriptorSetLayout);
     if (err != VK_SUCCESS) qFatal("Failed to create descriptor set layout");
 
     // Allocate the sets
-    std::vector<VkDescriptorSetLayout> layouts(m_concurrentFrameCount, m_descriptorSetLayout);
+    std::vector<VkDescriptorSetLayout> layouts(m_concurrentFrameCount,
+                                               m_descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .descriptorPool = m_descPool,
@@ -273,7 +327,8 @@ void VulkanRenderer::createDescriptorSets() {
         .pSetLayouts = layouts.data()
     };
 
-    err = m_devFuncs->vkAllocateDescriptorSets(m_device, &allocInfo, m_descriptorSets.data());
+    err = m_devFuncs->vkAllocateDescriptorSets(m_device, &allocInfo,
+                                               m_descriptorSets.data());
     if (err != VK_SUCCESS) qFatal("Failed to allocate descriptor sets");
 
     // Update the sets
@@ -301,8 +356,9 @@ void VulkanRenderer::createDescriptorSets() {
                 .pImageInfo = &m_colorMapImageInfo
             });
         }
-        m_devFuncs->vkUpdateDescriptorSets(m_device, static_cast<uint32_t>(descriptorWrites.size()),
-                                           descriptorWrites.data(), 0, nullptr);
+        m_devFuncs->vkUpdateDescriptorSets(m_device,
+            static_cast<uint32_t>(descriptorWrites.size()),
+            descriptorWrites.data(), 0, nullptr);
     }
 }
 
@@ -323,9 +379,9 @@ void VulkanRenderer::createPipelines() {
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &range
     };
-
-    VkResult err = m_devFuncs->vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
-    if (err != VK_SUCCESS) qFatal("Failed to create flat pipeline layout: %d", err);
+    VkResult err = m_devFuncs->vkCreatePipelineLayout(m_device,
+        &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
+    if (err != VK_SUCCESS) qFatal("Failed to create pipeline layout: %d", err);
 
     VkDynamicState dynamicStates[] = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -380,7 +436,8 @@ void VulkanRenderer::createPipelines() {
             .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
         };
         vertexAttrDescs.push_back({
-            .location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0
+            .location = 0, .binding = 0,
+            .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = 0
         });
         vertexInputInfo = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -389,8 +446,10 @@ void VulkanRenderer::createPipelines() {
             .vertexAttributeDescriptionCount = 1,
             .pVertexAttributeDescriptions = vertexAttrDescs.data()
         };
-        shaderModules[0] = createShader(QStringLiteral(":/shaders/model/vert.spv"));
-        shaderModules[1] = createShader(QStringLiteral(":/shaders/model/frag.spv"));
+        shaderModules[0] =
+            createShader(QStringLiteral(":/shaders/model/vert.spv"));
+        shaderModules[1] =
+            createShader(QStringLiteral(":/shaders/model/frag.spv"));
     }
     else if (m_renderData->format == RenderType::Mesh) {
         vertexBindingDesc = {
@@ -399,7 +458,8 @@ void VulkanRenderer::createPipelines() {
             .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
         };
         vertexAttrDescs.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-        vertexAttrDescs.push_back({ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, 3 * sizeof(float) });
+        vertexAttrDescs.push_back({ 1, 0, VK_FORMAT_R32G32B32_SFLOAT,
+                                   3 * sizeof(float) });
         vertexInputInfo = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .vertexBindingDescriptionCount = 1,
@@ -407,8 +467,10 @@ void VulkanRenderer::createPipelines() {
             .vertexAttributeDescriptionCount = 2,
             .pVertexAttributeDescriptions = vertexAttrDescs.data()
         };
-        shaderModules[0] = createShader(QStringLiteral(":/shaders/mesh/vert.spv"));
-        shaderModules[1] = createShader(QStringLiteral(":/shaders/mesh/frag.spv"));
+        shaderModules[0] =
+            createShader(QStringLiteral(":/shaders/mesh/vert.spv"));
+        shaderModules[1] =
+            createShader(QStringLiteral(":/shaders/mesh/frag.spv"));
     }
     else if (m_renderData->format == RenderType::Color) {
         vertexBindingDesc = {
@@ -417,7 +479,8 @@ void VulkanRenderer::createPipelines() {
             .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
         };
         vertexAttrDescs.push_back({ 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 });
-        vertexAttrDescs.push_back({ 1, 0, VK_FORMAT_R32_SFLOAT, 3 * sizeof(float) });
+        vertexAttrDescs.push_back({ 1, 0, VK_FORMAT_R32_SFLOAT,
+                                   3 * sizeof(float) });
         vertexInputInfo = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .vertexBindingDescriptionCount = 1,
@@ -425,8 +488,10 @@ void VulkanRenderer::createPipelines() {
             .vertexAttributeDescriptionCount = 2,
             .pVertexAttributeDescriptions = vertexAttrDescs.data()
         };
-        shaderModules[0] = createShader(QStringLiteral(":/shaders/color/vert.spv"));
-        shaderModules[1] = createShader(QStringLiteral(":/shaders/color/frag.spv"));
+        shaderModules[0] =
+            createShader(QStringLiteral(":/shaders/color/vert.spv"));
+        shaderModules[1] =
+            createShader(QStringLiteral(":/shaders/color/frag.spv"));
     }
 
     VkPipelineShaderStageCreateInfo shaderStages[2] = {{
@@ -524,8 +589,10 @@ void VulkanRenderer::createPipelines() {
     };
 
     VkShaderModule axisShaderModules[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
-    axisShaderModules[0] = createShader(QStringLiteral(":/shaders/axis/vert.spv"));
-    axisShaderModules[1] = createShader(QStringLiteral(":/shaders/axis/frag.spv"));
+    axisShaderModules[0] =
+        createShader(QStringLiteral(":/shaders/axis/vert.spv"));
+    axisShaderModules[1] =
+        createShader(QStringLiteral(":/shaders/axis/frag.spv"));
 
     VkPipelineShaderStageCreateInfo axisShaderStages[2] = {{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -572,7 +639,8 @@ void VulkanRenderer::createPipelines() {
 
     // Create pipeline
     err = m_devFuncs->vkCreateGraphicsPipelines(
-        m_device, m_pipelineCache, 2, pipelineCreateInfos, nullptr, m_pipelines.data());
+        m_device, m_pipelineCache, 2, pipelineCreateInfos, nullptr,
+        m_pipelines.data());
     if (err != VK_SUCCESS) qFatal("Failed to create pipelines: %d", err);
 
     // Destroy shader modules
@@ -585,11 +653,13 @@ void VulkanRenderer::createPipelines() {
         shaderModules[1] = VK_NULL_HANDLE;
     }
     if (axisShaderModules[0] != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyShaderModule(m_device, axisShaderModules[0], nullptr);
+        m_devFuncs->vkDestroyShaderModule(m_device, axisShaderModules[0],
+                                          nullptr);
         axisShaderModules[0] = VK_NULL_HANDLE;
     }
     if (axisShaderModules[1] != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyShaderModule(m_device, axisShaderModules[1], nullptr);
+        m_devFuncs->vkDestroyShaderModule(m_device, axisShaderModules[1],
+                                          nullptr);
         axisShaderModules[1] = VK_NULL_HANDLE;
     }
 }
@@ -610,8 +680,8 @@ VkShaderModule VulkanRenderer::createShader(const QString &name) {
         .pCode = reinterpret_cast<const uint32_t *>(blob.constData())
     };
     VkShaderModule shaderModule;
-    VkResult err = m_devFuncs->vkCreateShaderModule(m_window->device(), &shaderInfo,
-                                                    nullptr, &shaderModule);
+    VkResult err = m_devFuncs->vkCreateShaderModule(m_window->device(),
+        &shaderInfo, nullptr, &shaderModule);
     if (err != VK_SUCCESS) {
         qWarning("Failed to create shader module: %d", err);
         return VK_NULL_HANDLE;
@@ -633,7 +703,8 @@ void VulkanRenderer::releaseResources() {
 
     // Destroy pipeline layout and Cache
     if (m_pipelineLayout != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
+        m_devFuncs->vkDestroyPipelineLayout(m_device, m_pipelineLayout,
+                                            nullptr);
         m_pipelineLayout = VK_NULL_HANDLE;
     }
     if (m_pipelineCache != VK_NULL_HANDLE) {
@@ -647,7 +718,8 @@ void VulkanRenderer::releaseResources() {
         m_descPool = VK_NULL_HANDLE;
     }
     if (m_descriptorSetLayout != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayout, nullptr);
+        m_devFuncs->vkDestroyDescriptorSetLayout(m_device,
+            m_descriptorSetLayout, nullptr);
         m_descriptorSetLayout = VK_NULL_HANDLE;
     }
 
@@ -725,15 +797,19 @@ void VulkanRenderer::initSwapChainResources() {
     // Protect against division by zero
     float aspect = 1.0f;
     if (sz.height() > 0 && sz.width() > 0) {
-        aspect = static_cast<float>(sz.width()) / static_cast<float>(sz.height());
+        aspect = static_cast<float>(sz.width()) /
+                 static_cast<float>(sz.height());
     }
 
     // Calculate dynamic zNear and zFar based on the bounding box
     float zNear = 0.001f;
     float zFar = 1000.0f;
-    float dx = m_renderData->boundingBoxMax[0] - m_renderData->boundingBoxMin[0];
-    float dy = m_renderData->boundingBoxMax[1] - m_renderData->boundingBoxMin[1];
-    float dz = m_renderData->boundingBoxMax[2] - m_renderData->boundingBoxMin[2];
+    float dx = m_renderData->boundingBoxMax[0] -
+               m_renderData->boundingBoxMin[0];
+    float dy = m_renderData->boundingBoxMax[1] -
+               m_renderData->boundingBoxMin[1];
+    float dz = m_renderData->boundingBoxMax[2] -
+               m_renderData->boundingBoxMin[2];
 
     // Calculate the diagonal length of the bounding box
     float boundsDiagonal = std::sqrt(dx * dx + dy * dy + dz * dz);

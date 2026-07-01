@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "text_editor.h"
 
 #include <QPainter>
@@ -61,7 +78,8 @@ void TextEditor::triggerBackgroundParse(const QByteArray& fileData) {
 
     // Use a QFutureWatcher to catch the AST when it's done
     auto watcher = new QFutureWatcher<TSTree*>(this);
-    connect(watcher, &QFutureWatcher<TSTree*>::finished, [this, watcher, fileData]() {
+    connect(watcher, &QFutureWatcher<TSTree*>::finished,
+            [this, watcher, fileData]() {
         TSTree* tree = watcher->result();
         m_highlighter->setTreeAsync(tree, fileData);
         watcher->deleteLater();
@@ -69,7 +87,8 @@ void TextEditor::triggerBackgroundParse(const QByteArray& fileData) {
     watcher->setFuture(future);
 }
 
-void TextEditor::onDocumentEdited(int position, int charsRemoved, int charsAdded) {
+void TextEditor::onDocumentEdited(int position, int charsRemoved,
+                                  int charsAdded) {
     QByteArray currentText = this->document()->toPlainText().toUtf8();
     m_highlighter->parseStringSync(currentText);
 }
@@ -118,7 +137,8 @@ void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
 
     QTextBlock block = firstVisibleBlock();
     int blockNumber = block.blockNumber();
-    int top = (int) blockBoundingGeometry(block).translated(contentOffset()).top();
+    int top =
+        (int) blockBoundingGeometry(block).translated(contentOffset()).top();
     int bottom = top + (int) blockBoundingRect(block).height();
 
     while (block.isValid() && top <= event->rect().bottom()) {
@@ -139,12 +159,11 @@ void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
     }
 }
 
-void TextEditor::applyThemeConfig(const TextEditorConfig& cfg) {
+void TextEditor::applyTheme(const TextEditorConfig& cfg) {
 
     // Set background color
-    QPalette p = this->palette();
-    p.setColor(QPalette::Base, cfg.background);
-    this->setPalette(p);
+    this->setStyleSheet(QString("background-color: %1;").
+        arg(cfg.background.name()));
 
     // Set internal color variables
     m_gutterBackground = cfg.gutterBackground;

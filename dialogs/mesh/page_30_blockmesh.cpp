@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_30_blockmesh.h"
 #include "wizard_mesh.h"
 
@@ -35,11 +52,13 @@ BlockMeshPage2::BlockMeshPage2(QWidget *parent): QWizardPage(parent) {
     QVBoxLayout* patchLayout = new QVBoxLayout(patchBox);
 
     // Add a label for the patch table
-    patchLayout->addWidget(new QLabel(tr("Associate each face with a patch name and type:")));
+    patchLayout->addWidget(new QLabel(tr("Associate each face with a "
+                                         "patch name and type:")));
 
     // Create the table for patches with 6 rows and 3 columns
     patchTable = new QTableWidget(6, 3, this);
-    patchTable->setHorizontalHeaderLabels({"Block Face", "Patch Name", "Boundary Type"});
+    patchTable->setHorizontalHeaderLabels({"Block Face", "Patch Name",
+                                           "Boundary Type"});
     patchTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     patchTable->verticalHeader()->setVisible(false);
     patchTable->setSelectionMode(QAbstractItemView::NoSelection);
@@ -52,16 +71,17 @@ BlockMeshPage2::BlockMeshPage2(QWidget *parent): QWizardPage(parent) {
     QFormLayout* gradingLayout = new QFormLayout(gradingBox);
 
     // Create checkbox for grading
-    gradingCheckBox = new QCheckBox(
-        tr("Enable cell grading (Value > 1 compresses cells toward start, < 1 toward end)"), this);
+    gradingCheckBox = new QCheckBox(tr("Enable cell grading (Value > 1 "
+        "compresses cells toward start, < 1 toward end)"), this);
     gradingCheckBox->setChecked(false);
     gradingLayout->addRow(gradingCheckBox);
 
     // Add warning
-    QLabel* gradingWarning = new QLabel(
-        tr("Warning: Non-uniform grading creates high-aspect-ratio background cells, "
-           "which can cause snappyHexMesh to generate skewed boundary layers or fail during snapping."));
-    gradingWarning->setStyleSheet("QLabel { color: #d9534f; font-weight: bold; }");
+    QLabel* gradingWarning = new QLabel(tr("Warning: Non-uniform grading "
+        "creates high-aspect-ratio background cells, which can cause "
+        "snappyHexMesh to generate skewed boundary layers or fail."));
+    gradingWarning->setStyleSheet(
+        "QLabel { color: #d9534f; font-weight: bold; }");
     gradingWarning->setWordWrap(true);
     gradingWarning->setVisible(false);
     gradingLayout->addRow(gradingWarning);
@@ -69,11 +89,13 @@ BlockMeshPage2::BlockMeshPage2(QWidget *parent): QWizardPage(parent) {
     // Add widgets to grading group box
     QStringList dims = { "x", "y", "z" };
     for(int i = 0; i < 3; i++) {
-        gradingLayout->addRow(tr("Expansion ratio in the %1-direction:").arg(dims[i]), gradingSpinBox[i]);
+        gradingLayout->addRow(tr("Expansion ratio in the %1-direction:")
+                                  .arg(dims[i]), gradingSpinBox[i]);
     }
 
     // Connect check box to spin boxes
-    connect(gradingCheckBox, &QCheckBox::toggled, this, [this, gradingWarning](bool checked) {
+    connect(gradingCheckBox, &QCheckBox::toggled, this,
+            [this, gradingWarning](bool checked) {
         gradingWarning->setVisible(checked);
         for(int i = 0; i < 3; i++) {
             gradingSpinBox[i]->setEnabled(checked);

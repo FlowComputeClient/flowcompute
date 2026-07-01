@@ -1,5 +1,22 @@
-#ifndef TAB_WIDGET_H
-#define TAB_WIDGET_H
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#ifndef TAB_WIDGET_H_
+#define TAB_WIDGET_H_
 
 #include <QDebug>
 #include <QFile>
@@ -16,20 +33,20 @@ QT_FORWARD_DECLARE_CLASS(MainWindow);
 class TabWidget : public QTabWidget {
     Q_OBJECT
 
-public:
+ public:
     TabWidget(QMainWindow* parent = 0);
     ~TabWidget();
     void setWorkspace(QString);
     void updateWorkspace();
     bool promptToSave(int index);
 
-public slots:
+ public slots:
     void closeAllTabs();
 
-signals:
+ signals:
     void saveTab();
 
-private:
+ private:
     QMainWindow* window;
     QTabBar* tabbar;
     QStringList opened;
@@ -37,11 +54,10 @@ private:
 
     int createEditor(QString name, QString path);
 
-private slots:
+ private slots:
     // void editFile(NodeData*);
     void destroyTab(int index);
     void changeDirtyState(QWidget*, bool);
 };
 
-#endif // TAB_WIDGET_H
-
+#endif // TAB_WIDGET_H_

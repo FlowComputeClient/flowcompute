@@ -1,10 +1,28 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_10_geometry.h"
 
 #include "wizard_mesh.h"
 #include "../../main_window.h"
 
 // Introduction page asks for the case name and platform
-GeometryPage::GeometryPage(const QString& caseName, const QStringList& cases, QWidget *parent):
+GeometryPage::GeometryPage(const QString& caseName, const QStringList& cases,
+                           QWidget *parent):
     m_caseName(caseName), m_cases(cases), QWizardPage(parent) {
 
     // Set title and style
@@ -20,10 +38,12 @@ GeometryPage::GeometryPage(const QString& caseName, const QStringList& cases, QW
     m_caseCombo->addItems(m_cases);
     m_caseCombo->setCurrentText(m_caseName);
     layout->addWidget(m_caseCombo, 0, 1);
-    connect(m_caseCombo, &QComboBox::currentTextChanged, this, &GeometryPage::caseChanged);
+    connect(m_caseCombo, &QComboBox::currentTextChanged, this,
+            &GeometryPage::caseChanged);
 
     // Select one or more geometry files
-    layout->addWidget(new QLabel(tr("Select one or more geometry files:")), 1, 0, Qt::AlignTop);
+    layout->addWidget(new QLabel(tr("Select one or more geometry files:")), 1,
+                      0, Qt::AlignTop);
     m_geometryList = new QListWidget(this);
     m_geometryList->setMaximumHeight(100);
     layout->addWidget(m_geometryList, 1, 1);
@@ -34,22 +54,26 @@ GeometryPage::GeometryPage(const QString& caseName, const QStringList& cases, QW
     QVBoxLayout* stageLayout = new QVBoxLayout(stageBox);
 
     // Create description label
-    stageLayout->addWidget(new QLabel(tr("Select one or more stages in the meshing process:")));
+    stageLayout->addWidget(new QLabel(tr("Select meshing stages:")));
 
     // Create checkable label
-    m_blockMeshCheck = new QCheckBox(tr("Generate base mesh (blockMesh)"), this);
+    m_blockMeshCheck = new QCheckBox(tr("Create base mesh (blockMesh)"), this);
     stageLayout->addWidget(m_blockMeshCheck);
     m_blockMeshCheck->setChecked(true);
-    m_extractCheck = new QCheckBox(tr("Extract surface features (surfaceFeatureExtract)"), this);
+    m_extractCheck = new QCheckBox(tr("Extract surface features "
+                                      "(surfaceFeatureExtract)"), this);
     stageLayout->addWidget(m_extractCheck);
     m_extractCheck->setChecked(true);
-    m_castellatedCheck = new QCheckBox(tr("Run castellated mesh (snappyHexMesh - phase 1)"), this);
+    m_castellatedCheck = new QCheckBox(tr("Run castellated mesh "
+                                          "snappyHexMesh - phase 1)"), this);
     stageLayout->addWidget(m_castellatedCheck);
     m_castellatedCheck->setChecked(true);
-    m_snapCheck = new QCheckBox(tr("Run surface snapping (snappyHexMesh - phase 2)"), this);
+    m_snapCheck = new QCheckBox(tr("Run surface snapping "
+                                   "(snappyHexMesh - phase 2)"), this);
     stageLayout->addWidget(m_snapCheck);
     m_snapCheck->setChecked(true);
-    m_layersCheck = new QCheckBox(tr("Run boundary layer addition (snappyHexMesh - phase 3)"), this);
+    m_layersCheck = new QCheckBox(tr("Run boundary layer addition "
+                                     "(snappyHexMesh - phase 3)"), this);
     stageLayout->addWidget(m_layersCheck);
     m_layersCheck->setChecked(true);
 
@@ -83,7 +107,8 @@ void GeometryPage::caseChanged(const QString& caseName) {
 
     // Read geometry file
     QString path = casePath + "/" + m_caseName + "/constant/triSurface";
-    QStringList geometryFiles = mainWin->targetSystems[targetSystemId]->getFiles(path);
+    QStringList geometryFiles =
+        mainWin->targetSystems[targetSystemId]->getFiles(path);
     QListWidgetItem *item;
     for (int i = geometryFiles.size() - 1; i >= 0; --i) {        
         if (geometryFiles[i].endsWith('|')) {

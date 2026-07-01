@@ -1,28 +1,25 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#include "tab_bar.h"
 #include "tab_widget.h"
-// #include "main_window.h"
 
 #include <QMessageBox>
 #include <QStringBuilder>
-
-// Custom tab bar moves the close button
-class TabBar : public QTabBar {
-public:
-    using QTabBar::QTabBar;
-
-protected:
-    void tabLayoutChange() override {
-        QTabBar::tabLayoutChange();
-
-        for (int i = 0; i < count(); ++i) {
-            QWidget* btn = tabButton(i, QTabBar::RightSide);
-            if (btn) {
-                QRect r = btn->geometry();
-                r.translate(-8, 0);
-                btn->setGeometry(r);
-            }
-        }
-    }
-};
 
 TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
 
@@ -91,14 +88,16 @@ bool TabWidget::promptToSave(int index) {
         return true;
     }
 
+    // Display message
     QMessageBox msgBox(this);
     msgBox.setWindowTitle("Unsaved Changes");
-    msgBox.setText(QString("The file '%1' has been modified.\nDo you want to save your changes?")
+    msgBox.setText(QString("The file '%1' has been modified.\n"
+                           "Do you want to save your changes?")
                        .arg(fileName.remove('*').trimmed()));
     msgBox.setIcon(QMessageBox::Warning);
-    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
+    msgBox.setStandardButtons(QMessageBox::Save | QMessageBox::Discard |
+                              QMessageBox::Cancel);
     msgBox.setDefaultButton(QMessageBox::Save);
-    // msgBox.setStyleSheet("QLabel { color: black; } QPushButton { color: black; }");
 
     int resBtn = msgBox.exec();
     if (resBtn == QMessageBox::Save) {

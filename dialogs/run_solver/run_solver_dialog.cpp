@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "run_solver_dialog.h"
 
 #include <QFormLayout>
@@ -26,10 +43,12 @@ RunSolverDialog::RunSolverDialog(const QString& selectedCase,
     m_caseCombo->addItems(caseList);
     m_caseCombo->setCurrentText(selectedCase);
     mainLayout->addRow(tr("Select an OpenFOAM case:"), m_caseCombo);
-    connect(m_caseCombo, &QComboBox::currentTextChanged, this, &RunSolverDialog::onCaseChanged);
+    connect(m_caseCombo, &QComboBox::currentTextChanged,
+            this, &RunSolverDialog::onCaseChanged);
 
     // potentialFoam group
-    QGroupBox* potentialGroup = new QGroupBox(tr("Velocity Field Generation"), this);
+    QGroupBox* potentialGroup =
+        new QGroupBox(tr("Velocity Field Generation"), this);
     QVBoxLayout* potentialLayout = new QVBoxLayout(potentialGroup);
     mainLayout->addRow(potentialGroup);
 
@@ -42,18 +61,21 @@ RunSolverDialog::RunSolverDialog(const QString& selectedCase,
 
     // potentialFoam options container
     QWidget* potentialOptionsWidget = new QWidget(potentialGroup);
-    QFormLayout* potentialOptionsLayout = new QFormLayout(potentialOptionsWidget);
+    QFormLayout* potentialOptionsLayout =
+        new QFormLayout(potentialOptionsWidget);
     potentialOptionsLayout->setContentsMargins(20, 5, 0, 0);
     potentialOptionsLayout->setSpacing(10);
     potentialLayout->addWidget(potentialOptionsWidget);
 
     // Update velocity boundaries
-    m_updateVelocityCheck = new QCheckBox(tr("Update velocity boundaries (-initialiseUBCs)"), potentialOptionsWidget);
+    m_updateVelocityCheck = new QCheckBox(tr("Update velocity boundaries "
+                            "(-initialiseUBCs)"), potentialOptionsWidget);
     m_updateVelocityCheck->setChecked(true);
     potentialOptionsLayout->addRow(m_updateVelocityCheck);
 
     // Write kinematic pressure
-    m_writePressureCheck = new QCheckBox(tr("Write kinematic pressure (-writep)"), potentialOptionsWidget);
+    m_writePressureCheck = new QCheckBox(tr("Write kinematic "
+                            "pressure (-writep)"), potentialOptionsWidget);
     m_writePressureCheck->setChecked(true);
     potentialOptionsLayout->addRow(m_writePressureCheck);
 
@@ -71,7 +93,8 @@ RunSolverDialog::RunSolverDialog(const QString& selectedCase,
 
     // Simulation options container
     QWidget* simulationOptionsWidget = new QWidget(simulationGroup);
-    QFormLayout* simulationOptionsLayout = new QFormLayout(simulationOptionsWidget);
+    QFormLayout* simulationOptionsLayout =
+        new QFormLayout(simulationOptionsWidget);
     simulationOptionsLayout->setContentsMargins(20, 5, 0, 0);
     simulationOptionsLayout->setSpacing(10);
     simulationLayout->addWidget(simulationOptionsWidget);
@@ -81,31 +104,41 @@ RunSolverDialog::RunSolverDialog(const QString& selectedCase,
     simulationOptionsLayout->addRow(tr("Number of cores:"), m_numCoresCombo);
 
     // Delete existing time files
-    m_deleteFilesCheck = new QCheckBox(tr("Delete existing time files"), simulationOptionsWidget);
+    m_deleteFilesCheck =
+        new QCheckBox(tr("Delete existing time files"),
+        simulationOptionsWidget);
     m_deleteFilesCheck->setChecked(true);
     simulationOptionsLayout->addRow(m_deleteFilesCheck);
 
     // Allow reconstruction
-    m_reconstructCheck = new QCheckBox(tr("Reconstruct results after simulation (reconstructPar)"), simulationOptionsWidget);
+    m_reconstructCheck =
+        new QCheckBox(tr("Reconstruct results after simulation "
+                        "(reconstructPar)"), simulationOptionsWidget);
     m_reconstructCheck->setChecked(true);
     simulationOptionsLayout->addRow(m_reconstructCheck);
 
     // Delete files
-    m_deleteProcessorCheck = new QCheckBox(tr("Delete processor directories after reconstruction"), simulationOptionsWidget);
+    m_deleteProcessorCheck =
+        new QCheckBox(tr("Delete processor directories after reconstruction"),
+        simulationOptionsWidget);
     m_deleteProcessorCheck->setChecked(true);
     simulationOptionsLayout->addRow(m_deleteProcessorCheck);
 
     // Create OK/Cancel buttons
-    QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok |
+                                        QDialogButtonBox::Cancel, this);
     mainLayout->addRow(buttonBox);
-    connect(buttonBox, &QDialogButtonBox::accepted, this, &RunSolverDialog::onOkClicked);
-    connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(buttonBox, &QDialogButtonBox::accepted, this,
+            &RunSolverDialog::onOkClicked);
+    connect(buttonBox, &QDialogButtonBox::rejected, this,
+            &QDialog::reject);
 
     // Configure layout
     mainLayout->setSizeConstraint(QLayout::SetFixedSize);
 
     // Enable deletion of processor directories
-    connect(m_reconstructCheck, &QCheckBox::toggled, m_deleteProcessorCheck, &QCheckBox::setEnabled);
+    connect(m_reconstructCheck, &QCheckBox::toggled,
+            m_deleteProcessorCheck, &QCheckBox::setEnabled);
 
     // Update user interface
     onCaseChanged(selectedCase);
@@ -156,7 +189,8 @@ QByteArray addPhiBlock(const QByteArray& fvSolutionContent) {
 
     // Abort if the file is already corrupted to prevent further damage
     if (dict.hasSyntaxErrors()) {
-        qWarning() << "fvSolution contains syntax errors. Aborting Phi block insertion.";
+        qWarning() << "fvSolution contains syntax errors. "
+                      "Aborting Phi block insertion.";
         return fvSolutionContent;
     }
 
@@ -208,7 +242,8 @@ void RunSolverDialog::onCaseChanged(QString caseName) {
     // Get the number of cores
     int numCores = 1;
     QString output;
-    if (m_mainWin->targetSystems[targetId]->launchShortUtility("nproc", output) == 0) {
+    if (m_mainWin->targetSystems[targetId]->launchShortUtility(
+            "nproc", output) == 0) {
         output.remove("\n");
         numCores = output.toInt();
     }
@@ -229,7 +264,8 @@ void RunSolverDialog::onCaseChanged(QString caseName) {
     }
 
     // Set the number of cores based on decomposeParDict
-    QByteArray deomposeData = m_mainWin->targetSystems[targetId]->getFileContent(
+    QByteArray deomposeData =
+        m_mainWin->targetSystems[targetId]->getFileContent(
         casePath + "/" + caseName + "/system/decomposeParDict");
     std::pair<int, bool> data = getRunData(deomposeData);
     if ((data.first > 0) && (coreVals.contains(QString::number(data.first)))) {
@@ -251,7 +287,8 @@ void RunSolverDialog::onOkClicked() {
 
     // Update decomposeParDict
     if (numCores > 1) {
-        QByteArray dictContent = m_mainWin->targetSystems[targetId]->getFileContent(dictPath);
+        QByteArray dictContent = m_mainWin->targetSystems[targetId]->
+                                 getFileContent(dictPath);
         OpenFoamDictionary dict(dictContent);
 
         // Only attempt to mutate if the dictionary parsed successfully
@@ -259,12 +296,14 @@ void RunSolverDialog::onOkClicked() {
             dict.setValue("numberOfSubdomains", QString::number(numCores));
 
             // Write the updated text to decomposeParDict
-            m_mainWin->targetSystems[targetId]->writeData(dict.getRawText(), dictPath);
+            m_mainWin->targetSystems[targetId]->writeData(dict.getRawText(),
+                                                          dictPath);
         }
     }
 
     // Base command
-    QString solverCmd = "rm -rf processor*; if [ -d 0.orig ]; then rm -rf 0 && cp -rf 0.orig 0; fi && ";
+    QString solverCmd = "rm -rf processor*; if [ -d 0.orig ]; "
+                        "then rm -rf 0 && cp -rf 0.orig 0; fi && ";
 
     // Clean time Directories
     if (m_deleteFilesCheck->isChecked()) {
@@ -276,8 +315,10 @@ void RunSolverDialog::onOkClicked() {
 
         // Add Phi block to fvSolution
         dictPath = casePath + "/" + caseName + "/system/fvSolution";
-        QByteArray solutionContent = m_mainWin->targetSystems[targetId]->getFileContent(dictPath);
-        m_mainWin->targetSystems[targetId]->writeData(addPhiBlock(solutionContent), dictPath);
+        QByteArray solutionContent =
+            m_mainWin->targetSystems[targetId]->getFileContent(dictPath);
+        m_mainWin->targetSystems[targetId]->writeData(
+            addPhiBlock(solutionContent), dictPath);
 
         solverCmd += "potentialFoam";
         if (m_updateVelocityCheck->isChecked()) {
@@ -292,7 +333,8 @@ void RunSolverDialog::onOkClicked() {
     // Launch simulation
     if (m_runSolverCheck->isChecked()) {
         if (numCores > 1) {
-            solverCmd += QString("decomposePar && mpirun -np %1 %2 -parallel").arg(
+            solverCmd +=
+                QString("decomposePar && mpirun -np %1 %2 -parallel").arg(
                 QString::number(numCores), m_solverName);
         } else {
             solverCmd += m_solverName;

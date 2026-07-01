@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_30_interactive.h"
 
 #include "wizard_new_case.h"
@@ -17,16 +34,20 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     // Create question for flow type
     QVBoxLayout* flowLayout = new QVBoxLayout();
     flowLayout->setSpacing(10);
-    QLabel* flowLabel = new QLabel(tr("<b>1. What best describes the flow in your simulation?</b>"));
+    QLabel* flowLabel = new QLabel(tr("<b>1. What best describes the "
+                                      "flow in your simulation?</b>"));
     flowLayout->addWidget(flowLabel);
     QRadioButton* incompressibleButton =
-        new QRadioButton(tr("Liquid or slow-moving gas with nearly constant density (incompressible)"));
+        new QRadioButton(tr("Liquid or slow-moving gas with nearly "
+                            "constant density (incompressible)"));
     flowLayout->addWidget(incompressibleButton);
     QRadioButton* compressibleButton =
-        new QRadioButton(tr("Gas whose density changes with pressure, speed, or temperature (compressible)"));
+        new QRadioButton(tr("Gas whose density changes with pressure, "
+                            "speed, or temperature (compressible)"));
     flowLayout->addWidget(compressibleButton);
     QRadioButton* multiphaseButton =
-        new QRadioButton(tr("Interaction of two or more fluids or phases (multiphase)"));
+        new QRadioButton(tr("Interaction of two or more "
+                            "fluids or phases (multiphase)"));
     flowLayout->addWidget(multiphaseButton);
     layout->addLayout(flowLayout);
 
@@ -40,7 +61,8 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     // Create question for time handling
     QVBoxLayout* timeLayout = new QVBoxLayout();
     timeLayout->setSpacing(10);
-    QLabel* timeLabel = new QLabel(tr("<b>2. How should time be handled in the simulation?</b>"));
+    QLabel* timeLabel = new QLabel(tr("<b>2. How should time be handled "
+                                      "in the simulation?</b>"));
     timeLayout->addWidget(timeLabel);
     QRadioButton* steadyButton =
         new QRadioButton(tr("Compute the final, settled flow (steady-state)"));
@@ -59,16 +81,19 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     // Create question for turbulence
     QVBoxLayout* turbulenceLayout = new QVBoxLayout();
     turbulenceLayout->setSpacing(10);
-    QLabel* turbulenceLabel = new QLabel(tr("<b>3. How should turbulence be modeled?</b>"));
+    QLabel* turbulenceLabel = new QLabel(tr("<b>3. How should turbulence "
+                                            "be modeled?</b>"));
     turbulenceLayout->addWidget(turbulenceLabel);
     QRadioButton* laminarButton =
         new QRadioButton(tr("No turbulence (laminar)"));
     turbulenceLayout->addWidget(laminarButton);
     QRadioButton* rasButton =
-        new QRadioButton(tr("Average turbulence (RAS) - balance accuracy with computational speed"));
+        new QRadioButton(tr("Average turbulence (RAS) - "
+                            "balance accuracy with computational speed"));
     turbulenceLayout->addWidget(rasButton);
     QRadioButton* lesButton =
-        new QRadioButton(tr("Detailed turbulence (LES) - recommended for advanced transient analysis"));
+        new QRadioButton(tr("Detailed turbulence (LES) - "
+                            "recommended for advanced transient analysis"));
     turbulenceLayout->addWidget(lesButton);
     layout->addLayout(turbulenceLayout);
 
@@ -82,20 +107,25 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     // Create question for physics
     QVBoxLayout* physicsLayout = new QVBoxLayout();
     physicsLayout->setSpacing(10);
-    QLabel* physicsLabel = new QLabel(tr("<b>4. What other physical effects should be included in the simulation?</b>"));
+    QLabel* physicsLabel = new QLabel(tr("<b>4. What other physical effects "
+                        "should be included in the simulation?</b>"));
     physicsLayout->addWidget(physicsLabel);
-    m_heatCheck = new QCheckBox(tr("Heat transfer - Temperature changes and thermal conduction"));
+    m_heatCheck = new QCheckBox(tr("Heat transfer - "
+                        "Temperature changes and thermal conduction"));
     physicsLayout->addWidget(m_heatCheck);
-    m_radiationCheck = new QCheckBox(tr("Radiation - Heat transfer by electromagnetic radiation"));
+    m_radiationCheck = new QCheckBox(tr("Radiation - "
+                        "Heat transfer by electromagnetic radiation"));
     physicsLayout->addWidget(m_radiationCheck);
-    m_combustionCheck = new QCheckBox(tr("Combustion - Burning fuels and reacting gases"));
+    m_combustionCheck = new QCheckBox(tr("Combustion - "
+                        "Burning fuels and reacting gases"));
     physicsLayout->addWidget(m_combustionCheck);
     layout->addLayout(physicsLayout);
 
     // Select priority of computation speed and accuracy
     QVBoxLayout* priorityLayout = new QVBoxLayout();
     priorityLayout->setSpacing(10);
-    QLabel* priorityLabel = new QLabel(tr("<b>5. Move the slider to set priority of speed versus accuracy</b>"));
+    QLabel* priorityLabel = new QLabel(tr("<b>5. Move the slider to set "
+        "priority of speed versus accuracy</b>"));
     priorityLayout->addWidget(priorityLabel);
     m_prioritySlider = new QSlider(Qt::Horizontal, this);
     m_prioritySlider->setRange(0, 4);
@@ -129,7 +159,8 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     });
 
     // Combustion shouldn't be enabled for incompressible simulation
-    connect(incompressibleButton, &QRadioButton::toggled, this, [=, this](bool checked){
+    connect(incompressibleButton, &QRadioButton::toggled, this,
+            [=, this](bool checked){
         if (checked) {
             m_combustionCheck->setChecked(false);
             m_combustionCheck->setEnabled(false);

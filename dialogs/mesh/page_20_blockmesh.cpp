@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_20_blockmesh.h"
 #include "page_10_geometry.h"
 
@@ -21,7 +38,8 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
         dimSpin[i]->setRange(-1e9, 1e9);
         dimSpin[i]->setDecimals(6);
         dimSpin[i]->setSingleStep(0.1);
-        connect(dimSpin[i], &QDoubleSpinBox::editingFinished, this, &BlockMeshPage1::updateCellCount);
+        connect(dimSpin[i], &QDoubleSpinBox::editingFinished, this,
+                &BlockMeshPage1::updateCellCount);
     }
 
     // Set scale factor
@@ -33,7 +51,8 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     m_scaleFactorCombo->addItem(tr("1 millimeter (0.001)"), 0.001);
     m_scaleFactorCombo->addItem(tr("1 inch (0.0254)"), 0.0254);
     layout->addRow(tr("Geometry scale factor:"), m_scaleFactorCombo);
-    connect(m_scaleFactorCombo, &QComboBox::currentTextChanged, this, &BlockMeshPage1::onScaleFactorChanged);
+    connect(m_scaleFactorCombo, &QComboBox::currentTextChanged, this,
+            &BlockMeshPage1::onScaleFactorChanged);
 
     // Set group box for domain bounds
     QGroupBox* domainBox = new QGroupBox(tr("Domain Bounds"), this);
@@ -54,13 +73,15 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
         separator->setAlignment(Qt::AlignCenter);
         boundsLayout->addWidget(separator);
         boundsLayout->addWidget(dimSpin[2*i+1]);
-        domainLayout->addRow(tr("Domain bounds (%1-direction):").arg(dims[i]), boundsLayout);
+        domainLayout->addRow(tr("Domain bounds (%1-direction):")
+                                 .arg(dims[i]), boundsLayout);
     }
 
     // Add label and push button
     QPushButton *fitBoundsButton = new QPushButton("Fit Bounds");
     domainLayout->addRow(tr("Auto-fit to geometry content:"), fitBoundsButton);
-    connect(fitBoundsButton, &QPushButton::clicked, this, &BlockMeshPage1::fitBoundsPressed);
+    connect(fitBoundsButton, &QPushButton::clicked, this,
+            &BlockMeshPage1::fitBoundsPressed);
 
     // Group box for cell sizes
     QGroupBox* cellBox = new QGroupBox(tr("Cell Resolution"), this);
@@ -152,16 +173,19 @@ void BlockMeshPage1::setBoundingBox() {
     // Get bounding boxes of geometry files
     QByteArray fileData;
     QVector<BoundingBox> boxes;
-    MainWindow* mainWin = qobject_cast<MainWindow*>(this->wizard()->parentWidget());
+    MainWindow* mainWin =
+        qobject_cast<MainWindow*>(this->wizard()->parentWidget());
     CaseData caseData = mainWin->m_caseMap[caseName];
     int targetSystemId = mainWin->m_caseMap[caseName].targetSystemId;
-    QString fullPath = caseData.casePath + "/" + caseName + "/constant/triSurface";
+    QString fullPath =
+        caseData.casePath + "/" + caseName + "/constant/triSurface";
 
     // Iterate through geometry files
     meshWizard->getGeometryMap().clear();
     GeometryMetrics metrics;
     for (auto const& file: std::as_const(geometryFiles)) {
-        fileData = mainWin->targetSystems[targetSystemId]->getFileContent(fullPath + "/" + file);
+        fileData = mainWin->targetSystems[targetSystemId]->getFileContent(
+            fullPath + "/" + file);
         if(file.endsWith(".stl")) {
             metrics = StlReader::readMetrics(fileData);
             boxes.emplaceBack(metrics.bbox);
@@ -213,7 +237,8 @@ void BlockMeshPage1::updateCellCount() {
     std::array<int, 3> cellCounts;
     double targetSize = targetCellSizeSpin->value();
     for(int i=0; i<3; i++) {
-        cellCounts[i] = std::max(1, static_cast<int>(std::round(diff[i] / targetSize)));
+        cellCounts[i] =
+            std::max(1, static_cast<int>(std::round(diff[i] / targetSize)));
         cellCountEdits[i]->setText(QString::number(cellCounts[i]));
     }
 
@@ -225,7 +250,8 @@ void BlockMeshPage1::updateCellCount() {
     }
 
     // Update cell count total
-    long long totalCells = static_cast<long long>(cellCounts[0]) * cellCounts[1] * cellCounts[2];
+    long long totalCells =
+        static_cast<long long>(cellCounts[0]) * cellCounts[1] * cellCounts[2];
     cellCountTotalEdit->setText(QLocale().toString(totalCells));
 
     // Update aspect ratio
@@ -247,7 +273,7 @@ bool BlockMeshPage1::validatePage() {
 
         if (maxVal <= minVal) {
             QMessageBox::warning(this, tr("Invalid Bounds"),
-                                 tr("Maximum bounds must be strictly greater than minimum bounds."));
+                tr("Maximum bounds must be greater than minimum bounds."));
             return false;
         }
     }
@@ -265,14 +291,14 @@ bool BlockMeshPage1::validatePage() {
     double minY = dimSpin[2]->value(), maxY = dimSpin[3]->value();
     double minZ = dimSpin[4]->value(), maxZ = dimSpin[5]->value();
     m_cfg->vertices = {
-        {minX, minY, minZ}, // Vertex 0
-        {maxX, minY, minZ}, // Vertex 1
-        {maxX, maxY, minZ}, // Vertex 2
-        {minX, maxY, minZ}, // Vertex 3
-        {minX, minY, maxZ}, // Vertex 4
-        {maxX, minY, maxZ}, // Vertex 5
-        {maxX, maxY, maxZ}, // Vertex 6
-        {minX, maxY, maxZ}  // Vertex 7
+        {minX, minY, minZ},
+        {maxX, minY, minZ},
+        {maxX, maxY, minZ},
+        {minX, maxY, minZ},
+        {minX, minY, maxZ},
+        {maxX, minY, maxZ},
+        {maxX, maxY, maxZ},
+        {minX, maxY, maxZ}
     };
     return true;
 }

@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "case_navigator.h"
 
 #include "../../main_window.h"
@@ -7,34 +24,6 @@ CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
     setHeaderHidden(true);
     setExpandsOnDoubleClick(true);
     setSelectionMode(QAbstractItemView::SingleSelection);
-    /*
-    setStyleSheet(R"(
-        QTreeView {
-            background-color: white;
-            color: black;
-            show-decoration-selected: 1;
-        }
-        QTreeView::branch:has-children:!has-siblings:closed,
-        QTreeView::branch:closed:has-children:has-siblings {
-            border-image: none;
-            image: url(:/images/arrow_right.png);
-        }
-        QTreeView::branch:open:has-children:!has-siblings,
-        QTreeView::branch:open:has-children:has-siblings  {
-            border-image: none;
-            image: url(:/images/arrow_down.png);
-        }
-        QMenu {
-            background-color: white; border: 1px solid black;
-        }
-        QMenu::item {
-            color: black; background-color: transparent;
-        }
-        QMenu::item:selected {
-            background-color: #0078D7; color: white;
-        }
-    )");
-    */
 
     // Access main window
     mainWin = qobject_cast<MainWindow*>(this->parentWidget());
@@ -61,20 +50,26 @@ CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
 void CaseNavigator::createActions() {
 
     // View result
-    m_viewResultAction = new QAction(QIcon(":/images/view_result.png"), tr("&View Result"), this);
+    m_viewResultAction = new QAction(QIcon(":/images/view_result.png"),
+                                     tr("&View Result"), this);
     m_viewResultAction->setStatusTip(tr("View Result"));
-    connect(m_viewResultAction, &QAction::triggered, this, &CaseNavigator::viewResult);
+    connect(m_viewResultAction, &QAction::triggered, this,
+            &CaseNavigator::viewResult);
 
     // View mesh
-    m_viewMeshAction = new QAction(QIcon(":/images/view_mesh.png"), tr("&View Mesh"), this);
+    m_viewMeshAction = new QAction(QIcon(":/images/view_mesh.png"),
+                                   tr("&View Mesh"), this);
     m_viewMeshAction->setStatusTip(tr("View Mesh"));
-    connect(m_viewMeshAction, &QAction::triggered, this, &CaseNavigator::viewMesh);
+    connect(m_viewMeshAction, &QAction::triggered, this,
+            &CaseNavigator::viewMesh);
 
     // Delete action
-    m_deleteAction = new QAction(QIcon(":/images/delete.png"), tr("&Delete"), this);
+    m_deleteAction = new QAction(QIcon(":/images/delete.png"),
+                                 tr("&Delete"), this);
     m_deleteAction->setShortcuts(QKeySequence::Delete);
     m_deleteAction->setStatusTip(tr("Delete"));
-    connect(m_deleteAction, &QAction::triggered, this, &CaseNavigator::deleteNode);
+    connect(m_deleteAction, &QAction::triggered, this,
+            &CaseNavigator::deleteNode);
 }
 
 // Add a new case to the navigator
@@ -102,8 +97,9 @@ void CaseNavigator::addCase(QString caseName, QStringList caseFiles) {
 NodeType CaseNavigator::checkType(QString name, QString fullPath) {
 
     // Check for dictionary files
-    if (name.endsWith("Dict") || name.endsWith("Properties") || name.endsWith(".eMesh") ||
-        name == "fvSchemes" || name.startsWith("fvSolution") || name.endsWith(".log")) {
+    if (name.endsWith("Dict") || name.endsWith("Properties") ||
+        name.endsWith(".eMesh") || name == "fvSchemes" ||
+        name.startsWith("fvSolution") || name.endsWith(".log")) {
         return NodeType::DictionaryFile;
     }
 
@@ -126,7 +122,6 @@ NodeType CaseNavigator::checkType(QString name, QString fullPath) {
     // Check for Field files
     QStringList pathParts = fullPath.split('/');
     if (pathParts.size() > 1) {
-        // The top-level folder is immediately after the Case Name
         QString topLevelFolder = pathParts[1];
 
         // Check for field files
@@ -156,7 +151,8 @@ void CaseNavigator::expandCase(QString caseName) {
         NodeData* node = static_cast<NodeData*>(root->child(i));
         if (node) {
             // Check if the node matches the criteria
-            if (node->text() == caseName && node->nodeType == NodeType::CaseFolder) {
+            if (node->text() == caseName &&
+                node->nodeType == NodeType::CaseFolder) {
                 this->expand(node->index());
                 break;
             }
@@ -181,14 +177,16 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
                 (node->nodeType == NodeType::MeshFile)) {
 
                 // Create editor for file
-                mainWin->createEditor(EditorType::TEXT, node->name, node->fullPath);
+                mainWin->createEditor(EditorType::TEXT, node->name,
+                                      node->fullPath);
             }
 
             // Open geometry file
             if (node->nodeType == NodeType::GeometryFile) {
 
                 // Create editor for file
-                mainWin->createEditor(EditorType::SURFACE, node->name, node->fullPath);
+                mainWin->createEditor(EditorType::SURFACE, node->name,
+                                      node->fullPath);
             }
         }
     }
@@ -222,7 +220,8 @@ void CaseNavigator::fetchChildren(NodeData* node) {
     QString fullPath = casePath + "/" + nodePath;
 
     // Access children at the given path
-    QStringList items = mainWin->targetSystems[targetSystemId]->getFiles(fullPath);
+    QStringList items =
+        mainWin->targetSystems[targetSystemId]->getFiles(fullPath);
 
     // Create a node for each child
     QList<NodeData*> childFolders, childFiles;
@@ -308,7 +307,8 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
                 parentPath = currentNode->fullPath + "/" + currentNode->name;
             }
 
-            NodeData* newFolder = new NodeData(part, parentPath, NodeType::Folder);
+            NodeData* newFolder = new NodeData(part, parentPath,
+                                               NodeType::Folder);
             currentNode->appendRow(newFolder);
             currentNode = newFolder;
         }
@@ -390,7 +390,8 @@ QString CaseNavigator::getSelectedCase() {
         return node->text();
     } else {
         int pos = node->fullPath.indexOf('/');
-        QString caseName = (pos == -1) ? node->fullPath : node->fullPath.left(pos);
+        QString caseName = (pos == -1) ? node->fullPath :
+                               node->fullPath.left(pos);
         return caseName;
     }
 }
@@ -444,7 +445,17 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
 }
 
 void CaseNavigator::deleteNode() {
-    qDebug() << "Deleted!";
+
+    // Access node
+    QVariant data = m_deleteAction->data();
+    NodeData* node = data.value<NodeData*>();
+    if (!node) { return; }
+
+    // Create editor for mesh
+    mainWin->deleteFile(node->name, node->fullPath);
+
+    // Clear data
+    m_viewMeshAction->setData(QVariant());
 }
 
 void CaseNavigator::viewMesh() {

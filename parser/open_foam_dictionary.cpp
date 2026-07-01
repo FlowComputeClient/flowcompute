@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "open_foam_dictionary.h"
 
 #include <QDebug>
@@ -5,7 +22,7 @@
 // Forward declare the C-generated language function
 extern "C" const TSLanguage *tree_sitter_openfoam();
 
-// --- Helper: Extract text from a TSNode ---
+// Extract text from the TSNode ---
 static QString getNodeText(TSNode node, const QByteArray& sourceText) {
     if (ts_node_is_null(node)) return QString();
     uint32_t start = ts_node_start_byte(node);
@@ -49,7 +66,8 @@ QString OpenFoamDictionary::getString(const QString& path) const {
         return text.mid(1, text.length() - 2);
     }
     // Strip verbatim block markers and trim whitespace
-    else if (nodeType == "verbatim_block" || (text.startsWith("#{") && text.endsWith("#}"))) {
+    else if (nodeType == "verbatim_block" ||
+             (text.startsWith("#{") && text.endsWith("#}"))) {
         return text.mid(2, text.length() - 4).trimmed();
     }
 
@@ -75,7 +93,8 @@ double OpenFoamDictionary::getNumber(const QString& path) const {
     return ok ? val : std::numeric_limits<double>::quiet_NaN();
 }
 
-void OpenFoamDictionary::setValue(const QString& path, const QString& newValue) {
+void OpenFoamDictionary::setValue(const QString& path,
+                                  const QString& newValue) {
     TSNode valueNode = findNode(path);
 
     if (ts_node_is_null(valueNode)) {
@@ -178,7 +197,8 @@ QStringList OpenFoamDictionary::getList(const QString& path) const {
     TSNode listNode = findNode(path);
 
     // 2. Validate that it actually exists and is a list
-    if (ts_node_is_null(listNode) || QString(ts_node_type(listNode)) != "list") {
+    if (ts_node_is_null(listNode) ||
+        QString(ts_node_type(listNode)) != "list") {
         return result; // Return empty list
     }
 
@@ -224,7 +244,8 @@ QStringList OpenFoamDictionary::getDictKeys(const QString& path) const {
         targetNode = findNode(path);
 
         // Validate that it actually exists and is a dictionary
-        if (ts_node_is_null(targetNode) || QString(ts_node_type(targetNode)) != "dict") {
+        if (ts_node_is_null(targetNode) ||
+            QString(ts_node_type(targetNode)) != "dict") {
             return keys;
         }
     }
@@ -234,7 +255,7 @@ QStringList OpenFoamDictionary::getDictKeys(const QString& path) const {
     for (uint32_t i = 0; i < childCount; ++i) {
         TSNode child = ts_node_child(targetNode, i);
 
-        // According to grammar.js, both root documents and dicts contain 'entry' nodes
+        // Root documents and dicts contain 'entry' nodes
         if (QString(ts_node_type(child)) == "entry") {
 
             // Extract just the 'key' field, ignoring the value block completely
@@ -257,7 +278,8 @@ QStringList OpenFoamDictionary::getDictKeys(const QString& path) const {
 }
 
 // In open_foam_dictionary.cpp
-void OpenFoamDictionary::renameKey(const QString& path, const QString& newName) {
+void OpenFoamDictionary::renameKey(const QString& path,
+                                   const QString& newName) {
     if (!m_tree || path.isEmpty()) {
         qWarning() << "Cannot rename key. Invalid tree or empty path.";
         return;
@@ -349,7 +371,8 @@ bool OpenFoamDictionary::hasSyntaxErrors() const {
     return ts_node_has_error(rootNode);
 }
 
-static void collectSyntaxErrors(TSNode node, const QByteArray& sourceText, QList<SyntaxError>& errors) {
+static void collectSyntaxErrors(TSNode node, const QByteArray& sourceText,
+                                QList<SyntaxError>& errors) {
     if (ts_node_is_null(node)) return;
 
     // Check if this specific node represents a syntax error or a missing token
@@ -364,7 +387,7 @@ static void collectSyntaxErrors(TSNode node, const QByteArray& sourceText, QList
         if (ts_node_is_missing(node)) {
             // The parser expected a token here but didn't find it
             QString expectedToken = QString(ts_node_type(node));
-            err.message = QString("Missing expected token: '%1'").arg(expectedToken);
+            err.message = QString("Missing token: '%1'").arg(expectedToken);
             err.text = "";
         } else {
             // The parser found unexpected text
@@ -405,7 +428,8 @@ QList<SyntaxError> OpenFoamDictionary::getSyntaxErrors() const {
     return errors;
 }
 
-void OpenFoamDictionary::insertIntoDict(const QString& path, const QByteArray& content) {
+void OpenFoamDictionary::insertIntoDict(const QString& path,
+                                        const QByteArray& content) {
     TSNode dictNode = findNode(path);
 
     // Ensure the target is actually a dictionary node

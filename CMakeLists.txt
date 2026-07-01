@@ -54,6 +54,9 @@ qt_add_executable(FlowCompute
     dialogs/mesh/page_70_layercontrol.h
     dialogs/mesh/page_70_layercontrol.cpp
 
+    dialogs/preferences/preferences_dialog.h
+	dialogs/preferences/preferences_dialog.cpp
+
     dialogs/run_mesh/run_mesh_dialog.h
     dialogs/run_mesh/run_mesh_dialog.cpp
 
@@ -68,6 +71,8 @@ qt_add_executable(FlowCompute
     dialogs/solver/wizard_solver.cpp
     dialogs/solver/solver_io.h
     dialogs/solver/solver_io.cpp
+    dialogs/solver/surface_widget.cpp
+    dialogs/solver/surface_widget.h
     dialogs/solver/page_10_control.cpp
     dialogs/solver/page_10_control.h
     dialogs/solver/page_20_transient.h
@@ -92,8 +97,11 @@ qt_add_executable(FlowCompute
     dialogs/utility_output/utility_output_dialog.h
     dialogs/utility_output/utility_output_dialog.cpp
 
+    editors/tab_bar.h
+	editors/tab_bar.cpp
     editors/tab_widget.h
     editors/tab_widget.cpp
+
     editors/text/text_editor.h
     editors/text/text_editor.cpp
     editors/text/tree_sitter_highlighter.h
@@ -108,22 +116,22 @@ qt_add_executable(FlowCompute
     editors/graphical/vulkan/vulkan_renderer.cpp
     editors/graphical/vulkan/vulkan_renderer_resources.cpp
 
-    editors/graphical/mesh_editor/mesh_editor.h
-    editors/graphical/mesh_editor/mesh_editor.cpp
-    editors/graphical/mesh_editor/mesh_left_pane.h
-    editors/graphical/mesh_editor/mesh_left_pane.cpp
+    editors/graphical/mesh/mesh_editor.h
+    editors/graphical/mesh/mesh_editor.cpp
+    editors/graphical/mesh/mesh_left_pane.h
+    editors/graphical/mesh/mesh_left_pane.cpp
 
-    editors/graphical/model_editor/model_editor.cpp
-    editors/graphical/model_editor/model_editor.h
-    editors/graphical/model_editor/model_left_pane.h
-    editors/graphical/model_editor/model_left_pane.cpp
+    editors/graphical/surface/surface_editor.cpp
+    editors/graphical/surface/surface_editor.h
+    editors/graphical/surface/surface_left_pane.h
+    editors/graphical/surface/surface_left_pane.cpp
 
-    editors/graphical/result_editor/result_editor.h
-    editors/graphical/result_editor/result_editor.cpp
-    editors/graphical/result_editor/result_left_pane.h
-    editors/graphical/result_editor/result_left_pane.cpp
-    editors/graphical/result_editor/color_bar_widget.h
-    editors/graphical/result_editor/color_bar_widget.cpp
+    editors/graphical/result/result_editor.h
+    editors/graphical/result/result_editor.cpp
+    editors/graphical/result/result_left_pane.h
+    editors/graphical/result/result_left_pane.cpp
+    editors/graphical/result/color_bar_widget.h
+    editors/graphical/result/color_bar_widget.cpp
 
     geometry/graphic_data.h
     geometry/mesh/mesh_reader.h
@@ -138,6 +146,8 @@ qt_add_executable(FlowCompute
 
     systems/target_system.h
     systems/ssl_system.h
+    systems/local_system.h
+	systems/local_system.cpp
     systems/wsl_system.h
     systems/wsl_system.cpp
 
@@ -150,9 +160,7 @@ qt_add_executable(FlowCompute
     views/navigator/case_navigator.h
     views/navigator/case_navigator.cpp
     views/navigator/node_data.cpp
-    dialogs/solver/surface_widget.cpp
-    dialogs/solver/surface_widget.h
-    systems/local_system.h systems/local_system.cpp
+
 )
 
 set_source_files_properties(

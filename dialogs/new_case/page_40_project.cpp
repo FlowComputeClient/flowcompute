@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_40_project.h"
 
 #include "wizard_new_case.h"
@@ -13,10 +30,10 @@ ProjectPage::ProjectPage(QWidget *parent): QWizardPage(parent) {
     layout->setSpacing(20);
 
     // Ask for case folder name
-    layout->addWidget(new QLabel(tr("Geometry file:")), 0, 0);
+    layout->addWidget(new QLabel(tr("Geometry files:")), 0, 0);
     m_geometryFileEdit = new QLineEdit(this);
     m_geometryFileEdit->setReadOnly(true);
-    m_geometryFileEdit->setText("/home/mattscar/y_junction.stl");
+    // m_geometryFileEdit->setText("C:/demo/y_junction.stl");
     registerField("geometryFile", m_geometryFileEdit);
     layout->addWidget(m_geometryFileEdit, 0, 1);
 
@@ -25,7 +42,8 @@ ProjectPage::ProjectPage(QWidget *parent): QWizardPage(parent) {
     connect(browseButton, &QPushButton::clicked, this, [this]() {
 
         // Access the user's home directory
-        QString homeDir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
+        QString homeDir =
+            QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
 
         // Create the file dialog
         QString geometryFilePath = QFileDialog::getOpenFileName(
@@ -87,15 +105,17 @@ void ProjectPage::onTreeSelectionChanged() {
     QList<QTreeWidgetItem*> selected = m_directoryTree->selectedItems();
 
     if (!selected.isEmpty()) {
-        // Retrieve the full absolute path we stored in the UserRole data
-        QString selectedPath = selected.first()->data(0, Qt::UserRole).toString();
+        // Retrieve the absolute path
+        QString selectedPath =
+            selected.first()->data(0, Qt::UserRole).toString();
 
         // Update the LineEdit box
         m_casePathEdit->setText(selectedPath);
     }
 }
 
-void ProjectPage::populateDirectoryTree(QTreeWidget* treeWidget, const QStringList& paths) {
+void ProjectPage::populateDirectoryTree(QTreeWidget* treeWidget,
+                                        const QStringList& paths) {
     treeWidget->clear();
     treeWidget->setHeaderLabel(tr("Available Directories"));
 
@@ -108,7 +128,7 @@ void ProjectPage::populateDirectoryTree(QTreeWidget* treeWidget, const QStringLi
         QStringList parts = path.split('/', Qt::SkipEmptyParts);
         QTreeWidgetItem* currentParent = treeWidget->invisibleRootItem();
 
-        // Start with an empty string, we will prepend the '/' in the loop
+        // Start with an empty string
         QString currentPath = "";
 
         for (int i = 0; i < parts.size(); ++i) {

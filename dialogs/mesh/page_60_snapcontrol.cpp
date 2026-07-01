@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_60_snapcontrol.h"
 
 #include "wizard_mesh.h"
@@ -20,12 +37,14 @@ SnapControlPage::SnapControlPage(QWidget *parent): QWizardPage(parent) {
     // Number of smoothing iterations
     smoothingBox = new QSpinBox(snapBox);
     smoothingBox->setRange(0, 10);
-    snapLayout->addRow(tr("Surface smoothing iterations prior to snapping:"), smoothingBox);
+    snapLayout->addRow(tr("Surface smoothing iterations prior to snapping:"),
+                       smoothingBox);
 
     // Max number of snapping iterations
     maxSnappingBox = new QSpinBox(snapBox);
     maxSnappingBox->setRange(10, 300);
-    snapLayout->addRow(tr("Maximum mesh displacement iterations:"), maxSnappingBox);
+    snapLayout->addRow(tr("Maximum mesh displacement iterations:"),
+                       maxSnappingBox);
 
     // Number of relaxation iterations after snapping
     relaxationBox = new QSpinBox(snapBox);
@@ -37,7 +56,8 @@ SnapControlPage::SnapControlPage(QWidget *parent): QWizardPage(parent) {
     toleranceBox->setRange(0.1, 10.0);
     toleranceBox->setSingleStep(0.1);
     toleranceBox->setDecimals(1);
-    snapLayout->addRow(tr("Snapping tolerance (relative to local cell size):"), toleranceBox);
+    snapLayout->addRow(tr("Snapping tolerance (relative to local cell size):"),
+                       toleranceBox);
 
     // Set group box for edge resolution
     QGroupBox* edgeBox = new QGroupBox(tr("Feature Edge Resolution"), this);
@@ -45,17 +65,20 @@ SnapControlPage::SnapControlPage(QWidget *parent): QWizardPage(parent) {
     QFormLayout* edgeLayout = new QFormLayout(edgeBox);
 
     // Whether the mesher should read edges from eMesh file
-    explicitSnapBox = new QCheckBox(tr("Snap to explicit feature edges (.eMesh files)"), edgeBox);
+    explicitSnapBox = new QCheckBox(tr("Snap to explicit feature "
+                                       "edges (.eMesh files)"), edgeBox);
     edgeLayout->addRow(explicitSnapBox);
 
     // Whether the mesher should detect edges using normal vectors
-    implicitSnapBox = new QCheckBox(tr("Implicitly detect edges using surface curvature"), edgeBox);
+    implicitSnapBox = new QCheckBox(tr("Implicitly detect edges using "
+                                       "surface curvature"), edgeBox);
     edgeLayout->addRow(implicitSnapBox);
 
     // Number of iterations for edge snapping
     snapIterationBox = new QSpinBox(edgeBox);
     snapIterationBox->setRange(3, 20);
-    edgeLayout->addRow(tr("Number of iterations for edge snapping:"), snapIterationBox);
+    edgeLayout->addRow(tr("Number of iterations for edge snapping:"),
+                       snapIterationBox);
 }
 
 void SnapControlPage::initializePage() {

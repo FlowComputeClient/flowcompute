@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "vulkan_renderer.h"
 
 #include "vulkan_window.h"
@@ -22,33 +39,40 @@ void VulkanRenderer::createVertexBuffer() {
     }
 
     // Create vertex buffer
-    VkDeviceSize vertexBufferSize = m_renderData->data.size() * sizeof(m_renderData->data[0]);
+    VkDeviceSize vertexBufferSize = m_renderData->data.size() *
+                                    sizeof(m_renderData->data[0]);
     VkBufferCreateInfo vertexBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = vertexBufferSize,
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
-    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &vertexBufferInfo, nullptr, &m_vertexBuffer);
+    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &vertexBufferInfo,
+                                              nullptr, &m_vertexBuffer);
     if (err != VK_SUCCESS) qFatal("Failed to create vertex buffer: %d", err);
 
     VkMemoryRequirements vertexMemReqs;
-    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_vertexBuffer, &vertexMemReqs);
+    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_vertexBuffer,
+                                              &vertexMemReqs);
 
     VkMemoryAllocateInfo vertexAllocInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = vertexMemReqs.size,
         .memoryTypeIndex = findMemoryType(vertexMemReqs.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
 
-    err = m_devFuncs->vkAllocateMemory(m_device, &vertexAllocInfo, nullptr, &m_vertexBufferMemory);
+    err = m_devFuncs->vkAllocateMemory(m_device, &vertexAllocInfo, nullptr,
+                                       &m_vertexBufferMemory);
     if (err != VK_SUCCESS) qFatal("Failed to allocate vertex memory: %d", err);
-    m_devFuncs->vkBindBufferMemory(m_device, m_vertexBuffer, m_vertexBufferMemory, 0);
+    m_devFuncs->vkBindBufferMemory(m_device, m_vertexBuffer,
+                                   m_vertexBufferMemory, 0);
 
     // Copy vertex data
     void* vertexData;
-    err = m_devFuncs->vkMapMemory(m_device, m_vertexBufferMemory, 0, vertexBufferSize, 0, &vertexData);
+    err = m_devFuncs->vkMapMemory(m_device, m_vertexBufferMemory, 0,
+                                  vertexBufferSize, 0, &vertexData);
     if (err != VK_SUCCESS) qFatal("Failed to map vertex memory: %d", err);
     memcpy(vertexData, m_renderData->data.data(), (size_t)vertexBufferSize);
     m_devFuncs->vkUnmapMemory(m_device, m_vertexBufferMemory);
@@ -67,33 +91,40 @@ void VulkanRenderer::createIndexBuffer() {
     }
 
     // Create index buffer
-    VkDeviceSize indexBufferSize = m_renderData->indices.size() * sizeof(m_renderData->indices[0]);
+    VkDeviceSize indexBufferSize = m_renderData->indices.size() *
+                                   sizeof(m_renderData->indices[0]);
     VkBufferCreateInfo indexBufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = indexBufferSize,
         .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
-    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &indexBufferInfo, nullptr, &m_indexBuffer);
+    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &indexBufferInfo,
+                                              nullptr, &m_indexBuffer);
     if (err != VK_SUCCESS) qFatal("Failed to create index buffer: %d", err);
 
     VkMemoryRequirements indexMemReqs;
-    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_indexBuffer, &indexMemReqs);
+    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_indexBuffer,
+                                              &indexMemReqs);
 
     VkMemoryAllocateInfo indexAllocInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = indexMemReqs.size,
         .memoryTypeIndex = findMemoryType(indexMemReqs.memoryTypeBits,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
 
-    err = m_devFuncs->vkAllocateMemory(m_device, &indexAllocInfo, nullptr, &m_indexBufferMemory);
+    err = m_devFuncs->vkAllocateMemory(m_device, &indexAllocInfo, nullptr,
+                                       &m_indexBufferMemory);
     if (err != VK_SUCCESS) qFatal("Failed to allocate index memory: %d", err);
-    m_devFuncs->vkBindBufferMemory(m_device, m_indexBuffer, m_indexBufferMemory, 0);
+    m_devFuncs->vkBindBufferMemory(m_device, m_indexBuffer,
+                                   m_indexBufferMemory, 0);
 
     // Copy index data
     void* indexData;
-    err = m_devFuncs->vkMapMemory(m_device, m_indexBufferMemory, 0, indexBufferSize, 0, &indexData);
+    err = m_devFuncs->vkMapMemory(m_device, m_indexBufferMemory, 0,
+                                  indexBufferSize, 0, &indexData);
     if (err != VK_SUCCESS) qFatal("Failed to map index memory: %d", err);
     memcpy(indexData, m_renderData->indices.data(), (size_t)indexBufferSize);
     m_devFuncs->vkUnmapMemory(m_device, m_indexBufferMemory);
@@ -102,8 +133,10 @@ void VulkanRenderer::createIndexBuffer() {
 void VulkanRenderer::createAxisBuffer() {
 
     // Create axis buffer
-    float xDiff = m_renderData->boundingBoxMax[0] - m_renderData->boundingBoxMin[0];
-    float yDiff = m_renderData->boundingBoxMax[1] - m_renderData->boundingBoxMin[1];
+    float xDiff = m_renderData->boundingBoxMax[0] -
+                  m_renderData->boundingBoxMin[0];
+    float yDiff = m_renderData->boundingBoxMax[1] -
+                  m_renderData->boundingBoxMin[1];
     m_maxDim = std::max({xDiff, yDiff});
     if (m_maxDim < 0.001f) m_maxDim = 1.0f;
 
@@ -124,11 +157,13 @@ void VulkanRenderer::createAxisBuffer() {
         .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
-    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &axisBufferInfo, nullptr, &m_axisBuffer);
+    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &axisBufferInfo,
+                                              nullptr, &m_axisBuffer);
     if (err != VK_SUCCESS) qFatal("Failed to create vertex buffer: %d", err);
 
     VkMemoryRequirements axisMemReqs;
-    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_axisBuffer, &axisMemReqs);
+    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_axisBuffer,
+                                              &axisMemReqs);
 
     VkMemoryAllocateInfo axisAllocInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -138,13 +173,16 @@ void VulkanRenderer::createAxisBuffer() {
             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
 
-    err = m_devFuncs->vkAllocateMemory(m_device, &axisAllocInfo, nullptr, &m_axisBufferMemory);
+    err = m_devFuncs->vkAllocateMemory(m_device, &axisAllocInfo, nullptr,
+                                       &m_axisBufferMemory);
     if (err != VK_SUCCESS) qFatal("Failed to allocate vertex memory: %d", err);
-    m_devFuncs->vkBindBufferMemory(m_device, m_axisBuffer, m_axisBufferMemory, 0);
+    m_devFuncs->vkBindBufferMemory(m_device, m_axisBuffer,
+                                   m_axisBufferMemory, 0);
 
     // Copy axis data
     void* axisCopyData;
-    err = m_devFuncs->vkMapMemory(m_device, m_axisBufferMemory, 0, axisBufferSize, 0, &axisCopyData);
+    err = m_devFuncs->vkMapMemory(m_device, m_axisBufferMemory, 0,
+                                  axisBufferSize, 0, &axisCopyData);
     if (err != VK_SUCCESS) qFatal("Failed to map axis memory: %d", err);
     memcpy(axisCopyData, axisData.data(), (size_t)axisBufferSize);
     m_devFuncs->vkUnmapMemory(m_device, m_axisBufferMemory);
@@ -155,8 +193,10 @@ void VulkanRenderer::createUniformBuffer() {
 
     // Get the device's minimum uniform buffer alignment
     VkPhysicalDeviceProperties physDevProps;
-    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceProperties(m_window->physicalDevice(), &physDevProps);
-    VkDeviceSize minAlignment = physDevProps.limits.minUniformBufferOffsetAlignment;
+    m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceProperties(
+        m_window->physicalDevice(), &physDevProps);
+    VkDeviceSize minAlignment =
+        physDevProps.limits.minUniformBufferOffsetAlignment;
 
     // Set buffer size
     VkDeviceSize uboSize = sizeof(UniformBufferObject);
@@ -165,7 +205,8 @@ void VulkanRenderer::createUniformBuffer() {
     m_alignedUniformSize = (uboSize + minAlignment - 1) & ~(minAlignment - 1);
 
     // Total buffer size for all concurrent frames
-    VkDeviceSize totalBufferSize = m_alignedUniformSize * m_concurrentFrameCount;
+    VkDeviceSize totalBufferSize = m_alignedUniformSize *
+                                   m_concurrentFrameCount;
 
     // Create the logical buffer
     VkBufferCreateInfo bufferInfo = {
@@ -175,12 +216,14 @@ void VulkanRenderer::createUniformBuffer() {
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
 
-    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &bufferInfo, nullptr, &m_uniformBuffer);
+    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &bufferInfo, nullptr,
+                                              &m_uniformBuffer);
     if (err != VK_SUCCESS) qFatal("Failed to create uniform buffer: %d", err);
 
     // Query memory requirements
     VkMemoryRequirements memReqs;
-    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_uniformBuffer, &memReqs);
+    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_uniformBuffer,
+                                              &memReqs);
 
     // Allocate physical memory
     VkMemoryAllocateInfo allocInfo = {
@@ -191,14 +234,17 @@ void VulkanRenderer::createUniformBuffer() {
             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
 
-    err = m_devFuncs->vkAllocateMemory(m_device, &allocInfo, nullptr, &m_uniformBufferMemory);
+    err = m_devFuncs->vkAllocateMemory(m_device, &allocInfo, nullptr,
+                                       &m_uniformBufferMemory);
     if (err != VK_SUCCESS) qFatal("Failed to allocate uniform memory: %d", err);
 
     // Bind memory to buffer
-    m_devFuncs->vkBindBufferMemory(m_device, m_uniformBuffer, m_uniformBufferMemory, 0);
+    m_devFuncs->vkBindBufferMemory(m_device, m_uniformBuffer,
+                                   m_uniformBufferMemory, 0);
 
     // Persistently map the memory
-    err = m_devFuncs->vkMapMemory(m_device, m_uniformBufferMemory, 0, VK_WHOLE_SIZE, 0, &m_mappedUniformData);
+    err = m_devFuncs->vkMapMemory(m_device, m_uniformBufferMemory, 0,
+                                  VK_WHOLE_SIZE, 0, &m_mappedUniformData);
     if (err != VK_SUCCESS) qFatal("Failed to map uniform memory: %d", err);
 
     // Populate the descriptor buffer infos for createPipelineLayout()
@@ -232,19 +278,24 @@ void VulkanRenderer::createTexture() {
 
     // Allocate memory
     VkMemoryRequirements memRequirements;
-    m_devFuncs->vkGetBufferMemoryRequirements(m_device, stagingBuffer, &memRequirements);
+    m_devFuncs->vkGetBufferMemoryRequirements(m_device, stagingBuffer,
+                                              &memRequirements);
     VkMemoryAllocateInfo memAllocInfo = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = memRequirements.size,
         .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
-                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
     };
-    m_devFuncs->vkAllocateMemory(m_device, &memAllocInfo, nullptr, &stagingBufferMemory);
-    m_devFuncs->vkBindBufferMemory(m_device, stagingBuffer, stagingBufferMemory, 0);
+    m_devFuncs->vkAllocateMemory(m_device, &memAllocInfo, nullptr,
+                                 &stagingBufferMemory);
+    m_devFuncs->vkBindBufferMemory(m_device, stagingBuffer,
+                                   stagingBufferMemory, 0);
 
     // Copy data to staging buffer
     void* data;
-    m_devFuncs->vkMapMemory(m_device, stagingBufferMemory, 0, imageSize, 0, &data);
+    m_devFuncs->vkMapMemory(m_device, stagingBufferMemory, 0,
+                            imageSize, 0, &data);
     memcpy(data, colormap.constBits(), static_cast<size_t>(imageSize));
     m_devFuncs->vkUnmapMemory(m_device, stagingBufferMemory);
 
@@ -264,12 +315,16 @@ void VulkanRenderer::createTexture() {
     m_devFuncs->vkCreateImage(m_device, &imageInfo, nullptr, &m_textureImage);
 
     // Allocate GPU memory for the Image
-    m_devFuncs->vkGetImageMemoryRequirements(m_device, m_textureImage, &memRequirements);
+    m_devFuncs->vkGetImageMemoryRequirements(m_device, m_textureImage,
+                                             &memRequirements);
     memAllocInfo.allocationSize = memRequirements.size;
-    memAllocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits,
-                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    m_devFuncs->vkAllocateMemory(m_device, &memAllocInfo, nullptr, &m_textureImageMemory);
-    m_devFuncs->vkBindImageMemory(m_device, m_textureImage, m_textureImageMemory, 0);
+    memAllocInfo.memoryTypeIndex =
+        findMemoryType(memRequirements.memoryTypeBits,
+                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    m_devFuncs->vkAllocateMemory(m_device, &memAllocInfo, nullptr,
+                                 &m_textureImageMemory);
+    m_devFuncs->vkBindImageMemory(m_device, m_textureImage,
+                                  m_textureImageMemory, 0);
 
     // Create command pool
     VkCommandPool commandPool;

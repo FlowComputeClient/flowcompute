@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "main_window.h"
 
 #include <QApplication>
@@ -96,16 +113,14 @@ int main(int argc, char *argv[]) {
     app.setApplicationName("FlowCompute");
     app.setApplicationVersion("0.8.0");
 
-    /*
-    app.setStyleSheet("QToolTip { color: black; background-color: #F4F1EA; border: 1px solid gray; }");
-    */
     QApplication::setStyle(QStyleFactory::create("Fusion"));
 
     // Set QSettings format to .ini
     QSettings::setDefaultFormat(QSettings::IniFormat);
 
     // Set Logging Directory
-    QString appDataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QString appDataDir =
+        QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir dir(appDataDir);
 
     // Ensure the directory exists before trying to create a file inside it

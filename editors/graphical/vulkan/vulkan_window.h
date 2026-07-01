@@ -1,5 +1,22 @@
-#ifndef VULKAN_WINDOW_H
-#define VULKAN_WINDOW_H
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#ifndef VULKAN_WINDOW_H_
+#define VULKAN_WINDOW_H_
 
 #include <QMatrix4x4>
 #include <QVulkanWindow>
@@ -27,16 +44,29 @@ public:
     VulkanWindow(std::shared_ptr<RenderData> data, QWindow *parent = nullptr);
     QVulkanWindowRenderer *createRenderer() override;
     void renderGeometry();
+
+    // Theme
+    void applyTheme(const QString& theme);
+    std::array<float, 3> getClearColor();
+    bool takeThemeDirtyFlag() {
+        return m_isThemeDirty.exchange(false, std::memory_order_acquire);
+    }
+
+    // Data
+    std::shared_ptr<RenderData> getRenderData();
+    void setRenderData(std::shared_ptr<RenderData> meshData);
+    bool takeDataDirtyFlag() {
+        return m_isDataDirty.exchange(false, std::memory_order_acquire);
+    }
+
+    // Ubo and matrices
     TransformMatrices getMatrices();
     void setModelMatrix(const QMatrix4x4& modelMatrix);
     void setViewMatrix(const QMatrix4x4& viewMatrix);
     void setProjMatrix(const QMatrix4x4& projMatrix);
-    std::shared_ptr<RenderData> getRenderData();
-    void setRenderData(std::shared_ptr<RenderData> meshData);
-    bool isDirty() { return m_isDataDirty; };
-    void clearDirty();
-    bool isUboDirty()  { return m_isUboDirty; };
-    void clearUboDirty();
+    bool takeUboDirtyFlag() {
+        return m_isUboDirty.exchange(false, std::memory_order_acquire);
+    }
 
 protected:
     void wheelEvent(QWheelEvent *event) override;
@@ -45,7 +75,8 @@ protected:
 
 private:
     // New camera state variables
-    QPoint m_lastMousePos;
+    QPointF m_lastMousePos;
+    std::array<float, 3> m_clearColor;
 
     // Start with an isometric-style viewing angle
     float m_yaw = -45.0f;
@@ -59,8 +90,9 @@ private:
     std::shared_ptr<RenderData> m_renderData;
     std::mutex m_mutex;
     TransformMatrices m_matrices;
-    bool m_isDataDirty = false;
-    bool m_isUboDirty = true;
+    std::atomic<bool> m_isDataDirty{false};
+    std::atomic<bool> m_isThemeDirty{false};
+    std::atomic<bool> m_isUboDirty{true};
 };
 
-#endif // VULKAN_WINDOW
+#endif // VULKAN_WINDOW_H_

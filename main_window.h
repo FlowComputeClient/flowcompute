@@ -1,5 +1,22 @@
-#ifndef MAIN_WINDOW_H
-#define MAIN_WINDOW_H
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#ifndef MAIN_WINDOW_H_
+#define MAIN_WINDOW_H_
 
 #include "core_types.h"
 
@@ -42,19 +59,21 @@ struct TabData {
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
-public:
+ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
     // Display text in the tabbar
-    void createEditor(EditorType type, QString& fileName, const QString& fullPath, bool logMessage = true);
+    void createEditor(EditorType type, QString& fileName,
+                      const QString& fullPath, bool logMessage = true);
 
     // Create a new project
     void createCase(QString, QString, QStringList, int, QString);
 
     // Run mesh utilities
-    void runMesh(const QString& caseName, bool blockMesh, bool surfaceFeatureExtract,
-                 bool snappyHexMesh, const QString& snappyCmd, int numCores);
+    void runMesh(const QString& caseName, bool blockMesh,
+                 bool surfaceFeatureExtract, bool snappyHexMesh,
+                 const QString& snappyCmd, int numCores);
 
     // Run solver utilities
     void runSolver(const QString& caseName, const QString& command);
@@ -62,24 +81,28 @@ public:
     static bool isWindows() { return s_isWindows; }
     static bool isWslAvailable() { return s_isWslAvailable; }
     QMap<QString, CaseData> m_caseMap;
-    QMap<QString, TabData> tabMap;
+    QMap<QString, TabData> m_tabMap;
     TargetSystem* targetSystems[static_cast<int>(TargetType::COUNT)];
-    void updatePath(const QString& caseName, const QString& subDir, int targetId);
+    void updatePath(const QString& caseName, const QString& subDir,
+                    int targetId);
 
-public slots:
+    void deleteFile(const QString& fileName, const QString& fullPath);
+
+ public slots:
     void log(const QString& text);
 
-protected:
+ protected:
     void closeEvent(QCloseEvent *event) override;
 
-private:
+ private:
     CaseNavigator* m_navigator;
     Console* m_console;
     TabWidget* m_tabWidget;
     QFont m_font;
     QDir m_configDir;
     QString m_themeFile;
-    TextEditorConfig m_editorConfig;
+    TextEditorConfig m_textTheme;
+    QString m_graphicalTheme;
 
     std::shared_ptr<RenderData> getMeshData(
         QString caseName, QString casePath,
@@ -87,10 +110,12 @@ private:
 
     // Check utilities
     QMap<QString, QMap<QString, bool>> m_utilMap;
-    QStringList m_utilities = { "surfaceCheck", "surfacePatch", "surfaceAutoPatch",
-        "blockMesh", "surfaceFeatureExtract", "snappyHexMesh", "autoPatch", "renumberMesh",
-        "checkMesh", "simpleFoam", "pimpleFoam", "decomposePar", "reconstructPar", "topoSet" };
-    QMap<QString, bool> checkUtilities(const QString& fullPath, int targetId, const QStringList& utilities);
+    QStringList m_utilities = { "surfaceCheck", "surfacePatch",
+        "surfaceAutoPatch", "blockMesh", "surfaceFeatureExtract",
+        "snappyHexMesh", "autoPatch", "renumberMesh", "checkMesh", "simpleFoam",
+        "pimpleFoam", "decomposePar", "reconstructPar", "topoSet" };
+    QMap<QString, bool> checkUtilities(const QString& fullPath, int targetId,
+                                       const QStringList& utilities);
 
     QString getSelectedCase();
 
@@ -129,6 +154,7 @@ private:
     QAction *exitAction;
     */
 
+    QAction *preferencesAction;
     QAction *undoAction, *redoAction;
     QAction *zoomInAction, *zoomOutAction;
     QAction *meshAction, *runMeshAction;
@@ -138,7 +164,8 @@ private:
 
     // Menus
     void createMenus();
-    QMenu *fileMenu, *editMenu, *viewMenu, *meshMenu, *solveMenu, *postProcessMenu, *helpMenu;
+    QMenu *fileMenu, *editMenu, *viewMenu, *meshMenu, *solveMenu,
+        *postProcessMenu, *helpMenu;
 
     // Toolbars
     void createToolBar();
@@ -151,12 +178,15 @@ private:
     LocalSystem localSystem;
     QVulkanInstance m_vulkanInstance;
 
-private slots:
+ private slots:
 
-    void applyTheme(QString themeFile);
+    void applyTheme(const QString &themeFile);
 
     // File actions
     void saveFile();
+
+    // Set preferences
+    void setPreferences();
 
     // Redo actions
     void undo();
@@ -165,6 +195,10 @@ private slots:
     // Dirty state changed
     void onDirtyStateChanged(bool isDirty, QWidget* widget);
 
+    // Time folder changed
+    void updateResultEditor(const QString& casePath, int targetId,
+                            const QString& timeFolder);
+
     // Check if utilities are available
     void runMeshConfiguration();
     void runMeshExecution();
@@ -172,14 +206,18 @@ private slots:
     void runSolverConfiguration();
     void runSolverExecution();
     void runSurfaceCheck(const QString& fullPath, int targetId, bool isBinary);
-    void runSurfacePatch(double featureAngle, const QString& fullPath, int targetId, bool isBinary);
-    void runSurfaceScale(double scaleFactor, const QString& fullPath, int targetId);
+    void runSurfacePatch(double featureAngle, const QString& fullPath,
+                         int targetId, bool isBinary);
+    void runSurfaceScale(double scaleFactor, const QString& fullPath,
+                         int targetId);
     void runMeshCheck(const QString& fullPath, int targetId);
-    void runMeshPatch(double featureAngle, const QString& fullPath, int targetId);
+    void runMeshPatch(double featureAngle, const QString& fullPath,
+                      int targetId);
     void runMeshRenumber(const QString& casePath, int targetId);
     void stopSolverExecution();
 
     // Utility finished
-    void longUtilityFinished(const QString& status, const QString& caseName, UtilityType utilityType);
+    void longUtilityFinished(const QString& status, const QString& caseName,
+                             UtilityType utilityType);
 };
-#endif // MAIN_WINDOW_H
+#endif // MAIN_WINDOW_H_

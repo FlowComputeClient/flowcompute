@@ -1,6 +1,26 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "vulkan_window.h"
 
-VulkanWindow::VulkanWindow(std::shared_ptr<RenderData> meshData, QWindow *parent)
+#include <cmath>
+
+VulkanWindow::VulkanWindow(std::shared_ptr<RenderData> meshData,
+                           QWindow *parent)
     : QVulkanWindow(parent), m_renderData(std::move(meshData)) {
 
     // Make sure resources aren't released when the window loses visibility
@@ -58,19 +78,21 @@ void VulkanWindow::updateViewMatrix() {
     // Update the view matrix
     m_matrices.view.setToIdentity();
     m_matrices.view.lookAt(eye, m_centroid, up);
-    m_isUboDirty = true;
+    m_isUboDirty.store(true, std::memory_order_release);
 }
 
 void VulkanWindow::wheelEvent(QWheelEvent *event) {
+
+    // angleDelta().y() returns the scroll amount. Standard click is 120.
     float scrollDelta = event->angleDelta().y();
-    const float zoomFactor = 1.1f;
+    const float zoomBase = 1.1f;
     const float minDistance = 0.01f;
 
-    if (scrollDelta > 0) {
-        m_cameraDistance /= zoomFactor;
-    } else if (scrollDelta < 0) {
-        m_cameraDistance *= zoomFactor;
-    }
+    // Calculate the number of "wheel clicks"
+    float numSteps = scrollDelta / 120.0f;
+
+    // Apply proportional zoom.
+    m_cameraDistance *= std::pow(zoomBase, -numSteps);
 
     // Enforce minimum distance
     if (m_cameraDistance < minDistance) {
@@ -79,24 +101,25 @@ void VulkanWindow::wheelEvent(QWheelEvent *event) {
 
     updateViewMatrix();
     requestUpdate();
+    event->accept();
 }
 
 void VulkanWindow::mousePressEvent(QMouseEvent *event) {
 
-    if (event->button() == Qt::LeftButton || event->button() == Qt::MiddleButton) {
+    if (event->button() == Qt::LeftButton ||
+        event->button() == Qt::MiddleButton) {
         m_lastMousePos = event->pos();
     }
 }
 
 void VulkanWindow::mouseMoveEvent(QMouseEvent *event) {
 
-    QPoint delta = event->pos() - m_lastMousePos;
+    // Use Qt 6 position() for sub-pixel precision
+    QPointF currentPos = event->position();
+    QPointF delta = currentPos - m_lastMousePos;
 
-    // Check which button has been clicked
     if (event->buttons() & Qt::LeftButton) {
-
-        // Calculate how far the mouse moved
-        m_lastMousePos = event->pos();
+        m_lastMousePos = currentPos;
 
         // Set camera angles
         m_yaw -= delta.x() * 0.5f;
@@ -106,40 +129,35 @@ void VulkanWindow::mouseMoveEvent(QMouseEvent *event) {
         if (m_pitch > 89.0f) m_pitch = 89.0f;
         if (m_pitch < -89.0f) m_pitch = -89.0f;
 
-        // Rebuild the matrix and render
         updateViewMatrix();
         requestUpdate();
+        event->accept();
 
     } else if (event->buttons() & Qt::MiddleButton) {
-
-        m_lastMousePos = event->pos();
+        m_lastMousePos = currentPos;
 
         float yawRad = qDegreesToRadians(m_yaw);
         float pitchRad = qDegreesToRadians(m_pitch);
 
-        // Compute the vector from the eye to the centroid
         QVector3D forward(
             -std::cos(pitchRad) * std::cos(yawRad),
             -std::cos(pitchRad) * std::sin(yawRad),
             -std::sin(pitchRad));
 
-        // Set the up vector for the entire model
         QVector3D worldUp(0.0f, 0.0f, 1.0f);
-
-        // Compute local right and up vectors
-        QVector3D right = QVector3D::crossProduct(forward, worldUp).normalized();
+        QVector3D right =
+            QVector3D::crossProduct(forward, worldUp).normalized();
         QVector3D up = QVector3D::crossProduct(right, forward).normalized();
 
-        // Compute pan speed by multiplying by camera distance
         float panSpeed = std::max(m_cameraDistance * 0.002f, 0.01f);
 
-        // Move the centroid
+        // Move the centroid using the floating-point delta
         m_centroid -= right * (delta.x() * panSpeed);
         m_centroid += up * (delta.y() * panSpeed);
 
-        // Rebuild matrix and redraw
         updateViewMatrix();
         requestUpdate();
+        event->accept();
     }
 }
 
@@ -147,16 +165,53 @@ QVulkanWindowRenderer* VulkanWindow::createRenderer() {
     return new VulkanRenderer(this, m_renderData);
 }
 
-void VulkanWindow::setRenderData(std::shared_ptr<RenderData> meshData) {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_renderData = meshData;
-    m_isDataDirty = true;
+void VulkanWindow::setRenderData(std::shared_ptr<RenderData> renderData) {
+    std::shared_ptr<RenderData> newRenderData = renderData;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_renderData.swap(newRenderData);
+        m_isDataDirty.store(true, std::memory_order_release);
+    }
     requestUpdate();
 }
 
 std::shared_ptr<RenderData> VulkanWindow::getRenderData() {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_renderData;
+}
+
+void VulkanWindow::applyTheme(const QString& theme) {
+    QColor color(theme);
+    std::array<float, 3> newClearColor;
+
+    if (!color.isValid()) {
+        newClearColor = { 1.0f, 1.0f, 1.0f };
+    } else {
+        newClearColor = {
+            static_cast<float>(color.redF()),
+            static_cast<float>(color.greenF()),
+            static_cast<float>(color.blueF())
+        };
+    }
+
+    /*
+    qDebug() << newClearColor[0];
+    qDebug() << newClearColor[1];
+    qDebug() << newClearColor[2];
+    */
+
+    // Lock to update the variable and alert the renderer
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_clearColor = newClearColor;
+        m_isThemeDirty.store(true, std::memory_order_release);
+    }
+    requestUpdate();
+}
+
+std::array<float, 3> VulkanWindow::getClearColor() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_clearColor;
 }
 
 TransformMatrices VulkanWindow::getMatrices() {
@@ -167,30 +222,20 @@ TransformMatrices VulkanWindow::getMatrices() {
 void VulkanWindow::setModelMatrix(const QMatrix4x4& matrix) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_matrices.model = matrix;
-    m_isUboDirty = true;
+    m_isUboDirty.store(true, std::memory_order_release);
     requestUpdate();
 }
 
 void VulkanWindow::setViewMatrix(const QMatrix4x4& matrix) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_matrices.view = matrix;
-    m_isUboDirty = true;
+    m_isUboDirty.store(true, std::memory_order_release);
     requestUpdate();
 }
 
 void VulkanWindow::setProjMatrix(const QMatrix4x4& matrix) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_matrices.proj = matrix;
-    m_isUboDirty = true;
+    m_isUboDirty.store(true, std::memory_order_release);
     requestUpdate();
-}
-
-void VulkanWindow::clearUboDirty() {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_isUboDirty = false;
-}
-
-void VulkanWindow::clearDirty() {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_isDataDirty = false;
 }

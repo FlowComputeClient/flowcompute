@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "stl_reader.h"
 
 #include <algorithm>
@@ -303,9 +320,9 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
 
             // --- NEW: Check for solid names (patches) ---
             if (line.startsWith("solid", Qt::CaseInsensitive)) {
-                QString patchName = line.mid(5).trimmed(); // Extract everything after "solid"
+                QString patchName = line.mid(5).trimmed();
                 if (patchName.isEmpty()) {
-                    patchName = "solid"; // Fallback if file just says "solid"
+                    patchName = "solid";
                 }
 
                 std::string pNameStr = patchName.toStdString();

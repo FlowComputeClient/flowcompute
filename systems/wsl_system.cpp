@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "wsl_system.h"
 #include <QDebug>
 
@@ -19,7 +36,8 @@ QJsonObject WslSystem::contactServer(QString action, QString message) {
         request["action"] = action;
         request["message"] = message;
 
-        socket.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
+        socket.write(
+            QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
 
         bool lineReady = false;
         while (!lineReady && socket.waitForReadyRead(3000)) {
@@ -31,7 +49,8 @@ QJsonObject WslSystem::contactServer(QString action, QString message) {
                 QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
 
                 if (parseError.error != QJsonParseError::NoError) {
-                    qWarning() << "JSON Parse Error:" << parseError.errorString();
+                    qWarning() << "JSON Parse Error:"
+                               << parseError.errorString();
                     continue;
                 }
 
@@ -39,7 +58,8 @@ QJsonObject WslSystem::contactServer(QString action, QString message) {
                 if (result["status"].toString() == "success") {
                     return result;
                 } else {
-                    qWarning() << "Server returned error:" << result["message"].toString();
+                    qWarning() << "Server returned error:"
+                               << result["message"].toString();
                 }
             }
         }
@@ -65,7 +85,8 @@ int WslSystem::launchShortUtility(const QString& cmd, QString& output) {
     }
 }
 
-void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName, UtilityType utilityType) {
+void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName,
+                                  UtilityType utilityType) {
 
     // 1. Allocate socket on the heap so it survives after the function returns
     QTcpSocket* socket = new QTcpSocket(this);
@@ -75,11 +96,13 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName, U
         QJsonObject request;
         request["action"] = "launchLongUtility";
         request["message"] = cmd;
-        socket->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
+        socket->write(
+            QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
     });
 
     // Connect the readyRead signal to process streaming chunks
-    connect(socket, &QTcpSocket::readyRead, this, [this, socket, caseName, utilityType]() {
+    connect(socket, &QTcpSocket::readyRead, this, [this, socket,
+                                                   caseName, utilityType]() {
         while (socket->canReadLine()) {
             QByteArray data = socket->readLine();
 
@@ -87,7 +110,8 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName, U
             QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
 
             if (parseError.error != QJsonParseError::NoError) {
-                emit longUtilityError("JSON Parse Error: " + parseError.errorString());
+                emit longUtilityError("JSON Parse Error: " +
+                                      parseError.errorString());
                 continue;
             }
 
@@ -96,7 +120,8 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName, U
 
             // Handle the streaming state
             if (status == "running") {
-                emit longUtilityOutputReceived(result["output"].toString().trimmed());
+                emit longUtilityOutputReceived(
+                    result["output"].toString().trimmed());
             }
             // Handle the completion states
             else if (status == "success" || status == "error") {
@@ -107,7 +132,8 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName, U
     });
 
     // Handle network errors
-    connect(socket, &QTcpSocket::errorOccurred, this, [this, socket](QTcpSocket::SocketError socketError) {
+    connect(socket, &QTcpSocket::errorOccurred, this,
+            [this, socket](QTcpSocket::SocketError socketError) {
         emit longUtilityError("Socket Error: " + socket->errorString());
         socket->disconnectFromHost();
     });
@@ -172,7 +198,8 @@ QStringList WslSystem::getFiles(QString path) {
 
 QStringList WslSystem::copyTutorialFolders(QString tutPath, QString projPath) {
     QStringList results;
-    QJsonObject result = contactServer("copyTutorialFolders", tutPath + "," + projPath);
+    QJsonObject result = contactServer("copyTutorialFolders",
+                                       tutPath + "," + projPath);
     QJsonArray jsonArray = result["message"].toArray();
     for (const QJsonValue& value : std::as_const(jsonArray)) {
         if (value.isString()) {
@@ -182,7 +209,8 @@ QStringList WslSystem::copyTutorialFolders(QString tutPath, QString projPath) {
     return results;
 }
 
-bool WslSystem::writeData(const QByteArray& payload, const QString& remoteFilePath) {
+bool WslSystem::writeData(const QByteArray& payload,
+                          const QString& remoteFilePath) {
     QTcpSocket socket;
     socket.connectToHost(QHostAddress::LocalHost, 8080);
 
@@ -204,7 +232,8 @@ bool WslSystem::writeData(const QByteArray& payload, const QString& remoteFilePa
     qint64 bytesWrittenTotal = 0;
 
     while (bytesWrittenTotal < payload.size()) {
-        qint64 bytesToWrite = qMin(chunkSize, payload.size() - bytesWrittenTotal);
+        qint64 bytesToWrite =
+            qMin(chunkSize, payload.size() - bytesWrittenTotal);
         QByteArray chunk = payload.mid(bytesWrittenTotal, bytesToWrite);
 
         qint64 bytesWritten = socket.write(chunk);
@@ -216,7 +245,7 @@ bool WslSystem::writeData(const QByteArray& payload, const QString& remoteFilePa
 
         bytesWrittenTotal += bytesWritten;
 
-        // Flush the socket buffer to prevent local memory from exploding
+        // Flush the socket buffer
         if (!socket.waitForBytesWritten(3000)) {
             qWarning() << "Timeout waiting for socket to flush bytes.";
             return false;
@@ -227,7 +256,7 @@ bool WslSystem::writeData(const QByteArray& payload, const QString& remoteFilePa
     bool responseRead = false;
     QJsonObject response;
 
-    // Maintain the 5-second timeout to accommodate slow WSL disk I/O on large files
+    // Maintain the 5-second timeout
     while (!responseRead && socket.waitForReadyRead(5000)) {
         while (socket.canReadLine()) {
             QByteArray data = socket.readLine();
@@ -243,7 +272,8 @@ bool WslSystem::writeData(const QByteArray& payload, const QString& remoteFilePa
     if (responseRead && response["status"].toString() == "success") {
         return true;
     } else {
-        qWarning() << "Server failed to save data:" << response["message"].toString();
+        qWarning() << "Server failed to save data:" <<
+            response["message"].toString();
         return false;
     }
 }
@@ -261,7 +291,20 @@ bool WslSystem::createDirectories(const QStringList& dirPaths) {
     }
 }
 
-bool WslSystem::writeData(const QString& localPath, const QString& remoteFilePath) {
+bool WslSystem::deleteFile(const QString& path) {
+
+    QJsonObject result = contactServer("deleteFile", path);
+    QString status = result["status"].toString();
+    QJsonArray jsonArray = result["message"].toArray();
+    if (status == "success") {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool WslSystem::writeData(const QString& localPath,
+                          const QString& remoteFilePath) {
     QFile file(localPath);
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "Could not open local file:" << localPath;
@@ -304,7 +347,7 @@ bool WslSystem::writeData(const QString& localPath, const QString& remoteFilePat
     bool responseRead = false;
     QJsonObject response;
 
-    // Use a slightly longer timeout in case the WSL disk is slow to write a massive STL
+    // Use longer timeout in case the WSL disk is slow
     while (!responseRead && socket.waitForReadyRead(5000)) {
         while (socket.canReadLine()) {
             QByteArray data = socket.readLine();
@@ -321,7 +364,8 @@ bool WslSystem::writeData(const QString& localPath, const QString& remoteFilePat
     if (responseRead && response["status"].toString() == "success") {
         return true;
     } else {
-        qWarning() << "Server failed to save geometry file:" << response["message"].toString();
+        qWarning() << "Server failed to save geometry file:"
+                   << response["message"].toString();
         return false;
     }
 }
@@ -364,10 +408,11 @@ QByteArray WslSystem::getFileContent(const QString& path) {
         if (socket.canReadLine()) {
             QByteArray headerData = socket.readLine();
             QJsonParseError parseError;
-            QJsonDocument doc = QJsonDocument::fromJson(headerData, &parseError);
-
+            QJsonDocument doc =
+                QJsonDocument::fromJson(headerData, &parseError);
             if (parseError.error != QJsonParseError::NoError) {
-                qWarning() << "JSON Parse Error in Header:" << parseError.errorString();
+                qWarning() << "JSON Parse Error in Header:"
+                           << parseError.errorString();
                 return QByteArray();
             }
 
@@ -377,7 +422,8 @@ QByteArray WslSystem::getFileContent(const QString& path) {
     }
 
     if (!headerRead || header["status"].toString() != "success") {
-        qWarning() << "Server failed or returned error:" << header["message"].toString();
+        qWarning() << "Server failed or returned error:"
+                   << header["message"].toString();
         return QByteArray();
     }
 
@@ -394,7 +440,7 @@ QByteArray WslSystem::getFileContent(const QString& path) {
             qint64 bytesLeft = byteSize - payload.size();
             payload.append(socket.read(bytesLeft));
         } else {
-            qWarning() << "Timeout: Server disconnected or stalled during payload transfer.";
+            qWarning() << "Timeout: Server disconnected or stalled.";
             break;
         }
     }
@@ -421,7 +467,7 @@ RenderData WslSystem::getResultData(const QString& path) {
     bool jsonRead = false;
     while (!jsonRead && socket.waitForReadyRead(3000)) {
         if (socket.canReadLine()) {
-            QByteArray jsonData = socket.readLine(); // Reads exactly up to the '\n'
+            QByteArray jsonData = socket.readLine();
             QJsonParseError parseError;
             QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 
@@ -432,7 +478,8 @@ RenderData WslSystem::getResultData(const QString& path) {
 
             QJsonObject responseObj = doc.object();
             if (responseObj["status"].toString() != "success") {
-                qDebug() << "Server error: " + responseObj["message"].toString();
+                qDebug() << "Server error: " +
+                                responseObj["message"].toString();
                 return result;
             }
             jsonRead = true;
@@ -450,8 +497,9 @@ RenderData WslSystem::getResultData(const QString& path) {
     qint64 headerBytesRead = 0;
     while (headerBytesRead < headerSize) {
         if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
-            qint64 chunk = socket.read(reinterpret_cast<char*>(&binHeader) + headerBytesRead,
-                                       headerSize - headerBytesRead);
+            qint64 chunk =
+                socket.read(reinterpret_cast<char*>(&binHeader) +
+                    headerBytesRead, headerSize - headerBytesRead);
             if (chunk > 0) headerBytesRead += chunk;
         } else {
             qDebug() << "Timeout reading binary header.";
@@ -471,8 +519,9 @@ RenderData WslSystem::getResultData(const QString& path) {
 
     while (vertexBytesRead < binHeader.dataByteSize) {
         if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
-            qint64 chunk = socket.read(reinterpret_cast<char*>(result.data.data()) + vertexBytesRead,
-                                       binHeader.dataByteSize - vertexBytesRead);
+            qint64 chunk =
+                socket.read(reinterpret_cast<char*>(result.data.data()) +
+                    vertexBytesRead, binHeader.dataByteSize - vertexBytesRead);
             if (chunk > 0) vertexBytesRead += chunk;
         } else {
             qDebug() << "Timeout reading vertex payload.";
@@ -485,8 +534,9 @@ RenderData WslSystem::getResultData(const QString& path) {
     qint64 indexBytesRead = 0;
     while (indexBytesRead < binHeader.indexByteSize) {
         if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
-            qint64 chunk = socket.read(reinterpret_cast<char*>(result.indices.data()) + indexBytesRead,
-                                       binHeader.indexByteSize - indexBytesRead);
+            qint64 chunk = socket.read(
+                reinterpret_cast<char*>(result.indices.data()) + indexBytesRead,
+                    binHeader.indexByteSize - indexBytesRead);
             if (chunk > 0) indexBytesRead += chunk;
         } else {
             qDebug() << "Timeout reading index payload.";
@@ -521,7 +571,8 @@ bool WslSystem::checkDistributions() {
             );
 
         // Split the output by newlines, skipping empty lines
-        QStringList lines = strOutput.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
+        QStringList lines = strOutput.split(QRegularExpression("[\r\n]+"),
+                                            Qt::SkipEmptyParts);
 
         for (const QString& line : std::as_const(lines)) {
             QString dist = line.trimmed();
@@ -530,7 +581,7 @@ bool WslSystem::checkDistributions() {
             }
         }
     } else {
-        qWarning() << "Failed to execute wsl --list --quiet or process timed out.";
+        qWarning() << "Failed to execute wsl --list --quiet.";
         return false;
     }
 
@@ -563,7 +614,8 @@ bool WslSystem::checkDistributions() {
     return true;
 }
 
-QString WslSystem::createSelectionDialog(const std::vector<std::string>& paths) {
+QString WslSystem::createSelectionDialog(
+    const std::vector<std::string>& paths) {
 
     // Create the dialog
     QDialog dialog(nullptr);
@@ -573,14 +625,16 @@ QString WslSystem::createSelectionDialog(const std::vector<std::string>& paths) 
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
     // Add label
-    layout->addWidget(new QLabel(QObject::tr("Select the desired WSL distribution:"), &dialog));
+    layout->addWidget(new QLabel(
+        QObject::tr("Select the desired WSL distribution:"), &dialog));
 
     // Button group to manage exclusivity and retrieval
     QButtonGroup buttonGroup(&dialog);
 
     // Create radio buttons
     for (int i = 0; i < paths.size(); ++i) {
-        QRadioButton *rb = new QRadioButton(QString::fromStdString(paths[i]), &dialog);
+        QRadioButton *rb =
+            new QRadioButton(QString::fromStdString(paths[i]), &dialog);
         layout->addWidget(rb);
         buttonGroup.addButton(rb, i);
         if (i == 0) {
@@ -590,11 +644,14 @@ QString WslSystem::createSelectionDialog(const std::vector<std::string>& paths) 
 
     // OK/Cancel buttons
     QDialogButtonBox *buttonBox =
-        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        new QDialogButtonBox(QDialogButtonBox::Ok |
+            QDialogButtonBox::Cancel, &dialog);
     layout->addWidget(buttonBox);
 
-    QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    QObject::connect(buttonBox, &QDialogButtonBox::accepted,
+                     &dialog, &QDialog::accept);
+    QObject::connect(buttonBox, &QDialogButtonBox::rejected,
+                     &dialog, &QDialog::reject);
 
     // Execute the dialog
     if (dialog.exec() == QDialog::Accepted) {

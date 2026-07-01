@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_40_surface_extraction.h"
 #include "page_10_geometry.h"
 
@@ -6,7 +23,8 @@
 QWidget* centerCheckBox(QCheckBox* box);
 
 // Introduction page asks for the case name and platform
-SurfaceExtractionPage::SurfaceExtractionPage(QWidget *parent): QWizardPage(parent) {
+SurfaceExtractionPage::SurfaceExtractionPage(QWidget *parent):
+    QWizardPage(parent) {
 
     // Inside your ExtractPage constructor
     setTitle(tr("Surface Feature Extraction"));
@@ -17,12 +35,18 @@ SurfaceExtractionPage::SurfaceExtractionPage(QWidget *parent): QWizardPage(paren
     // Create table to set surface extraction features
     featureTable = new QTableWidget(this);
     featureTable->setColumnCount(5);
-    featureTable->setHorizontalHeaderLabels({"File Name", "Included Angle", "Open Edges", "Write OBJ File", "Edge Level"});
-    featureTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    featureTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    featureTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    featureTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-    featureTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+    featureTable->setHorizontalHeaderLabels({"File Name", "Included Angle",
+        "Open Edges", "Write OBJ File", "Edge Level"});
+    featureTable->horizontalHeader()->setSectionResizeMode(
+        0, QHeaderView::Stretch);
+    featureTable->horizontalHeader()->setSectionResizeMode(
+        1, QHeaderView::ResizeToContents);
+    featureTable->horizontalHeader()->setSectionResizeMode(
+        2, QHeaderView::ResizeToContents);
+    featureTable->horizontalHeader()->setSectionResizeMode(
+        3, QHeaderView::ResizeToContents);
+    featureTable->horizontalHeader()->setSectionResizeMode(
+        4, QHeaderView::ResizeToContents);
     featureTable->verticalHeader()->setVisible(false);
     featureTable->setSelectionMode(QAbstractItemView::NoSelection);
     mainLayout->addWidget(featureTable);
@@ -40,7 +64,7 @@ void SurfaceExtractionPage::initializePage() {
         return;
     }
 
-    // Clear any existing data to prevent stacking issues on Back/Next navigation
+    // Clear existing data to prevent stacking issues
     featureTable->setRowCount(0);
 
     // Get data from Geometry Page
@@ -70,7 +94,8 @@ void SurfaceExtractionPage::initializePage() {
         angleSpin->setSuffix(" °");
 
         // Ensure a safe fallback if entry is uninitialized
-        double safeAngle = (entry.includedAngle > 0.0) ? entry.includedAngle : 150.0;
+        double safeAngle = (entry.includedAngle > 0.0) ?
+                               entry.includedAngle : 150.0;
         angleSpin->setValue(safeAngle);
         featureTable->setCellWidget(i, 1, angleSpin);
 
@@ -118,12 +143,14 @@ bool SurfaceExtractionPage::validatePage() {
         QString fileName = featureTable->item(i, 0)->text();
 
         // Access the table's widgets
-        auto* angleSpin = qobject_cast<QDoubleSpinBox*>(featureTable->cellWidget(i, 1));
+        auto* angleSpin =
+            qobject_cast<QDoubleSpinBox*>(featureTable->cellWidget(i, 1));
         auto* openEdgesWidget = featureTable->cellWidget(i, 2);
         auto* openEdgesCheck = openEdgesWidget->findChild<QCheckBox*>();
         auto* writeObjWidget = featureTable->cellWidget(i, 3);
         auto* writeObjCheck = writeObjWidget->findChild<QCheckBox*>();
-        auto* edgeLevelSpin = qobject_cast<QSpinBox*>(featureTable->cellWidget(i, 4));
+        auto* edgeLevelSpin =
+            qobject_cast<QSpinBox*>(featureTable->cellWidget(i, 4));
 
         // Build the struct and push to the map
         if (angleSpin && openEdgesCheck && writeObjCheck && edgeLevelSpin) {

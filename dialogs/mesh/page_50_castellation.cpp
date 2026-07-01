@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_50_castellation.h"
 #include "page_10_geometry.h"
 
@@ -36,26 +53,32 @@ CastellationPage::CastellationPage(QWidget *parent): QWizardPage(parent) {
         locationLayout->addWidget(loc[i]);
     }
     globalLayout->addRow(tr("Location in mesh (x, y, z):"), locationLayout);
-    connect(loc[0], &QDoubleSpinBox::valueChanged, this, &CastellationPage::onMeshLocationChanged);
-    connect(loc[1], &QDoubleSpinBox::valueChanged, this, &CastellationPage::onMeshLocationChanged);
-    connect(loc[2], &QDoubleSpinBox::valueChanged, this, &CastellationPage::onMeshLocationChanged);
+    connect(loc[0], &QDoubleSpinBox::valueChanged, this,
+            &CastellationPage::onMeshLocationChanged);
+    connect(loc[1], &QDoubleSpinBox::valueChanged, this,
+            &CastellationPage::onMeshLocationChanged);
+    connect(loc[2], &QDoubleSpinBox::valueChanged, this,
+            &CastellationPage::onMeshLocationChanged);
 
     // Create spin box for max global cells
     maxGlobalCellBox = new QSpinBox(globalBox);
     maxGlobalCellBox->setRange(100000, 100000000);
     maxGlobalCellBox->setSingleStep(100000);
     maxGlobalCellBox->setValue(2000000);
-    globalLayout->addRow(tr("Maximum number of cells in the mesh:"), maxGlobalCellBox);
+    globalLayout->addRow(tr("Maximum number of cells in the mesh:"),
+                         maxGlobalCellBox);
 
     // Create spin box for max local cells
     maxLocalCellBox = new QSpinBox(globalBox);
     maxLocalCellBox->setRange(100000, 5000000);
     maxLocalCellBox->setSingleStep(100000);
     maxLocalCellBox->setValue(1000000);
-    globalLayout->addRow(tr("Maximum number of cells per processor:"), maxLocalCellBox);
+    globalLayout->addRow(tr("Maximum number of cells per processor:"),
+                         maxLocalCellBox);
 
     // Create check box to allow free-standing zone faces
-    freeStandingZoneBox = new QCheckBox(tr("Retain internal face zones without enclosed volumes"), this);
+    freeStandingZoneBox = new QCheckBox(tr("Retain internal face zones "
+                                           "without enclosed volumes"), this);
     globalLayout->addRow(freeStandingZoneBox);
 
     // Set group box for mesh transition
@@ -66,7 +89,8 @@ CastellationPage::CastellationPage(QWidget *parent): QWizardPage(parent) {
     // Create spin box for cells between levels
     cellLevelBox = new QSpinBox(transitionBox);
     cellLevelBox->setRange(1, 10);
-    transitionLayout->addRow(tr("Cells between refinement levels:"), cellLevelBox);
+    transitionLayout->addRow(tr("Cells between refinement levels:"),
+                             cellLevelBox);
 
     // Create spin box for feature angle resolution
     featureAngleBox = new QDoubleSpinBox(this);
@@ -77,19 +101,25 @@ CastellationPage::CastellationPage(QWidget *parent): QWizardPage(parent) {
     transitionLayout->addRow(tr("Resolve feature angle:"), featureAngleBox);
 
     // Set group box for surface refinement
-    QGroupBox* surfaceRefinementBox = new QGroupBox(tr("Surface Refinement Levels"), this);
+    QGroupBox* surfaceRefinementBox = new QGroupBox(tr("Surface Refinement "
+                                                       "Levels"), this);
     layout->addWidget(surfaceRefinementBox);
-    QVBoxLayout* surfaceRefinementLayout = new QVBoxLayout(surfaceRefinementBox);
+    QVBoxLayout* surfaceRefinementLayout =
+        new QVBoxLayout(surfaceRefinementBox);
 
     // Create label and table for mesh refinement
-    surfaceRefinementLayout->addWidget(new QLabel(tr("Set mesh refinement levels")));
+    surfaceRefinementLayout->addWidget(
+        new QLabel(tr("Set mesh refinement levels")));
     meshRefinementTable = new QTableWidget(surfaceRefinementBox);
     meshRefinementTable->setColumnCount(3);
     QStringList headers = { tr("Surface"), tr("Min Level"), tr("Max Level") };
     meshRefinementTable->setHorizontalHeaderLabels(headers);
-    meshRefinementTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    meshRefinementTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    meshRefinementTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    meshRefinementTable->horizontalHeader()->setSectionResizeMode(
+        0, QHeaderView::Stretch);
+    meshRefinementTable->horizontalHeader()->setSectionResizeMode(
+        1, QHeaderView::ResizeToContents);
+    meshRefinementTable->horizontalHeader()->setSectionResizeMode(
+        2, QHeaderView::ResizeToContents);
     meshRefinementTable->verticalHeader()->setVisible(false);
     surfaceRefinementLayout->addWidget(meshRefinementTable);
 
@@ -120,7 +150,8 @@ void CastellationPage::updateGlobalSettings() {
     // Update the combo box
     meshRegionBox->blockSignals(true);
     meshRegionBox->clear();
-    meshRegionBox->addItem(tr("External flow"), QVariant::fromValue(computeExternalPoint()));
+    meshRegionBox->addItem(tr("External flow"),
+        QVariant::fromValue(computeExternalPoint()));
     for (const auto& [file, geometryData] : geometryMap.asKeyValueRange()) {
         meshRegionBox->addItem(tr("Inside %1").arg(file),
                                QVariant::fromValue(geometryData.intpoint));
@@ -168,7 +199,8 @@ void CastellationPage::updateSurfaceRefinement() {
     QStringList surfaceNames;
     for (int i = 0; i < geometryFiles.size(); ++i) {
         surfaceNames.push_back(geometryFiles[i]);
-        for (auto const& patch: meshWizard->getGeometryMap()[geometryFiles[i]].patches) {
+        for (auto const& patch :
+             meshWizard->getGeometryMap()[geometryFiles[i]].patches) {
             surfaceNames.push_back(QString::fromStdString(patch));
         }
     }
@@ -200,7 +232,8 @@ void CastellationPage::updateSurfaceRefinement() {
         maxBox->setValue(3);
 
         // Link the Min and Max boxes dynamically
-        connect(minBox, QOverload<int>::of(&QSpinBox::valueChanged), maxBox, [maxBox](int value){
+        connect(minBox, QOverload<int>::of(&QSpinBox::valueChanged),
+                maxBox, [maxBox](int value){
             if (maxBox->value() < value) {
                 maxBox->setValue(value);
             }
@@ -209,7 +242,8 @@ void CastellationPage::updateSurfaceRefinement() {
     }
 
     // Set the table height
-    int height = meshRefinementTable->horizontalHeader()->height() + meshRefinementTable->frameWidth() * 2;
+    int height = meshRefinementTable->horizontalHeader()->height() +
+                 meshRefinementTable->frameWidth() * 2;
     for (int row = 0; row < meshRefinementTable->rowCount(); ++row) {
         height += meshRefinementTable->rowHeight(row);
     }
@@ -307,7 +341,8 @@ bool CastellationPage::validatePage() {
 
     // Global Settings
     if (meshRegionBox->currentText() == tr("Custom coordinates")) {
-        m_cfg->locationInMesh = {loc[0]->value(), loc[1]->value(), loc[2]->value()};
+        m_cfg->locationInMesh =
+            {loc[0]->value(), loc[1]->value(), loc[2]->value()};
     } else {
         // Extract the QVector3D hidden in the current combo box item
         QVariant data = meshRegionBox->currentData();
@@ -334,7 +369,7 @@ bool CastellationPage::validatePage() {
     // Surface Refinement Table: Map flat rows to hierarchical struct
     m_cfg->refinementSurfaces.clear();
 
-    // Initialize a map to hold the hierarchical data for each base geometry file
+    // Initialize a map to hold data for each geometry file
     std::map<QString, RefinementSurface> surfaceMap;
     for (const QString& file : m_cfg->geometryFiles) {
         surfaceMap[file].name = file;
@@ -345,8 +380,10 @@ bool CastellationPage::validatePage() {
         QTableWidgetItem* item = meshRefinementTable->item(i, 0);
         if (!item) continue;
         QString rowName = item->text();
-        QSpinBox* minBox = qobject_cast<QSpinBox*>(meshRefinementTable->cellWidget(i, 1));
-        QSpinBox* maxBox = qobject_cast<QSpinBox*>(meshRefinementTable->cellWidget(i, 2));
+        QSpinBox* minBox =
+            qobject_cast<QSpinBox*>(meshRefinementTable->cellWidget(i, 1));
+        QSpinBox* maxBox =
+            qobject_cast<QSpinBox*>(meshRefinementTable->cellWidget(i, 2));
 
         if (!minBox || !maxBox) continue;
 
@@ -367,7 +404,7 @@ bool CastellationPage::validatePage() {
         }
     }
 
-    // Using the geometryFiles vector ensures the original file order is maintained
+    // Push refinement surfaces onto vector
     for (const QString& file : m_cfg->geometryFiles) {
         m_cfg->refinementSurfaces.push_back(surfaceMap[file]);
     }

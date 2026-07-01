@@ -1,5 +1,22 @@
-#ifndef WIZARD_MESH_H
-#define WIZARD_MESH_H
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#ifndef WIZARD_MESH_H_
+#define WIZARD_MESH_H_
 
 #include <memory>
 
@@ -32,8 +49,9 @@ enum {
 class MeshWizard : public QWizard {
     Q_OBJECT
 
-public:
-    explicit MeshWizard(const QString& caseName, const QStringList& cases, QWidget *parent);
+ public:
+    explicit MeshWizard(const QString& caseName, const QStringList& cases,
+                        QWidget *parent);
 
     // Load and parse mesh files
     bool loadParseFiles();
@@ -41,19 +59,23 @@ public:
     // Get mesh data
     QMap<QString, GeometryMetrics>& getGeometryMap() { return m_geometryMap; };
     BlockMeshConfig& getBlockMeshConfig() { return m_blockMeshConfig; };
-    std::map<QString, SurfaceFeatureExtractEntry>& getFeatureMap() { return m_surfaceFeatureMap; };
-    CastellatedMeshConfig& getCastellatedMeshConfig() { return m_castellatedMeshConfig; };
-    SnapControlConfig& getSnapControlConfig() { return m_snapControlConfig; };
-    LayerControlConfig& getLayerControlConfig() { return m_layerControlConfig; };
+    std::map<QString, SurfaceFeatureExtractEntry>& getFeatureMap() {
+        return m_surfaceFeatureMap; };
+    CastellatedMeshConfig& getCastellatedMeshConfig() {
+        return m_castellatedMeshConfig; };
+    SnapControlConfig& getSnapControlConfig() {
+        return m_snapControlConfig; };
+    LayerControlConfig& getLayerControlConfig() {
+        return m_layerControlConfig; };
 
     // Identify which stages should be executed
     bool m_runBlockMesh, m_runExtract, m_runCastellated;
     bool m_runSnap, m_runLayers;
 
-protected:
+ protected:
     void accept() override;
 
-private:
+ private:
     MainWindow* mainWin;
     QString m_caseName, m_casePath;
     int m_targetId = 0;
@@ -69,4 +91,4 @@ private:
     LayerControlConfig m_layerControlConfig;
 };
 
-#endif // WIZARD_MESH_H
+#endif // WIZARD_MESH_H_

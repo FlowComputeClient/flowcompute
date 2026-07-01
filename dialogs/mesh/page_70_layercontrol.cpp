@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_70_layercontrol.h"
 
 #include "wizard_mesh.h"
@@ -15,13 +32,15 @@ LayerControlPage::LayerControlPage(QWidget *parent): QWizardPage(parent) {
     layout->setSpacing(20);
 
     // Create the group box and layout
-    QGroupBox* globalLayerGroup = new QGroupBox(tr("Global Layer Geometry"), this);
+    QGroupBox* globalLayerGroup =
+        new QGroupBox(tr("Global Layer Geometry"), this);
     layout->addWidget(globalLayerGroup);
     QFormLayout* globalLayout = new QFormLayout(globalLayerGroup);
     globalLayout->setVerticalSpacing(10);
 
     // Relative sizes
-    relativeSizesCheck = new QCheckBox(tr("Use relative sizes (based on background mesh)"), this);
+    relativeSizesCheck = new QCheckBox(tr("Use relative sizes "
+                                          "(based on background mesh)"), this);
     globalLayout->addRow(relativeSizesCheck);
 
     // Expansion ratio
@@ -46,40 +65,51 @@ LayerControlPage::LayerControlPage(QWidget *parent): QWizardPage(parent) {
     globalLayout->addRow(tr("Minimum thickness:"), minThicknessSpin);
 
     // Update UI based on the toggle
-    connect(relativeSizesCheck, &QCheckBox::toggled, this, [this](bool checked) {
+    connect(relativeSizesCheck, &QCheckBox::toggled, this,
+            [this](bool checked) {
         if (checked) {
             // Relative mode: No units
             finalLayerSpin->setSuffix("");
             minThicknessSpin->setSuffix("");
-            finalLayerSpin->setToolTip(tr("Thickness as a ratio of the adjacent background cell size."));
+            finalLayerSpin->setToolTip(tr("Thickness as a ratio of the "
+                                          "adjacent background cell size."));
         } else {
             // Absolute mode: Add a unit suffix
             finalLayerSpin->setSuffix(tr(" m"));
             minThicknessSpin->setSuffix(tr(" m"));
-            finalLayerSpin->setToolTip(tr("Absolute physical thickness of the layer."));
+            finalLayerSpin->setToolTip(tr("Absolute physical thickness "
+                                          "of the layer."));
         }
     });
 
     // Set group box for surface assignment
-    QGroupBox* surfaceAssignmentGroup = new QGroupBox(tr("Surface Assignments"), this);
+    QGroupBox* surfaceAssignmentGroup =
+        new QGroupBox(tr("Surface Assignments"), this);
     layout->addWidget(surfaceAssignmentGroup);
-    QGridLayout* surfaceAssignmentLayout = new QGridLayout(surfaceAssignmentGroup);
+    QGridLayout* surfaceAssignmentLayout =
+        new QGridLayout(surfaceAssignmentGroup);
 
     // Create label and table for mesh refinement
-    surfaceAssignmentLayout->addWidget(new QLabel(tr("Set the number of layers for each geometry file")));
+    surfaceAssignmentLayout->addWidget(
+        new QLabel(tr("Set the number of layers for each geometry file")));
     surfaceLayerTable = new QTableWidget(surfaceAssignmentGroup);
     surfaceLayerTable->setColumnCount(3);
-    QStringList headers = { tr("Enable Layer"), tr("Layer Name"), tr("Number of Layers") };
+    QStringList headers =
+        { tr("Enable Layer"), tr("Layer Name"), tr("Number of Layers") };
     surfaceLayerTable->setHorizontalHeaderLabels(headers);
-    surfaceLayerTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    surfaceLayerTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    surfaceLayerTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    surfaceLayerTable->horizontalHeader()->setSectionResizeMode(0,
+                                QHeaderView::ResizeToContents);
+    surfaceLayerTable->horizontalHeader()->setSectionResizeMode(1,
+                                QHeaderView::Stretch);
+    surfaceLayerTable->horizontalHeader()->setSectionResizeMode(2,
+                                QHeaderView::ResizeToContents);
     surfaceLayerTable->verticalHeader()->setVisible(false);
     surfaceLayerTable->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter);
     surfaceAssignmentLayout->addWidget(surfaceLayerTable);
 
     // Create the group box and layout
-    QGroupBox* extrusionGroup = new QGroupBox(tr("Layer Smoothing and Iterations"), this);
+    QGroupBox* extrusionGroup =
+        new QGroupBox(tr("Layer Smoothing and Iterations"), this);
     layout->addWidget(extrusionGroup);
     QFormLayout* extrusionLayout = new QFormLayout(extrusionGroup);
     extrusionLayout->setVerticalSpacing(10);
@@ -89,27 +119,32 @@ LayerControlPage::LayerControlPage(QWidget *parent): QWizardPage(parent) {
     featureAngleSpin->setRange(0.0, 180.0);
     featureAngleSpin->setSingleStep(1.0);
     featureAngleSpin->setSuffix(tr(" °"));
-    extrusionLayout->addRow(tr("Maximum angle for continuous layer extrusion:"), featureAngleSpin);
+    extrusionLayout->addRow(tr("Maximum angle for continuous layer extrusion:"),
+                            featureAngleSpin);
 
     // Final layer thickness
     layerIterSpin = new QSpinBox(extrusionGroup);
     layerIterSpin->setRange(1, 200);
-    extrusionLayout->addRow(tr("Maximum iterations for adding boundary layers:"), layerIterSpin);
+    extrusionLayout->addRow(tr("Maximum iterations for adding "
+                               "boundary layers:"), layerIterSpin);
 
     // Thickness smoothing
     thicknessSmoothingSpin = new QSpinBox(extrusionGroup);
     thicknessSmoothingSpin->setRange(0, 50);
-    extrusionLayout->addRow(tr("Iterations to smooth layer thickness:"), thicknessSmoothingSpin);
+    extrusionLayout->addRow(tr("Iterations to smooth layer thickness:"),
+                            thicknessSmoothingSpin);
 
     // Smoothing surface normals
     surfaceSmoothingSpin = new QSpinBox(extrusionGroup);
     surfaceSmoothingSpin->setRange(0, 10);
-    extrusionLayout->addRow(tr("Iterations to smooth patch surface normals:"), surfaceSmoothingSpin);
+    extrusionLayout->addRow(tr("Iterations to smooth patch surface normals:"),
+                            surfaceSmoothingSpin);
 
     // Smoothing internal normals
     internalSmoothingSpin = new QSpinBox(extrusionGroup);
     internalSmoothingSpin->setRange(0, 20);
-    extrusionLayout->addRow(tr("Iterations to smooth interior mesh movement:"), internalSmoothingSpin);
+    extrusionLayout->addRow(tr("Iterations to smooth interior mesh movement:"),
+                            internalSmoothingSpin);
 }
 
 void LayerControlPage::initializePage() {
@@ -132,7 +167,8 @@ void LayerControlPage::initializePage() {
     QStringList geometryFiles = meshWizard->getGeometryMap().keys();
     QStringList layerNames;
     for (int i = 0; i < geometryFiles.size(); ++i) {
-        std::vector<std::string> patches = meshWizard->getGeometryMap()[geometryFiles[i]].patches;
+        std::vector<std::string> patches =
+            meshWizard->getGeometryMap()[geometryFiles[i]].patches;
         if (patches.empty()) {
             layerNames.push_back(geometryFiles[i] + ".stl.*");
             continue;
@@ -202,11 +238,13 @@ bool LayerControlPage::validatePage() {
 
         // Access widgets for table items
         QWidget* wrapperWidget = surfaceLayerTable->cellWidget(i, 0);
-        QCheckBox* enableBox = wrapperWidget ? wrapperWidget->findChild<QCheckBox*>() : nullptr;
+        QCheckBox* enableBox =
+            wrapperWidget ? wrapperWidget->findChild<QCheckBox*>() : nullptr;
 
         // Retrieve the other elements
         QTableWidgetItem* fileItem = surfaceLayerTable->item(i, 1);
-        QSpinBox* layerBox = qobject_cast<QSpinBox*>(surfaceLayerTable->cellWidget(i, 2));
+        QSpinBox* layerBox =
+            qobject_cast<QSpinBox*>(surfaceLayerTable->cellWidget(i, 2));
 
         // Ensure pointers are valid
         if (enableBox && fileItem && layerBox) {

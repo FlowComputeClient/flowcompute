@@ -1,10 +1,28 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "mesh_io.h"
 
 #include "../../utils.h"
 
 // Parse the block mesh file into a BlockMeshConfig structure
-BlockMeshConfig MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict) {
-    BlockMeshConfig config;
+BlockMeshConfig
+    MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict) {
+        BlockMeshConfig config;
 
     // Scale
     double scale = dict->getNumber("scale");
@@ -18,7 +36,9 @@ BlockMeshConfig MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict)
     QString numPat = "[-+]?[0-9]*\\.?[0-9]+(?:[eE][-+]?[0-9]+)?";
 
     // Build a pattern that looks for: ( x y z )
-    QString vertexPattern = QString("\\(\\s*(%1)\\s+(%2)\\s+(%3)\\s*\\)").arg(numPat, numPat, numPat);
+    QString vertexPattern =
+        QString("\\(\\s*(%1)\\s+(%2)\\s+(%3)\\s*\\)").arg(numPat,
+                                                        numPat, numPat);
     QRegularExpression vertexRe(vertexPattern);
     QRegularExpressionMatchIterator vi = vertexRe.globalMatch(verticesStr);
 
@@ -58,11 +78,9 @@ BlockMeshConfig MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict)
 
     // Boundary patches
     QString boundaryStr = dict->getString("boundary");
-
-    // Regex to capture the patch name (1), type (2), and the raw faces string block (3)
-    // DotMatchesEverythingOption ensures we capture across multiple newlines in the faces block
     QRegularExpression patchRe(
-        "([a-zA-Z0-9_]+)\\s*\\{\\s*type\\s+([a-zA-Z]+);\\s*faces\\s*\\((.*?)\\);\\s*\\}",
+        "([a-zA-Z0-9_]+)\\s*\\{\\s*type\\s+([a-zA-Z]+);\\s*faces\\s*"
+        "\\((.*?)\\);\\s*\\}",
         QRegularExpression::DotMatchesEverythingOption
         );
 
@@ -85,7 +103,8 @@ BlockMeshConfig MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict)
         // Parse the inner faces string for this specific patch
         // Looks for sequences like: (0 1 5 4)
         QString facesStr = pMatch.captured(3);
-        QRegularExpression faceRe("\\(\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s*\\)");
+        QRegularExpression
+            faceRe("\\(\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s*\\)");
         QRegularExpressionMatchIterator fi = faceRe.globalMatch(facesStr);
 
         while (fi.hasNext()) {
@@ -105,8 +124,9 @@ BlockMeshConfig MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict)
 
 // Parse surface feature extraction data
 std::map<QString, SurfaceFeatureExtractEntry>
-    MeshIO::parseSurfaceFeatureData(const std::shared_ptr<OpenFoamDictionary> dict,
-                                const QStringList& geometryFiles) {
+    MeshIO::parseSurfaceFeatureData(
+        const std::shared_ptr<OpenFoamDictionary> dict,
+        const QStringList& geometryFiles) {
 
     // Clear existing map to ensure idempotence
     std::map<QString, SurfaceFeatureExtractEntry> surfaceFeatureMap;
@@ -128,8 +148,6 @@ std::map<QString, SurfaceFeatureExtractEntry>
         SurfaceFeatureExtractEntry entry;
 
         // --- 1. Parse Booleans using the new path syntax ---
-        // If the node is missing, getString returns an empty string,
-        // which parseOfBool gracefully converts to our safe defaults.
         QString writeObjStr = dict->getString(stlName + "/writeObj");
         entry.writeObj = parseOfBool(writeObjStr, true);
 
@@ -141,12 +159,13 @@ std::map<QString, SurfaceFeatureExtractEntry>
 
         // --- 2. Parse Included Angle using the new path syntax ---
         // Look inside the standard OpenFOAM sub-dictionary first
-        double angle = dict->getNumber(stlName + "/extractFromSurfaceCoeffs/includedAngle");
+        double angle = dict->getNumber(stlName +
+            "/extractFromSurfaceCoeffs/includedAngle");
 
         if (!std::isnan(angle)) {
             entry.includedAngle = angle;
         } else {
-            // Fallback: Check if the user placed it directly at the top level of the STL block
+            // Check if the user placed it at the top level of the STL block
             angle = dict->getNumber(stlName + "/includedAngle");
             if (!std::isnan(angle)) {
                 entry.includedAngle = angle;
@@ -158,7 +177,9 @@ std::map<QString, SurfaceFeatureExtractEntry>
 }
 
 // Parse castellation mesh data
-CastellatedMeshConfig MeshIO::parseCastellatedMesh(const std::shared_ptr<OpenFoamDictionary> dict) {
+CastellatedMeshConfig MeshIO::parseCastellatedMesh(
+    const std::shared_ptr<OpenFoamDictionary> dict) {
+
     CastellatedMeshConfig config;
 
     /*
@@ -254,7 +275,8 @@ CastellatedMeshConfig MeshIO::parseCastellatedMesh(const std::shared_ptr<OpenFoa
 }
 
 // Parse snap control mesh configuration data
-SnapControlConfig MeshIO::parseSnapControlConfig(const std::shared_ptr<OpenFoamDictionary> dict) {
+SnapControlConfig MeshIO::parseSnapControlConfig(
+    const std::shared_ptr<OpenFoamDictionary> dict) {
     SnapControlConfig config;
 
     // Helper lambda to safely read integers with a fallback
@@ -287,12 +309,16 @@ SnapControlConfig MeshIO::parseSnapControlConfig(const std::shared_ptr<OpenFoamD
     config.nSolveIter = readInt("snapControls/nSolveIter", 30);
     config.nRelaxIter = readInt("snapControls/nRelaxIter", 5);
     config.nFeatureSnapIter = readInt("snapControls/nFeatureSnapIter", 10);
-    config.explicitFeatureSnap = readBool("snapControls/explicitFeatureSnap", true);
-    config.implicitFeatureSnap = readBool("snapControls/implicitFeatureSnap", false);
+    config.explicitFeatureSnap =
+        readBool("snapControls/explicitFeatureSnap", true);
+    config.implicitFeatureSnap =
+        readBool("snapControls/implicitFeatureSnap", false);
     return config;
 }
 
-LayerControlConfig MeshIO::parseLayerControlConfig(const std::shared_ptr<OpenFoamDictionary> dict) {
+LayerControlConfig MeshIO::parseLayerControlConfig(
+    const std::shared_ptr<OpenFoamDictionary> dict) {
+
     LayerControlConfig config;
 
     // Helper lambda to safely read booleans with a fallback
@@ -320,22 +346,29 @@ LayerControlConfig MeshIO::parseLayerControlConfig(const std::shared_ptr<OpenFoa
     };
 
     // Parse the primary parameters under addLayersControls
-    config.relativeSizes         = readBool("addLayersControls/relativeSizes", true);
-    config.expansionRatio        = readDouble("addLayersControls/expansionRatio", 1.2);
-    config.finalLayerThickness   = readDouble("addLayersControls/finalLayerThickness", 0.3);
-    config.minThickness          = readDouble("addLayersControls/minThickness", 0.1);
-    config.featureAngle          = readDouble("addLayersControls/featureAngle", 130.0);
-    config.nLayerIter            = readInt("addLayersControls/nLayerIter", 50);
-    config.nSmoothSurfaceNormals = readInt("addLayersControls/nSmoothSurfaceNormals", 1);
+    config.relativeSizes =
+        readBool("addLayersControls/relativeSizes", true);
+    config.expansionRatio =
+        readDouble("addLayersControls/expansionRatio", 1.2);
+    config.finalLayerThickness =
+        readDouble("addLayersControls/finalLayerThickness", 0.3);
+    config.minThickness =
+        readDouble("addLayersControls/minThickness", 0.1);
+    config.featureAngle =
+        readDouble("addLayersControls/featureAngle", 130.0);
+    config.nLayerIter =
+        readInt("addLayersControls/nLayerIter", 50);
+    config.nSmoothSurfaceNormals =
+        readInt("addLayersControls/nSmoothSurfaceNormals", 1);
 
     // Parse the patch-specific layer counts
-    // OpenFOAM structure: addLayersControls { layers { "patchName" { nSurfaceLayers 3; } } }
     QString layersPath = "addLayersControls/layers";
     QStringList patchNames = dict->getDictKeys(layersPath);
 
     for (const QString& patchName : std::as_const(patchNames)) {
         // Construct the full path to the nSurfaceLayers entry for this patch
-        QString patchLayerPath = layersPath + "/" + patchName + "/nSurfaceLayers";
+        QString patchLayerPath = layersPath + "/" +
+                                 patchName + "/nSurfaceLayers";
 
         double val = dict->getNumber(patchLayerPath);
         if (!std::isnan(val)) {
@@ -343,55 +376,56 @@ LayerControlConfig MeshIO::parseLayerControlConfig(const std::shared_ptr<OpenFoa
             config.nSurfaceLayers[patchName] = static_cast<int>(val);
         }
     }
-
     return config;
 }
 
 // Update the blockMeshDict file
-QString MeshIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict, const BlockMeshConfig& config) {
+QString MeshIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict,
+                                    const BlockMeshConfig& config) {
     if (!dict) {
-        qWarning() << "Cannot update blockMeshDict: Dictionary pointer is null.";
+        qWarning() << "Cannot update blockMeshDict: Dictionary is null.";
         return QString();
     }
 
-    // 1. Update scaling factor (handling ESI/Keysight vs Foundation syntax)
+    // Update scaling factor (handling ESI/Keysight vs Foundation syntax)
     if (!std::isnan(dict->getNumber("convertToMeters"))) {
-        dict->setValue("convertToMeters", QString::number(config.convertToMeters));
+        dict->setValue("convertToMeters",
+                       QString::number(config.convertToMeters));
     }
     else if (!std::isnan(dict->getNumber("scale"))) {
         dict->setValue("scale", QString::number(config.convertToMeters));
     }
     else {
-        qWarning() << "Warning: Neither 'convertToMeters' nor 'scale' found in blockMeshDict. Scaling not updated.";
+        qWarning() << "Warning: Neither 'convertToMeters' nor 'scale' found."
+                      "Scaling not updated.";
     }
 
-    // 2. Update vertices
-    // Build the formatted OpenFOAM list string
+    // Update vertices
     QString vertsStr;
     QTextStream vertsOut(&vertsStr);
     vertsOut << "(\n";
     for (const auto& pt : config.vertices) {
-        vertsOut << QString("    (%1 %2 %3)\n").arg(pt[0]).arg(pt[1]).arg(pt[2]);
+        vertsOut <<
+            QString("    (%1 %2 %3)\n").arg(pt[0]).arg(pt[1]).arg(pt[2]);
     }
     vertsOut << ")";
 
     dict->setValue("vertices", vertsStr);
 
-    // 3. Update blocks
-    // Assuming a standard single-block setup where the vertices are strictly ordered 0-7
+    // Update blocks
     QString blocksStr;
     QTextStream blocksOut(&blocksStr);
     blocksOut << "(\n";
-    blocksOut << QString("    %1 (0 1 2 3 4 5 6 7) (%2 %3 %4) simpleGrading (%5 %6 %7)\n")
-                     .arg(config.shape)
-                     .arg(config.nX).arg(config.nY).arg(config.nZ)
-                     .arg(config.gradingX).arg(config.gradingY).arg(config.gradingZ);
+    blocksOut <<
+       QString("    %1 (0 1 2 3 4 5 6 7) (%2 %3 %4) simpleGrading (%5 %6 %7)\n")
+            .arg(config.shape)
+            .arg(config.nX).arg(config.nY).arg(config.nZ)
+            .arg(config.gradingX).arg(config.gradingY).arg(config.gradingZ);
     blocksOut << ")";
 
     dict->setValue("blocks", blocksStr);
 
-    // 4. Update boundary (Patches)
-    // You will need to adjust this to match your exact Patch struct definition
+    // Update boundary (Patches)
     if (!config.patches.empty()) {
         QString boundaryStr;
         QTextStream boundOut(&boundaryStr);
@@ -424,7 +458,8 @@ QString MeshIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict, co
             boundOut << "        faces\n";
             boundOut << "        (\n";
             for (const auto& face : patch.faces) {
-                boundOut << QString("            (%1 %2 %3 %4)\n").arg(face[0]).arg(face[1]).arg(face[2]).arg(face[3]);
+                boundOut << QString("            (%1 %2 %3 %4)\n")
+                    .arg(face[0]).arg(face[1]).arg(face[2]).arg(face[3]);
             }
             boundOut << "        );\n";
             boundOut << "    }\n";
@@ -432,7 +467,6 @@ QString MeshIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict, co
         boundOut << ")";
 
         // OpenFOAM sometimes uses "boundary" and sometimes "patches".
-        // "boundary" is strictly correct for blockMeshDict.
         dict->setValue("boundary", boundaryStr);
     }
 
@@ -441,7 +475,8 @@ QString MeshIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict, co
 }
 
 // Create a new blockMeshDict file
-QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config, QString openFoamPath) {
+QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config,
+                                    QString openFoamPath) {
     QString dictStr;
     QTextStream out(&dictStr);
 
@@ -450,7 +485,8 @@ QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config, QString openF
 
     // Write the scale factor
     bool isESI = false;
-    QRegularExpression re("openfoam-?v?(\\d+)", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression re("openfoam-?v?(\\d+)",
+                          QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatch match = re.match(openFoamPath);
     if (match.hasMatch()) {
         QString digits = match.captured(1);
@@ -462,7 +498,8 @@ QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config, QString openF
             out << "convertToMeters " << config.convertToMeters << ";\n\n";
         }
     } else {
-        qWarning() << "Warning: Could not parse OpenFOAM version from path:" << openFoamPath;
+        qWarning() << "Warning: Could not parse OpenFOAM version from path:"
+                   << openFoamPath;
     }
 
     // Write vertices
@@ -476,7 +513,8 @@ QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config, QString openF
     // Write blocks
     out << "blocks\n";
     out << "(\n";
-    out << QString("    %1 (0 1 2 3 4 5 6 7) (%2 %3 %4) simpleGrading (%5 %6 %7)\n")
+    out << QString("    %1 (0 1 2 3 4 5 6 7) (%2 %3 %4)"
+                   " simpleGrading (%5 %6 %7)\n")
                .arg(config.shape)
                .arg(config.nX).arg(config.nY).arg(config.nZ)
                .arg(config.gradingX).arg(config.gradingY).arg(config.gradingZ);
@@ -509,7 +547,8 @@ QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config, QString openF
             patchType = "cyclic"; break;
         default:
             patchType = "patch"; // Safe fallback
-            qWarning() << "Warning: Unknown patch type for" << patch.name << "- defaulting to 'patch'.";
+            qWarning() << "Warning: Unknown patch type for" << patch.name <<
+                "- defaulting to 'patch'.";
             break;
         }
 
@@ -571,10 +610,7 @@ QString MeshIO::updateSurfaceFeatureExtractDict(
             << "        openEdges           " << openEdgesStr << ";\n"
             << "    }";
 
-        // Inject the updated block into the AST
-        // Note: If findNode fails because the user's original dictionary uses explicit
-        // string quotes (e.g., "motorBike.stl" instead of motorBike.stl), you may need
-        // to query dict->setValue("\"" + fileName + "\"", blockStr);
+        // Inject the updated block into AST
         dict->setValue(fileName, blockStr);
     }
 
@@ -582,7 +618,8 @@ QString MeshIO::updateSurfaceFeatureExtractDict(
 }
 
 QString MeshIO::createSurfaceFeatureExtractDict(
-    const std::map<QString, SurfaceFeatureExtractEntry>& entryMap, QString openFoamPath) {
+    const std::map<QString, SurfaceFeatureExtractEntry>& entryMap,
+    QString openFoamPath) {
 
     QString dictStr;
     QTextStream out(&dictStr);

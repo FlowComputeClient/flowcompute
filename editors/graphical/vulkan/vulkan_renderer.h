@@ -1,5 +1,22 @@
-#ifndef VULKAN_RENDERER_H
-#define VULKAN_RENDERER_H
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#ifndef VULKAN_RENDERER_H_
+#define VULKAN_RENDERER_H_
 
 #include <QFile>
 #include <QMatrix4x4>
@@ -32,6 +49,7 @@ class VulkanRenderer : public QVulkanWindowRenderer {
 public:
     VulkanRenderer(VulkanWindow *w, std::shared_ptr<RenderData> meshData);
 
+    // Vulkan functions
     void initResources() override;
     void startNextFrame() override;
     void initSwapChainResources() override;
@@ -63,7 +81,8 @@ protected:
     void createDescriptorSets();
     void createPipelines();
     VkShaderModule createShader(const QString &name);
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    uint32_t findMemoryType(uint32_t typeFilter,
+                            VkMemoryPropertyFlags properties);
 
     // Vertex/index buffers
     std::shared_ptr<RenderData> m_renderData;
@@ -77,14 +96,16 @@ protected:
     // Uniform buffer data
     VkDeviceMemory m_uniformBufferMemory = VK_NULL_HANDLE;
     VkBuffer m_uniformBuffer = VK_NULL_HANDLE;
-    std::array<VkDescriptorBufferInfo, QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_uniformBufferInfo;
+    std::array<VkDescriptorBufferInfo,
+               QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_uniformBufferInfo;
     VkDeviceSize m_alignedUniformSize = 0;
     void* m_mappedUniformData = nullptr;
 
     // Descriptor pool objects
     VkDescriptorPool m_descPool = VK_NULL_HANDLE;
     VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
-    std::array<VkDescriptorSet, QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_descriptorSets;
+    std::array<VkDescriptorSet,
+               QVulkanWindow::MAX_CONCURRENT_FRAME_COUNT> m_descriptorSets;
 
     // Texture data
     VkImage m_textureImage = VK_NULL_HANDLE;
@@ -97,6 +118,9 @@ protected:
     VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     std::array<VkPipeline, 2> m_pipelines = { VK_NULL_HANDLE, VK_NULL_HANDLE };
+
+private:
+    std::array<float, 3> m_clearColor;
 };
 
-#endif // VULKAN_RENDERER_H
+#endif // VULKAN_RENDERER_H_

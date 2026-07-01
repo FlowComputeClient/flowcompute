@@ -1,5 +1,22 @@
-#ifndef CASE_NAVIGATOR_H
-#define CASE_NAVIGATOR_H
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#ifndef CASE_NAVIGATOR_H_
+#define CASE_NAVIGATOR_H_
 
 #include <QDebug>
 #include <QMouseEvent>
@@ -15,14 +32,13 @@ enum class EditorType : int {
     TEXT = 0,
     SURFACE,
     MESH,
-    RESULT,
-    COUNT
+    RESULT
 };
 
 class CaseNavigator : public QTreeView {
     Q_OBJECT
 
-public:
+ public:
     explicit CaseNavigator(QWidget *parent = nullptr);
     void addCase(QString caseName, QStringList caseFiles);
     void expandCase(QString caseName);
@@ -30,19 +46,20 @@ public:
     QString getSelectedCase();
     void updatePath(QString path, QStringList children);
 
-protected:
+ protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
-signals:
-    void createEditor(EditorType type, QString& fileName, const QString& fullPath);
+ signals:
+    void createEditor(EditorType type, QString& fileName,
+                       const QString& fullPath);
 
-private:
+ private:
     // Menu and actions
     QMenu *m_contextMenu;
     QAction *m_deleteAction, *m_viewMeshAction, *m_viewResultAction;
     void createActions();
 
-private slots:
+ private slots:
     // Slot to catch when a user clicks the expand arrow
     void onNodeExpanded(const QModelIndex &index);
 
@@ -54,7 +71,7 @@ private slots:
     void viewMesh();
     void viewResult();
 
-private:
+ private:
     NavigatorModel* model;
     QStandardItem* root;
     MainWindow* mainWin;
@@ -64,4 +81,4 @@ private:
     NodeType checkType(QString name, QString fullPath);
 };
 
-#endif // CASE_NAVIGATOR_H
+#endif // CASE_NAVIGATOR_H_

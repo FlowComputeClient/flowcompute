@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "wizard_mesh.h"
 
 #include "../../main_window.h"
@@ -5,11 +22,11 @@
 #include "mesh_io.h"
 
 // Function declarations
-MeshWizard::MeshWizard(const QString& caseName, const QStringList& cases, QWidget *parent):
+MeshWizard::MeshWizard(const QString& caseName, const QStringList& cases,
+                       QWidget *parent):
     m_caseName(caseName), QWizard(parent) {
 
     setWizardStyle(QWizard::ClassicStyle);
-    // setStyleSheet("color: black;");
     setWindowTitle(tr("Mesh Configuration Wizard"));
 
     // Access the main window, get cases
@@ -43,7 +60,8 @@ bool MeshWizard::loadParseFiles() {
 
         // Load data
         fileName = "system/blockMeshDict";
-        fileData = mainWin->targetSystems[m_targetId]->getFileContent(m_casePath + "/" + m_caseName + "/" + fileName);
+        fileData = mainWin->targetSystems[m_targetId]->getFileContent(
+            m_casePath + "/" + m_caseName + "/" + fileName);
         if (!fileData.isEmpty()) {
             dict = std::make_shared<OpenFoamDictionary>(fileData);
             if(!dict->hasSyntaxErrors()) {
@@ -53,7 +71,8 @@ bool MeshWizard::loadParseFiles() {
                 auto action = Utils::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case Utils::ParseErrorAction::EditFile:
-                    mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
+                    mainWin->createEditor(EditorType::TEXT,
+                        fileName.split('/').last(), m_caseName + "/system");
                     reject();
                     return false;
                 case Utils::ParseErrorAction::Overwrite:
@@ -70,17 +89,20 @@ bool MeshWizard::loadParseFiles() {
 
         // Load data
         fileName = "system/surfaceFeatureExtractDict";
-        fileData = mainWin->targetSystems[m_targetId]->getFileContent(m_casePath + "/" + m_caseName + "/" + fileName);
+        fileData = mainWin->targetSystems[m_targetId]->getFileContent(
+            m_casePath + "/" + m_caseName + "/" + fileName);
         if (!fileData.isEmpty()) {
             dict = std::make_shared<OpenFoamDictionary>(fileData);
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
-                m_surfaceFeatureMap = MeshIO::parseSurfaceFeatureData(dict, m_geometryMap.keys());
+                m_surfaceFeatureMap = MeshIO::parseSurfaceFeatureData(
+                    dict, m_geometryMap.keys());
             } else {
                 auto action = Utils::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case Utils::ParseErrorAction::EditFile:
-                    mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
+                    mainWin->createEditor(EditorType::TEXT,
+                        fileName.split('/').last(), m_caseName + "/system");
                     reject();
                     return false;
                 case Utils::ParseErrorAction::Overwrite:
@@ -97,7 +119,8 @@ bool MeshWizard::loadParseFiles() {
 
         // Load data
         fileName = "system/snappyHexMeshDict";
-        fileData = mainWin->targetSystems[m_targetId]->getFileContent(m_casePath + "/" + m_caseName + "/" + fileName);
+        fileData = mainWin->targetSystems[m_targetId]->getFileContent(
+            m_casePath + "/" + m_caseName + "/" + fileName);
         if (!fileData.isEmpty()) {
             dict = std::make_shared<OpenFoamDictionary>(fileData);
             if(!dict->hasSyntaxErrors()) {
@@ -112,7 +135,8 @@ bool MeshWizard::loadParseFiles() {
                 auto action = Utils::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case Utils::ParseErrorAction::EditFile:
-                    mainWin->createEditor(EditorType::TEXT, fileName.split('/').last(), m_caseName + "/system");
+                    mainWin->createEditor(EditorType::TEXT,
+                        fileName.split('/').last(), m_caseName + "/system");
                     reject();
                     return false;
                 case Utils::ParseErrorAction::Overwrite:
@@ -137,13 +161,17 @@ void MeshWizard::accept() {
 
         QString blockMeshDictText;
         if (m_dictMap.contains("system/blockMeshDict")) {
-            blockMeshDictText = MeshIO::updateBlockMeshDict(m_dictMap["system/blockMeshDict"], m_blockMeshConfig);
+            blockMeshDictText =
+                MeshIO::updateBlockMeshDict(m_dictMap["system/blockMeshDict"],
+                    m_blockMeshConfig);
         } else {
-            blockMeshDictText = MeshIO::createBlockMeshDict(m_blockMeshConfig, openFoamPath);
+            blockMeshDictText =
+                MeshIO::createBlockMeshDict(m_blockMeshConfig, openFoamPath);
         }
 
         // Update file
-        mainWin->targetSystems[m_targetId]->writeData(blockMeshDictText.toUtf8(),
+        mainWin->targetSystems[m_targetId]->writeData(
+            blockMeshDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/blockMeshDict");
     }
 
@@ -154,19 +182,25 @@ void MeshWizard::accept() {
         QString surfaceFeatureExtractDictText;
         if (m_dictMap.contains("system/surfaceFeatureExtractDict")) {
             surfaceFeatureExtractDictText =
-                MeshIO::updateSurfaceFeatureExtractDict(m_dictMap["system/surfaceFeatureExtractDict"], m_surfaceFeatureMap);
+                MeshIO::updateSurfaceFeatureExtractDict(
+                    m_dictMap["system/surfaceFeatureExtractDict"],
+                        m_surfaceFeatureMap);
         } else {
             surfaceFeatureExtractDictText =
-                MeshIO::createSurfaceFeatureExtractDict(m_surfaceFeatureMap, openFoamPath);
+                MeshIO::createSurfaceFeatureExtractDict(m_surfaceFeatureMap,
+                    openFoamPath);
         }
         */
 
         QString surfaceFeatureExtractDictText =
-            MeshIO::createSurfaceFeatureExtractDict(m_surfaceFeatureMap, openFoamPath);
+            MeshIO::createSurfaceFeatureExtractDict(m_surfaceFeatureMap,
+                openFoamPath);
 
         // Update file
-        mainWin->targetSystems[m_targetId]->writeData(surfaceFeatureExtractDictText.toUtf8(),
-            m_casePath + "/" + m_caseName + "/system/surfaceFeatureExtractDict");
+        mainWin->targetSystems[m_targetId]->writeData(
+            surfaceFeatureExtractDictText.toUtf8(),
+            m_casePath + "/" + m_caseName +
+                "/system/surfaceFeatureExtractDict");
     }
 
     // Update or create snappyHexMeshDict
@@ -176,21 +210,26 @@ void MeshWizard::accept() {
         /*
         if (m_dictMap.contains("system/snappyHexMeshDict")) {
             snappyHexMeshDictText =
-                MeshIO::updateSnappyHexMeshDict(m_dictMap["system/snappyHexMeshDict"],
-                    m_castellatedMeshConfig, m_snapControlConfig, m_layerControlConfig);
+                MeshIO::updateSnappyHexMeshDict(
+                    m_dictMap["system/snappyHexMeshDict"],
+                    m_castellatedMeshConfig, m_snapControlConfig,
+                    m_layerControlConfig);
         } else {
             snappyHexMeshDictText =
-                MeshIO::createSnappyHexMeshDict(m_surfaceFeatureMap, m_castellatedMeshConfig,
-                    m_snapControlConfig, m_layerControlConfig, openFoamPath);
+                MeshIO::createSnappyHexMeshDict(m_surfaceFeatureMap,
+                    m_castellatedMeshConfig, m_snapControlConfig,
+                    m_layerControlConfig, openFoamPath);
         }
         */
 
         snappyHexMeshDictText =
-            MeshIO::createSnappyHexMeshDict(m_surfaceFeatureMap, m_castellatedMeshConfig,
-                                            m_snapControlConfig, m_layerControlConfig, openFoamPath);
+            MeshIO::createSnappyHexMeshDict(m_surfaceFeatureMap,
+                m_castellatedMeshConfig, m_snapControlConfig,
+                m_layerControlConfig, openFoamPath);
 
         // Update file
-        mainWin->targetSystems[m_targetId]->writeData(snappyHexMeshDictText.toUtf8(),
+        mainWin->targetSystems[m_targetId]->writeData(
+            snappyHexMeshDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/snappyHexMeshDict");
     }
 

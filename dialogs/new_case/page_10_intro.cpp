@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "page_10_intro.h"
 
 #include "../../main_window.h"
@@ -41,25 +58,32 @@ IntroPage::IntroPage(QWidget *parent): QWizardPage(parent) {
     m_remoteIPAddrEdit = new QLineEdit(targetGroup);
     if (MainWindow::isWindows()) {
         if (MainWindow::isWslAvailable()) {
-            QRadioButton *localWinButton = new QRadioButton(tr("Local (WSL)"), targetGroup);
+            QRadioButton *localWinButton =
+                new QRadioButton(tr("Local (WSL)"), targetGroup);
             targetGroupLayout->addWidget(localWinButton, row++, 0);
-            m_targetButtonGroup->addButton(localWinButton, static_cast<int>(TargetType::LOCAL_WINDOWS));
+            m_targetButtonGroup->addButton(localWinButton,
+                static_cast<int>(TargetType::LOCAL_WINDOWS));
         }
         targetGroupLayout->addWidget(remoteButton, row, 0);
-        m_targetButtonGroup->addButton(remoteButton, static_cast<int>(TargetType::REMOTE_LINUX));
+        m_targetButtonGroup->addButton(remoteButton,
+            static_cast<int>(TargetType::REMOTE_LINUX));
         targetGroupLayout->addWidget(m_remoteIPAddrEdit, row++, 1);
 
     } else {
-        QRadioButton *localLinuxButton = new QRadioButton(tr("Local"), targetGroup);
-        m_targetButtonGroup->addButton(localLinuxButton, static_cast<int>(TargetType::LOCAL_LINUX));
+        QRadioButton *localLinuxButton =
+            new QRadioButton(tr("Local"), targetGroup);
+        m_targetButtonGroup->addButton(localLinuxButton,
+            static_cast<int>(TargetType::LOCAL_LINUX));
         targetGroupLayout->addWidget(localLinuxButton, row++, 0);
         targetGroupLayout->addWidget(remoteButton, row, 0);
-        m_targetButtonGroup->addButton(remoteButton, static_cast<int>(TargetType::REMOTE_LINUX));
+        m_targetButtonGroup->addButton(remoteButton,
+            static_cast<int>(TargetType::REMOTE_LINUX));
         targetGroupLayout->addWidget(m_remoteIPAddrEdit, row++, 1);
     }
 
     // Register target system ID
-    connect(m_targetButtonGroup, &QButtonGroup::idClicked, this, &IntroPage::targetSystemChanged);
+    connect(m_targetButtonGroup, &QButtonGroup::idClicked, this,
+            &IntroPage::targetSystemChanged);
     registerField("targetSystemId", this, "targetSystemId");
 
     // Set the first button to checked
@@ -68,10 +92,12 @@ IntroPage::IntroPage(QWidget *parent): QWizardPage(parent) {
 
     // Disable IP box for local target
     m_remoteIPAddrEdit->setEnabled(remoteButton->isChecked());
-    connect(remoteButton, &QRadioButton::toggled, m_remoteIPAddrEdit, &QLineEdit::setEnabled);
+    connect(remoteButton, &QRadioButton::toggled,
+            m_remoteIPAddrEdit, &QLineEdit::setEnabled);
 
     // Ask for the case creation method
-    QGroupBox* caseCreationGroup = new QGroupBox(tr("Case Initialization"), this);
+    QGroupBox* caseCreationGroup =
+        new QGroupBox(tr("Case Initialization"), this);
     layout->addWidget(caseCreationGroup, 2, 0, 1, 2);
     f = caseCreationGroup->font();
     f.setBold(true);
@@ -86,13 +112,15 @@ IntroPage::IntroPage(QWidget *parent): QWizardPage(parent) {
     caseCreationGroup->setLayout(caseCreationGroupLayout);
 
     // Create interactive radio button
-    m_interactiveRadio = new QRadioButton(tr("Interactive case builder"), caseCreationGroup);
+    m_interactiveRadio = new QRadioButton(tr("Interactive case builder"),
+                                          caseCreationGroup);
     m_caseCreationButtonGroup->addButton(m_interactiveRadio, 0);
     caseCreationGroupLayout->addWidget(m_interactiveRadio);
     m_interactiveRadio->setChecked(true);
 
     // Create tutorial radio button
-    m_tutorialRadio = new QRadioButton(tr("Copy a tutorial case"), caseCreationGroup);
+    m_tutorialRadio = new QRadioButton(tr("Copy a tutorial case"),
+                                       caseCreationGroup);
     m_caseCreationButtonGroup->addButton(m_tutorialRadio, 1);
     caseCreationGroupLayout->addWidget(m_tutorialRadio);
 
