@@ -1,2 +1,0 @@
-Skipping input '*.cpp': Can't open for reading
-Skipping input '*.h': Can't open for reading
