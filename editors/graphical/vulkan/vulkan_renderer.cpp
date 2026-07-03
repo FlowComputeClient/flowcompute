@@ -80,15 +80,9 @@ void VulkanRenderer::startNextFrame() {
     }
 
     // Set theme
-    /*
     if (m_window->takeThemeDirtyFlag()) {
         m_clearColor = m_window->getClearColor();
-
-        qDebug() << m_clearColor[0];
-        qDebug() << m_clearColor[1];
-        qDebug() << m_clearColor[2];
     }
-    */
 
     // Check if mesh data has changed
     if (m_window->takeDataDirtyFlag()) {
@@ -135,11 +129,8 @@ void VulkanRenderer::startNextFrame() {
 
     // Set clear colors
     VkClearValue clearValues[3] = {};
-    /*
     clearValues[0].color = {{ m_clearColor[0], m_clearColor[1],
                              m_clearColor[2], 1.0f }};
-    */
-    clearValues[0].color = {{ 0.1f, 0.1f, 0.12f, 1.0f }};
     clearValues[1].depthStencil = { 1.0f, 0 };
     clearValues[2].color = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
 

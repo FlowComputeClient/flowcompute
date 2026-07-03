@@ -15,12 +15,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef SURFACE_EDITOR_H_
-#define SURFACE_EDITOR_H_
+#ifndef EDITORS_GRAPHICAL_SURFACE_SURFACE_EDITOR_H_
+#define EDITORS_GRAPHICAL_SURFACE_SURFACE_EDITOR_H_
 
 #include <QHBoxLayout>
 #include <QVulkanInstance>
 #include <QWidget>
+
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "surface_left_pane.h"
 #include "../vulkan/vulkan_window.h"
@@ -35,8 +39,8 @@ class SurfaceEditor : public QWidget {
         bool isBinary, QWidget* parent = nullptr);
     std::vector<std::pair<std::string, std::string>> getPatchChanges();
     void updateModel(std::shared_ptr<RenderData> newMesh);
-    bool isSurfacePatched() { return m_isSurfaceChanged; };
-    void setSurfaceChanged(bool val) { m_isSurfaceChanged = val; };
+    bool isSurfacePatched() { return m_isSurfaceChanged; }
+    void setSurfaceChanged(bool val) { m_isSurfaceChanged = val; }
     void changeBounds(double scaleFactor);
     void applyTheme(const QString& theme);
 
@@ -66,4 +70,4 @@ class SurfaceEditor : public QWidget {
     void onSurfaceScaleRequest(double scaleFactor);
 };
 
-#endif // SURFACE_EDITOR_H_
+#endif  // EDITORS_GRAPHICAL_SURFACE_SURFACE_EDITOR_H_

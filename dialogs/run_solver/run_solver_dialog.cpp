@@ -31,7 +31,6 @@ QString getSolverName(const QByteArray &controlData);
 RunSolverDialog::RunSolverDialog(const QString& selectedCase,
                              const QStringList& caseList,
                              QWidget* parent): QDialog(parent) {
-
     // Set title and style
     setWindowTitle(tr("Solver Execution"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
@@ -159,7 +158,6 @@ QString getSolverName(const QByteArray &controlData) {
 }
 
 std::pair<int, bool> getRunData(const QByteArray& dictContent) {
-
     int numCores = -1;
     bool allowChange = false;
 
@@ -227,7 +225,6 @@ QByteArray addPhiBlock(const QByteArray& fvSolutionContent) {
 }
 
 void RunSolverDialog::onCaseChanged(QString caseName) {
-
     // Access case data
     m_mainWin = qobject_cast<MainWindow*>(this->parent());
     QString casePath = m_mainWin->m_caseMap[caseName].casePath;
@@ -275,7 +272,6 @@ void RunSolverDialog::onCaseChanged(QString caseName) {
 }
 
 void RunSolverDialog::onOkClicked() {
-
     // Get case name and number of cores
     QString caseName = m_caseCombo->currentText();
     int numCores = m_numCoresCombo->currentText().toInt();

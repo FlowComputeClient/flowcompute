@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef TARGET_SYSTEM_H_
-#define TARGET_SYSTEM_H_
+#ifndef SYSTEMS_TARGET_SYSTEM_H_
+#define SYSTEMS_TARGET_SYSTEM_H_
 
 #include <QObject>
 #include <QString>
@@ -57,4 +57,4 @@ class TargetSystem: public QObject {
     virtual QString getResultFolders(QString path) = 0;
 };
 
-#endif // TARGET_SYSTEM_H_
+#endif  // SYSTEMS_TARGET_SYSTEM_H_

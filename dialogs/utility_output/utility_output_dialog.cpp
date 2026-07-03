@@ -27,16 +27,14 @@
 #include <QApplication>
 #include <QFont>
 
-UtilityOutputDialog::UtilityOutputDialog(const QString& title,
-                                         const QString& description,
-                                         const std::vector<QString>& summaryItems,
-                                         const QString& rawLog,
-                                         QWidget *parent)
-    : QDialog(parent), m_rawLogTextEdit(nullptr), m_toggleButton(nullptr) {
+#include <vector>
 
+UtilityOutputDialog::UtilityOutputDialog(const QString& title,
+        const QString& description, const std::vector<QString>& summaryItems,
+        const QString& rawLog, QWidget *parent)
+    : QDialog(parent), m_rawLogTextEdit(nullptr), m_toggleButton(nullptr) {
     // Create layout
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    // mainLayout->setSizeConstraint(QLayout::SetFixedSize);
     mainLayout->setSpacing(0);
 
     // Set appearance

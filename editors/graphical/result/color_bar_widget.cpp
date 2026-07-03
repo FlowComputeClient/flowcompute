@@ -22,7 +22,6 @@ ColorBarWidget::ColorBarWidget(QWidget *parent) : QWidget(parent) {
 }
 
 void ColorBarWidget::paintEvent(QPaintEvent *event)  {
-
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
 

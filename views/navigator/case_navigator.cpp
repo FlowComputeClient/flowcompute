@@ -15,12 +15,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "case_navigator.h"
+#include "./case_navigator.h"
+
+#include <algorithm>
 
 #include "../../main_window.h"
 
 CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
-
+    // Configure behavior
     setHeaderHidden(true);
     setExpandsOnDoubleClick(true);
     setSelectionMode(QAbstractItemView::SingleSelection);
@@ -48,7 +50,6 @@ CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
 
 // Create actions for the context menu
 void CaseNavigator::createActions() {
-
     // View result
     m_viewResultAction = new QAction(QIcon(":/images/view_result.png"),
                                      tr("&View Result"), this);
@@ -74,7 +75,6 @@ void CaseNavigator::createActions() {
 
 // Add a new case to the navigator
 void CaseNavigator::addCase(QString caseName, QStringList caseFiles) {
-
     // Create a node for the project
     NodeData* caseFolder = new NodeData(caseName, "", NodeType::CaseFolder);
     root->appendRow(caseFolder);
@@ -82,7 +82,7 @@ void CaseNavigator::addCase(QString caseName, QStringList caseFiles) {
     // Create a node for top-level files/folders
     NodeData* node;
     NodeType type;
-    for(QString item: caseFiles) {
+    for (QString item : caseFiles) {
         if (!item.endsWith('|')) {
             node = new NodeData(item, caseName, NodeType::Folder);
         } else {
@@ -95,7 +95,6 @@ void CaseNavigator::addCase(QString caseName, QStringList caseFiles) {
 }
 
 NodeType CaseNavigator::checkType(QString name, QString fullPath) {
-
     // Check for dictionary files
     if (name.endsWith("Dict") || name.endsWith("Properties") ||
         name.endsWith(".eMesh") || name == "fvSchemes" ||
@@ -161,7 +160,7 @@ void CaseNavigator::expandCase(QString caseName) {
 }
 
 void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
-
+    // Get model index
     QModelIndex index = indexAt(event->pos());
     if (index.isValid()) {
 
@@ -194,6 +193,7 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
 }
 
 void CaseNavigator::onNodeExpanded(const QModelIndex &index) {
+    // Get node
     NodeData* node = model->nodeFromIndex(index);
     if (!node) return;
 
@@ -207,7 +207,6 @@ void CaseNavigator::onNodeExpanded(const QModelIndex &index) {
 }
 
 void CaseNavigator::fetchChildren(NodeData* node) {
-
     // Remove the dummy child
     node->removeRow(0);
 
@@ -225,7 +224,7 @@ void CaseNavigator::fetchChildren(NodeData* node) {
 
     // Create a node for each child
     QList<NodeData*> childFolders, childFiles;
-    for(QString item : std::as_const(items)) {
+    for (QString item : std::as_const(items)) {
         NodeData* childNode;
         if (!item.endsWith('|')) {
             childNode = new NodeData(item, nodePath, NodeType::Folder);
@@ -248,10 +247,10 @@ void CaseNavigator::fetchChildren(NodeData* node) {
     std::sort(childFiles.begin(), childFiles.end(), sortAlphabetically);
 
     // Display folders, then files
-    for(auto const& child: childFolders) {
+    for (auto const& child : childFolders) {
         node->appendRow(child);
     }
-    for(auto const& child: childFiles) {
+    for (auto const& child : childFiles) {
         node->appendRow(child);
     }
 }
@@ -283,7 +282,7 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
         if (currentNode->rowCount() == 1) {
             QStandardItem* firstChild = currentNode->child(0);
             if (firstChild->data(Qt::UserRole + 1).toBool() == true) {
-                currentNode->removeRow(0); // Safely destroy the dummy
+                currentNode->removeRow(0);
             }
         }
 
@@ -329,7 +328,7 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
 
     // Parse children, create nodes, and sort them
     QList<NodeData*> childFolders, childFiles;
-    for(QString item : std::as_const(children)) {
+    for (QString item : std::as_const(children)) {
         NodeData* childNode;
         if (!item.endsWith('|')) {
             childNode = new NodeData(item, nodePath, NodeType::Folder);
@@ -351,10 +350,10 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
     std::sort(childFiles.begin(), childFiles.end(), sortAlphabetically);
 
     // Append folders first, then files
-    for(auto const& child: childFolders) {
+    for (auto const& child : childFolders) {
         currentNode->appendRow(child);
     }
-    for(auto const& child: childFiles) {
+    for (auto const& child : childFiles) {
         currentNode->appendRow(child);
     }
 
@@ -370,7 +369,6 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
 }
 
 QString CaseNavigator::getSelectedCase() {
-
     // If there's only one case, return the case
     if (root->rowCount() == 1) {
         NodeData* node = static_cast<NodeData*>(root->child(0));
@@ -385,7 +383,8 @@ QString CaseNavigator::getSelectedCase() {
 
     // Access the selected node
     NodeData* node = model->nodeFromIndex(selectedIndexes.first());
-    if (!node) return QString();
+    if (!node)
+        return QString();
     if (node->nodeType == NodeType::CaseFolder) {
         return node->text();
     } else {
@@ -398,9 +397,8 @@ QString CaseNavigator::getSelectedCase() {
 
 QStringList CaseNavigator::getCases() const {
     QStringList caseNames;
-    if (!root) {
+    if (!root)
         return caseNames;
-    }
 
     // Get names of top-level items in tree
     for (int i = 0; i < root->rowCount(); ++i) {
@@ -413,15 +411,16 @@ QStringList CaseNavigator::getCases() const {
 }
 
 void CaseNavigator::showContextMenu(const QPoint &pos) {
-
     // Get the node under the mouse cursor
     QModelIndex index = indexAt(pos);
-    if (!index.isValid()) return;
+    if (!index.isValid())
+        return;
     NodeData* node = model->nodeFromIndex(index);
-    if (!node) return;
+    if (!node)
+        return;
 
     // Add actions based on type
-    switch(node->nodeType) {
+    switch (node->nodeType) {
     case NodeType::CaseFolder:
 
         // Add view result action
@@ -445,11 +444,11 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
 }
 
 void CaseNavigator::deleteNode() {
-
     // Access node
     QVariant data = m_deleteAction->data();
     NodeData* node = data.value<NodeData*>();
-    if (!node) { return; }
+    if (!node)
+        return;
 
     // Create editor for mesh
     mainWin->deleteFile(node->name, node->fullPath);
@@ -459,11 +458,11 @@ void CaseNavigator::deleteNode() {
 }
 
 void CaseNavigator::viewMesh() {
-
     // Access node
     QVariant data = m_viewMeshAction->data();
     NodeData* node = data.value<NodeData*>();
-    if (!node) { return; }
+    if (!node)
+        return;
 
     // Create editor for mesh
     mainWin->createEditor(EditorType::MESH, node->name, node->fullPath);
@@ -473,11 +472,11 @@ void CaseNavigator::viewMesh() {
 }
 
 void CaseNavigator::viewResult() {
-
     // Access node
     QVariant data = m_viewResultAction->data();
     NodeData* node = data.value<NodeData*>();
-    if (!node) { return; }
+    if (!node)
+        return;
 
     // Create editor for mesh
     mainWin->createEditor(EditorType::RESULT, node->name, node->fullPath);

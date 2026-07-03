@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef RESULT_LEFT_PANE_H_
-#define RESULT_LEFT_PANE_H_
+#ifndef EDITORS_GRAPHICAL_RESULT_RESULT_LEFT_PANE_H_
+#define EDITORS_GRAPHICAL_RESULT_RESULT_LEFT_PANE_H_
 
 #include <QCheckBox>
 #include <QDoubleSpinBox>
@@ -28,6 +28,8 @@
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <QWidget>
+
+#include <vector>
 
 #include "../../../core_types.h"
 
@@ -55,4 +57,4 @@ class ResultLeftPane : public QWidget {
     std::vector<FlowCompute::MeshPatch> m_boundaryPatches;
 };
 
-#endif // RESULT_LEFT_PANE_H_
+#endif  // EDITORS_GRAPHICAL_RESULT_RESULT_LEFT_PANE_H_

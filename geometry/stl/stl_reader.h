@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef STL_READER_H
-#define STL_READER_H
+#ifndef GEOMETRY_STL_STL_READER_H_
+#define GEOMETRY_STL_STL_READER_H_
 
 #include <QBuffer>
 #include <QByteArray>
@@ -25,12 +25,15 @@
 #include <QRegularExpression>
 #include <QTextStream>
 
+#include <utility>
+
 #include "../graphic_data.h"
 
 namespace StlReader {
 
-    std::pair<RenderData, bool> readStlFile(const QString& fileName, const QByteArray& fileData);
-    GeometryMetrics readMetrics(const QByteArray& fileData);
+std::pair<RenderData, bool> readStlFile(const QString& fileName,
+                                    const QByteArray& fileData);
+GeometryMetrics readMetrics(const QByteArray& fileData);
 };
 
-#endif // STL_READER_H
+#endif  // GEOMETRY_STL_STL_READER_H_

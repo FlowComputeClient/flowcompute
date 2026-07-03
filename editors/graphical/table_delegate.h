@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef TABLE_DELEGATE_H_
-#define TABLE_DELEGATE_H_
+#ifndef EDITORS_GRAPHICAL_TABLE_DELEGATE_H_
+#define EDITORS_GRAPHICAL_TABLE_DELEGATE_H_
 
 #include <QStyledItemDelegate>
 
@@ -28,4 +28,4 @@ class TableDelegate : public QStyledItemDelegate {
     bool eventFilter(QObject *editor, QEvent *event) override;
 };
 
-#endif // TABLE_DELEGATE_H_
+#endif  // EDITORS_GRAPHICAL_TABLE_DELEGATE_H_

@@ -17,18 +17,22 @@
 
 #include "local_system.h"
 
-#include <filesystem>
-
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 
+#include <algorithm>
+#include <filesystem>
+#include <limits>
+#include <string>
+#include <utility>
+#include <vector>
+
 namespace fs = std::filesystem;
 
 // Launch a utility in the server
 int LocalSystem::launchShortUtility(const QString& cmd, QString& output) {
-
     output.clear();
     if (cmd.isEmpty()) {
         output = "Error: Command is empty";
@@ -60,7 +64,6 @@ int LocalSystem::launchShortUtility(const QString& cmd, QString& output) {
 
 void LocalSystem::launchLongUtility(const QString& cmd, const QString& caseName,
                                     UtilityType utilityType) {
-
     // Allocate on the heap so it runs asynchronously
     QProcess* process = new QProcess(this);
 
@@ -68,7 +71,8 @@ void LocalSystem::launchLongUtility(const QString& cmd, const QString& caseName,
     process->setProcessChannelMode(QProcess::MergedChannels);
 
     // Stream the output as the process runs
-    connect(process, &QProcess::readyReadStandardOutput, this, [this, process]() {
+    connect(process, &QProcess::readyReadStandardOutput, this,
+        [this, process]() {
         while (process->canReadLine()) {
             QByteArray line = process->readLine();
             emit longUtilityOutputReceived(QString::fromUtf8(line).trimmed());
@@ -78,7 +82,7 @@ void LocalSystem::launchLongUtility(const QString& cmd, const QString& caseName,
     // Handle process completion (success or failure)
     connect(process, &QProcess::finished, this, [this, caseName, utilityType](
             int exitCode, QProcess::ExitStatus exitStatus) {
-
+        // Set status
         QString status = "error";
 
         // Check for a normal crash-free exit and success code (0)
@@ -105,7 +109,6 @@ void LocalSystem::launchLongUtility(const QString& cmd, const QString& caseName,
 
 // Locate OpenFOAM installation(s)
 QStringList LocalSystem::findOpenFoam() {
-
     QStringList ofList;
     std::vector<fs::path> base_paths = {"/usr/lib/openfoam", "/opt"};
     for (const auto& base : base_paths) {
@@ -152,7 +155,6 @@ void findDirectories(const QString& currentPath, int currentDepth,
 
 // Get folders in the home directory
 QStringList LocalSystem::getHomeFolders() {
-
     // Access the home directory
     QString targetPath = std::getenv("HOME");
 
@@ -205,12 +207,12 @@ QStringList LocalSystem::getFiles(QString path) {
     return results;
 }
 
-QStringList LocalSystem::copyTutorialFolders(QString tutPath, QString casePath) {
+QStringList LocalSystem::copyTutorialFolders(QString tutPath,
+                                             QString casePath) {
     return {};
 }
 
 bool LocalSystem::writeData(const QByteArray& data, const QString& filePath) {
-
     // Create and open the file
     QFile file(filePath);
         if (!file.open(QIODevice::WriteOnly)) {
@@ -225,7 +227,6 @@ bool LocalSystem::writeData(const QByteArray& data, const QString& filePath) {
 }
 
 bool LocalSystem::createDirectories(const QStringList& dirPaths) {
-
     if (dirPaths.isEmpty()) {
         return false;
     }
@@ -241,7 +242,6 @@ bool LocalSystem::createDirectories(const QStringList& dirPaths) {
 }
 
 bool LocalSystem::writeData(const QString& srcPath, const QString& dstPath) {
-
     // Make sure source file exists
     QFileInfo srcInfo(srcPath);
     if (!srcInfo.exists() || !srcInfo.isFile())
@@ -261,7 +261,6 @@ bool LocalSystem::writeData(const QString& srcPath, const QString& dstPath) {
 }
 
 QString LocalSystem::checkPath(const QString& basePath) {
-
     // Use the static exists() method for a faster initial check
     if (!QFileInfo::exists(basePath)) {
         return "0";
@@ -281,7 +280,6 @@ QString LocalSystem::checkPath(const QString& basePath) {
 }
 
 QString LocalSystem::getResultFolders(QString casePath) {
-
     // Verify the path exists and is a directory
     QFileInfo targetInfo(casePath);
     if (!targetInfo.exists() || !targetInfo.isDir()) {
@@ -417,7 +415,6 @@ std::pair<float, float> get_pressure_range(const QByteArray& pData) {
 }
 
 RenderData LocalSystem::getResultData(const QString& path) {
-
     bool pointsFound = false, connectivityFound = false,
         offsetsFound = false, pFound = false;
     QByteArray pointsData, connectivityData, offsetsData, pData;
@@ -438,18 +435,16 @@ RenderData LocalSystem::getResultData(const QString& path) {
                              line.contains("\"Points\""))) {
             pointsData = extract_vtk_payload(stream, line);
             pointsFound = true;
-        }
-        else if (!connectivityFound && (line.contains("'connectivity'") ||
+        } else if (!connectivityFound && (line.contains("'connectivity'") ||
                                         line.contains("\"connectivity\""))) {
             connectivityData = extract_vtk_payload(stream, line);
             connectivityFound = true;
-        }
-        else if (!offsetsFound && (line.contains("'offsets'") ||
+        } else if (!offsetsFound && (line.contains("'offsets'") ||
                                    line.contains("\"offsets\""))) {
             offsetsData = extract_vtk_payload(stream, line);
             offsetsFound = true;
-        }
-        else if (!pFound && (line.contains("'p'") || line.contains("\"p\""))) {
+        } else if (!pFound && (line.contains("'p'") ||
+                               line.contains("\"p\""))) {
             pData = extract_vtk_payload(stream, line);
             pFound = true;
         }
@@ -537,8 +532,7 @@ RenderData LocalSystem::getResultData(const QString& path) {
             indexBuffer.push_back(connectivityVals[current_conn_idx]);
             indexBuffer.push_back(connectivityVals[current_conn_idx + 1]);
             indexBuffer.push_back(connectivityVals[current_conn_idx + 2]);
-        }
-        else if (num_verts_in_cell > 3) {
+        } else if (num_verts_in_cell > 3) {
             uint32_t anchor_index = connectivityVals[current_conn_idx];
             for (size_t j = 1; j < num_verts_in_cell - 1; ++j) {
                 indexBuffer.push_back(anchor_index);

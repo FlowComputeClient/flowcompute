@@ -15,13 +15,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef OPEN_FOAM_DICTIONARY_H
-#define OPEN_FOAM_DICTIONARY_H
-
-#include "../third_party/tree_sitter/include/tree_sitter/api.h"
+#ifndef PARSER_OPEN_FOAM_DICTIONARY_H_
+#define PARSER_OPEN_FOAM_DICTIONARY_H_
 
 #include <QByteArray>
 #include <QString>
+
+#include <memory>
+
+#include "../third_party/tree_sitter/include/tree_sitter/api.h"
 
 struct SyntaxError {
     uint32_t line;
@@ -47,8 +49,8 @@ struct TSParserDeleter {
 };
 
 class OpenFoamDictionary {
-public:
-    OpenFoamDictionary(const QByteArray& sourceText);
+ public:
+    explicit OpenFoamDictionary(const QByteArray& sourceText);
     ~OpenFoamDictionary();
 
     // Clean getters for the UI
@@ -66,7 +68,7 @@ public:
     // Get the final mutated text to send back over ASIO
     QByteArray getRawText() const;
 
-private:
+ private:
     QByteArray m_sourceText;
     std::unique_ptr<TSTree, TSTreeDeleter> m_tree;
     TSParser* m_parser;
@@ -75,4 +77,4 @@ private:
     TSNode findNode(const QString& path) const;
 };
 
-#endif // OPEN_FOAM_DICTIONARY_H
+#endif  // PARSER_OPEN_FOAM_DICTIONARY_H_

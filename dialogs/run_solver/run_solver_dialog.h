@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef RUN_SOLVER_DIALOG_H_
-#define RUN_SOLVER_DIALOG_H_
+#ifndef DIALOGS_RUN_SOLVER_RUN_SOLVER_DIALOG_H_
+#define DIALOGS_RUN_SOLVER_RUN_SOLVER_DIALOG_H_
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -30,16 +30,16 @@ class RunSolverDialog : public QDialog {
     Q_OBJECT
 
  public:
-    RunSolverDialog(const QString& selectedCase,
-                  const QStringList& caseList,
-                  QWidget* parent = nullptr);
+    RunSolverDialog(const QString& selectedCase, const QStringList& caseList,
+        QWidget* parent = nullptr);
 
  private:
     MainWindow* m_mainWin;
     QString m_solverName;
 
     QCheckBox *m_potentialCheck, *m_updateVelocityCheck, *m_writePressureCheck;
-    QCheckBox *m_runSolverCheck, *m_deleteFilesCheck, *m_reconstructCheck, *m_deleteProcessorCheck;
+    QCheckBox *m_runSolverCheck, *m_deleteFilesCheck, *m_reconstructCheck,
+        *m_deleteProcessorCheck;
     QComboBox *m_caseCombo, *m_numCoresCombo;
 
  private slots:
@@ -49,4 +49,4 @@ class RunSolverDialog : public QDialog {
     void simulationCheckToggled(bool state);
 };
 
-#endif // RUN_SOLVER_DIALOG_H_
+#endif  // DIALOGS_RUN_SOLVER_RUN_SOLVER_DIALOG_H_

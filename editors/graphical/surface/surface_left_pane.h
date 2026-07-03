@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef SURFACE_LEFT_PANE_H_
-#define SURFACE_LEFT_PANE_H_
+#ifndef EDITORS_GRAPHICAL_SURFACE_SURFACE_LEFT_PANE_H_
+#define EDITORS_GRAPHICAL_SURFACE_SURFACE_LEFT_PANE_H_
 
 #include <QCheckBox>
 #include <QDoubleSpinBox>
@@ -29,10 +29,13 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <string>
+#include <vector>
+
 class SurfaceLeftPane : public QWidget {
     Q_OBJECT
 
-public:
+ public:
     explicit SurfaceLeftPane(QWidget* parent = nullptr);
 
     // Get and set patch names
@@ -41,16 +44,16 @@ public:
     void setBounds(std::array<float, 3> bounds);
     void changeBounds(double scaleFactor);
 
-protected:
+ protected:
     void paintEvent(QPaintEvent *event) override;
 
-signals:
+ signals:
     void surfaceCheckRequested();
     void surfaceScaleRequested(double scaleFactor);
     void surfacePatchRequested(double featureAngle);
     void dirtyStateChanged(bool isDirty);
 
-private:
+ private:
     bool m_isBinary;
     std::array<float, 3> m_bounds;
     QDoubleSpinBox *m_angleSpin, *m_scaleSpin;
@@ -58,10 +61,10 @@ private:
     QPushButton *m_checkButton, *m_patchButton, *m_scaleButton;
     QTableWidget *m_patchTable;
 
-private slots:
+ private slots:
     void onCheckButtonClicked();
     void onScaleButtonClicked();
     void onPatchButtonClicked();
 };
 
-#endif // SURFACE_LEFT_PANE_H_
+#endif // EDITORS_GRAPHICAL_SURFACE_SURFACE_LEFT_PANE_H_

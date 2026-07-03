@@ -15,19 +15,20 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef NAVIGATOR_MODEL_H_
-#define NAVIGATOR_MODEL_H_
+#ifndef VIEWS_NAVIGATOR_NAVIGATOR_MODEL_H_
+#define VIEWS_NAVIGATOR_NAVIGATOR_MODEL_H_
 
 #include <QStandardItemModel>
-#include "node_data.h"
+
+#include "./node_data.h"
 
 class NavigatorModel : public QStandardItemModel {
     Q_OBJECT
  public:
     explicit NavigatorModel(QObject *parent = nullptr);
 
-    // A clean helper to get your specific node type back out of the model
+    // Get node at the given index
     NodeData* nodeFromIndex(const QModelIndex &index) const;
 };
 
-#endif // NAVIGATOR_MODEL_H_
+#endif  // VIEWS_NAVIGATOR_NAVIGATOR_MODEL_H_

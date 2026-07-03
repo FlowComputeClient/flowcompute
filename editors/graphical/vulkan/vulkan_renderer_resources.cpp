@@ -17,11 +17,13 @@
 
 #include "vulkan_renderer.h"
 
+#include <algorithm>
+#include <vector>
+
 #include "vulkan_window.h"
 
 // Create vertex buffer
 void VulkanRenderer::createVertexBuffer() {
-
     // Check mesh data
     if (!m_renderData || m_renderData->data.empty()) {
         qWarning("Vertex data is empty. Skipping buffer creation.");
@@ -74,12 +76,12 @@ void VulkanRenderer::createVertexBuffer() {
     err = m_devFuncs->vkMapMemory(m_device, m_vertexBufferMemory, 0,
                                   vertexBufferSize, 0, &vertexData);
     if (err != VK_SUCCESS) qFatal("Failed to map vertex memory: %d", err);
-    memcpy(vertexData, m_renderData->data.data(), (size_t)vertexBufferSize);
+    memcpy(vertexData, m_renderData->data.data(),
+           static_cast<size_t>(vertexBufferSize));
     m_devFuncs->vkUnmapMemory(m_device, m_vertexBufferMemory);
 }
 
 void VulkanRenderer::createIndexBuffer() {
-
     // Delete buffer if it already exists
     if (m_indexBuffer != VK_NULL_HANDLE) {
         m_devFuncs->vkDestroyBuffer(m_device, m_indexBuffer, nullptr);
@@ -126,12 +128,12 @@ void VulkanRenderer::createIndexBuffer() {
     err = m_devFuncs->vkMapMemory(m_device, m_indexBufferMemory, 0,
                                   indexBufferSize, 0, &indexData);
     if (err != VK_SUCCESS) qFatal("Failed to map index memory: %d", err);
-    memcpy(indexData, m_renderData->indices.data(), (size_t)indexBufferSize);
+    memcpy(indexData, m_renderData->indices.data(),
+           static_cast<size_t>(indexBufferSize));
     m_devFuncs->vkUnmapMemory(m_device, m_indexBufferMemory);
 }
 
 void VulkanRenderer::createAxisBuffer() {
-
     // Create axis buffer
     float xDiff = m_renderData->boundingBoxMax[0] -
                   m_renderData->boundingBoxMin[0];
@@ -184,13 +186,13 @@ void VulkanRenderer::createAxisBuffer() {
     err = m_devFuncs->vkMapMemory(m_device, m_axisBufferMemory, 0,
                                   axisBufferSize, 0, &axisCopyData);
     if (err != VK_SUCCESS) qFatal("Failed to map axis memory: %d", err);
-    memcpy(axisCopyData, axisData.data(), (size_t)axisBufferSize);
+    memcpy(axisCopyData, axisData.data(),
+           static_cast<size_t>(axisBufferSize));
     m_devFuncs->vkUnmapMemory(m_device, m_axisBufferMemory);
 }
 
 // Create uniform buffer
 void VulkanRenderer::createUniformBuffer() {
-
     // Get the device's minimum uniform buffer alignment
     VkPhysicalDeviceProperties physDevProps;
     m_window->vulkanInstance()->functions()->vkGetPhysicalDeviceProperties(
@@ -259,7 +261,6 @@ void VulkanRenderer::createUniformBuffer() {
 
 // Initialize texture
 void VulkanRenderer::createTexture() {
-
     // Create color map
     QImage colormap(":/images/viridis_map.png");
     if (colormap.isNull()) qFatal("Failed to load colormap image");

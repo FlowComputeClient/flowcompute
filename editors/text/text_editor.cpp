@@ -33,7 +33,6 @@ void LineNumberArea::paintEvent(QPaintEvent *event) {
 }
 
 TextEditor::TextEditor(QWidget *parent) : QPlainTextEdit(parent) {
-
     lineNumberArea = new LineNumberArea(this);
     connect(document(), &QTextDocument::contentsChange,
             this, &TextEditor::onDocumentEdited);
@@ -52,7 +51,6 @@ TextEditor::TextEditor(QWidget *parent) : QPlainTextEdit(parent) {
 }
 
 void TextEditor::setTextData(const QByteArray &textData) {
-
     // Update the document
     setPlainText(QString::fromUtf8(textData));
 
@@ -138,8 +136,9 @@ void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
     QTextBlock block = firstVisibleBlock();
     int blockNumber = block.blockNumber();
     int top =
-        (int) blockBoundingGeometry(block).translated(contentOffset()).top();
-    int bottom = top + (int) blockBoundingRect(block).height();
+        static_cast<int>(blockBoundingGeometry(block).translated(
+            contentOffset()).top());
+    int bottom = top + static_cast<int>(blockBoundingRect(block).height());
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
@@ -154,13 +153,13 @@ void TextEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
         }
         block = block.next();
         top = bottom;
-        bottom = top + (int) blockBoundingRect(block).height();
+        bottom = top + static_cast<int>(blockBoundingRect(block).height());
         ++blockNumber;
     }
 }
 
+// Set the style used in the text editor
 void TextEditor::applyTheme(const TextEditorConfig& cfg) {
-
     // Set background color
     this->setStyleSheet(QString("background-color: %1;").
         arg(cfg.background.name()));
@@ -184,10 +183,8 @@ void TextEditor::applyTheme(const TextEditorConfig& cfg) {
 }
 
 void TextEditor::highlightCurrentLine() {
-
     QList<QTextEdit::ExtraSelection> extraSelections;
     if (!isReadOnly()) {
-
         QTextEdit::ExtraSelection selection;
         selection.format.setBackground(m_currentLineHighlight);
         selection.format.setProperty(

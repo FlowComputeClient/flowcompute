@@ -17,13 +17,14 @@
 
 #include "result_editor.h"
 
+#include <memory>
+
 ResultEditor::ResultEditor(const QStringList& timeFolders,
                            std::shared_ptr<RenderData> renderData,
                            const QString& casePath, int targetId,
                            QVulkanInstance* instance, QWidget* parent):
     QWidget(parent), m_renderData(renderData), m_targetId(targetId),
     m_vulkanInstance(instance), m_casePath(casePath) {
-
     // Compute bounds of render data
     std::array<float, 3> bounds;
     bounds[0] = renderData->boundingBoxMax[0] - renderData->boundingBoxMin[0];
@@ -36,7 +37,7 @@ ResultEditor::ResultEditor(const QStringList& timeFolders,
 
     // Create Vulkan window
     QWidget* rightPane;
-    if(!renderData->data.empty()) {
+    if (!renderData->data.empty()) {
         m_vulkanWindow = new VulkanWindow(m_renderData);
         m_vulkanWindow->setVulkanInstance(m_vulkanInstance);
 
@@ -71,7 +72,6 @@ void ResultEditor::onTimeChange(const QString& timeFolder) {
 }
 
 void ResultEditor::applyTheme(const QString& theme) {
-
     // qDebug() << "ResultEditor theme: " << theme;
 
     m_vulkanWindow->applyTheme(theme);
@@ -79,7 +79,6 @@ void ResultEditor::applyTheme(const QString& theme) {
 
 // Update surface data
 void ResultEditor::updateResult(std::shared_ptr<RenderData> newData) {
-
     // Update data
     m_renderData = newData;
 

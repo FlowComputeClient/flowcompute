@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "utils.h"
+#include "./utils.h"
 
 #include <QCoreApplication>
 #include <QMessageBox>
@@ -23,31 +23,34 @@
 #include <QRegularExpression>
 #include <QTextStream>
 
-QString Utils::createFoamHeader(const QString& objectName, const QString& foamPath) {
+QString Utils::createFoamHeader(const QString& objectName,
+                                const QString& foamPath) {
     QString headerStr;
     QTextStream out(&headerStr);
 
     // Default fallback values
     bool isESI = false;
     QString verText = "unknown";
-    QRegularExpression re("openfoam-?v?(\\d+)", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpression re("openfoam-?v?(\\d+)",
+                          QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatch match = re.match(foamPath);
 
     if (match.hasMatch()) {
         QString digits = match.captured(1);
         int verNumber = digits.toInt();
 
-        // ESI/Keysight releases use YYMM (e.g., 2312, 2412), so the number is always > 100
+        // ESI/Keysight releases use YYMM (e.g., 2312, 2412)
         if (verNumber > 100) {
             isESI = true;
             verText = "v" + digits;
         } else {
-            // Foundation releases use sequential major versions (e.g., 11, 12, 13)
+            // Foundation releases use major versions (e.g., 11, 12, 13)
             isESI = false;
             verText = digits;
         }
     } else {
-        qWarning() << "Warning: Could not parse OpenFOAM version from path:" << foamPath;
+        qWarning() <<
+            "Warning: Could not parse OpenFOAM version from path:" << foamPath;
     }
 
     QString line3_right, line4_right;
@@ -63,13 +66,20 @@ QString Utils::createFoamHeader(const QString& objectName, const QString& foamPa
     }
 
     // Write the banner, padding the right side to exactly 47 characters
-    out << "/*--------------------------------*- C++ -*----------------------------------*\\\n";
-    out << "| =========                 |                                                 |\n";
-    out << "| \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n";
-    out << "|  \\\\    /   O peration     | " << line3_right.leftJustified(47, ' ') << " |\n";
-    out << "|   \\\\  /    A nd           | " << line4_right.leftJustified(47, ' ') << " |\n";
-    out << "|    \\\\/     M anipulation  |                                                 |\n";
-    out << "\\*---------------------------------------------------------------------------*/\n";
+    out << "/*--------------------------------*- C++ -*-----------------------"
+           "-----------*\\\n";
+    out << "| =========                 "
+           "|                                                 |\n";
+    out << "| \\\\      /  F ield         | "
+           "OpenFOAM: The Open Source CFD Toolbox           |\n";
+    out << "|  \\\\    /   O peration     | "
+        << line3_right.leftJustified(47, ' ') << " |\n";
+    out << "|   \\\\  /    A nd           | "
+        << line4_right.leftJustified(47, ' ') << " |\n";
+    out << "|    \\\\/     M anipulation  "
+           "|                                                 |\n";
+    out << "\\*--------------------------------------------------------------"
+           "-------------*/\n";
 
     // Write the required FoamFile dictionary
     out << "FoamFile\n";
@@ -79,18 +89,21 @@ QString Utils::createFoamHeader(const QString& objectName, const QString& foamPa
     out << "    class       dictionary;\n";
     out << "    object      " << objectName << ";\n";
     out << "}\n";
-    out << "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n\n";
+    out << "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * "
+           "* * * * * * //\n\n";
 
     return headerStr;
 }
 
 QString Utils::createFoamFooter() {
-    return QString("// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n");
+    return QString("// * * * * * * * * * * * * * * * * * * * * * * * * * * * "
+                   "* * * * * * * * * * //\n");
 }
 
-QString Utils::createSurfacePatchDict(const QString& openFoamPath, const QString& fileName,
+QString Utils::createSurfacePatchDict(const QString& openFoamPath,
+                                      const QString& fileName,
                                       double featureAngle) {
-
+    // Set dictionary content
     QString dictContent = QString(R"(geometry
 {
     "%1"
@@ -120,8 +133,9 @@ surfaces
            dictContent + createFoamFooter();
 }
 
-QString Utils::createDecomposeParDict(const QString& openFoamPath, int numCores) {
-
+QString Utils::createDecomposeParDict(const QString& openFoamPath,
+                                      int numCores) {
+    // Set dictionary content
     QString dictContent = QString(R"(
 // Number of cores used for processing
 numberOfSubdomains %1;
@@ -135,18 +149,30 @@ method scotch;
            dictContent + createFoamFooter();
 }
 
-Utils::ParseErrorAction Utils::showParsingErrorMessage(QString fileName, QWidget* parent) {
-
+Utils::ParseErrorAction Utils::showParsingErrorMessage(QString fileName,
+                                                       QWidget* parent) {
+    // Create dialog
     QMessageBox errorDialog(parent);
-    errorDialog.setWindowTitle(QCoreApplication::translate("Utils", "Parse Error"));
-    errorDialog.setText(QString(QCoreApplication::translate("Utils", "<b>Failed to parse %1.</b>")).arg(fileName));
-    errorDialog.setInformativeText(QCoreApplication::translate("Utils", "The file may contain syntax errors or unsupported keywords."));
+    errorDialog.setWindowTitle(
+        QCoreApplication::translate("Utils", "Parse Error"));
+    errorDialog.setText(
+        QString(QCoreApplication::translate(
+                "Utils", "<b>Failed to parse %1.</b>")).arg(fileName));
+    errorDialog.setInformativeText(
+        QCoreApplication::translate("Utils",
+            "The file may contain syntax errors or unsupported keywords."));
     errorDialog.setIcon(QMessageBox::Warning);
 
     // Add the custom choices and assign them roles
-    QPushButton *editBtn = errorDialog.addButton(QCoreApplication::translate("Utils", "Edit File"), QMessageBox::ActionRole);
-    QPushButton *overwriteBtn = errorDialog.addButton(QCoreApplication::translate("Utils", "Overwrite File"), QMessageBox::DestructiveRole);
-    errorDialog.addButton(QCoreApplication::translate("Utils", "Cancel"), QMessageBox::RejectRole);
+    QPushButton *editBtn =
+        errorDialog.addButton(QCoreApplication::translate("Utils", "Edit File"),
+            QMessageBox::ActionRole);
+    QPushButton *overwriteBtn =
+        errorDialog.addButton(
+            QCoreApplication::translate("Utils", "Overwrite File"),
+                QMessageBox::DestructiveRole);
+    errorDialog.addButton(QCoreApplication::translate("Utils", "Cancel"),
+        QMessageBox::RejectRole);
     errorDialog.setDefaultButton(editBtn);
 
     // Execute the dialog modally

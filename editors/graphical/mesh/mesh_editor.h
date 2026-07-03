@@ -15,12 +15,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef MESH_EDITOR_H
-#define MESH_EDITOR_H
+#ifndef EDITORS_GRAPHICAL_MESH_MESH_EDITOR_H_
+#define EDITORS_GRAPHICAL_MESH_MESH_EDITOR_H_
 
 #include <QHBoxLayout>
 #include <QVulkanInstance>
 #include <QWidget>
+
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "../vulkan/vulkan_window.h"
 #include "../../../geometry/graphic_data.h"
@@ -31,24 +35,26 @@ class MainWindow;
 class MeshEditor : public QWidget {
     Q_OBJECT
 
-public:
+ public:
     explicit MeshEditor(std::shared_ptr<RenderData> RenderData,
-                        const QString& casePath, int targetId,
-                        const std::vector<FlowCompute::SolverFamily>& families,
-                        const FlowCompute::TurbulenceDatabase& turbModels,
-                        const QHash<QString, FlowCompute::FieldDef>& fieldData,
-                        const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
-                        QVulkanInstance* instance, QWidget* parent = nullptr);
+        const QString& casePath, int targetId,
+        const std::vector<FlowCompute::SolverFamily>& families,
+        const FlowCompute::TurbulenceDatabase& turbModels,
+        const QHash<QString, FlowCompute::FieldDef>& fieldData,
+        const std::vector<FlowCompute::BoundaryConditionDef>&
+                            boundaryConditions,
+        QVulkanInstance* instance, QWidget* parent = nullptr);
     void updateMesh(std::shared_ptr<RenderData> newData);
     void applyTheme(const QString& theme);
 
-signals:
+ signals:
     void dirtyStateChanged(bool isDirty);
     void meshCheckRequested(const QString& fullPath, int targetId);
-    void meshPatchRequested(double featureAngle, const QString& fullPath, int targetId);
+    void meshPatchRequested(double featureAngle, const QString& fullPath,
+                            int targetId);
     void meshRenumberRequested(const QString& fullPath, int targetId);
 
-private:
+ private:
     MainWindow* m_mainWin;
     MeshLeftPane* m_leftPane;
     bool m_isSurfaceChanged = false;
@@ -66,14 +72,15 @@ private:
     std::shared_ptr<RenderData> m_renderData;
 
     QStringList getSolverFields(const QString& solver);
-    QStringList getTurbulenceFields(const QString& simulationType, const QString& modelType);
+    QStringList getTurbulenceFields(const QString& simulationType,
+                                    const QString& modelType);
     void updatePatches();
 
-private slots:
+ private slots:
     void onMeshCheckRequest();
     void onMeshPatchRequest(double featureAngle);
     void onMeshRenumberRequest();
     void onPatchApply(std::vector<FlowCompute::MeshPatch>& patches);
 };
 
-#endif // MESH_EDITOR_H
+#endif  // EDITORS_GRAPHICAL_MESH_MESH_EDITOR_H_

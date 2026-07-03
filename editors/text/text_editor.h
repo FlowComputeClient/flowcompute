@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef TEXT_EDITOR_H_
-#define TEXT_EDITOR_H_
+#ifndef EDITORS_TEXT_TEXT_EDITOR_H_
+#define EDITORS_TEXT_TEXT_EDITOR_H_
 
 #include <QFuture>
 #include <QtConcurrent>
@@ -38,10 +38,8 @@ struct TextEditorConfig {
 class TextEditor;
 
 class LineNumberArea : public QWidget {
-
  public:
-    LineNumberArea(TextEditor *editor);
-
+    explicit LineNumberArea(TextEditor *editor);
     QSize sizeHint() const override;
 
  protected:
@@ -56,7 +54,7 @@ class TextEditor : public QPlainTextEdit {
     Q_OBJECT
 
  public:
-    TextEditor(QWidget *parent = nullptr);
+    explicit TextEditor(QWidget *parent = nullptr);
     int lineNumberAreaWidth();
     void lineNumberAreaPaintEvent(QPaintEvent *event);
     void setTextData(const QByteArray &textData);
@@ -85,4 +83,4 @@ class TextEditor : public QPlainTextEdit {
     QColor m_lineNumberActive = QColor(0xC6, 0xC6, 0xC6);
 };
 
-#endif // TEXT_EDITOR_H_
+#endif  // EDITORS_TEXT_TEXT_EDITOR_H_

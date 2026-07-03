@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef UTILITY_OUTPUT_DIALOG_H
-#define UTILITY_OUTPUT_DIALOG_H
+#ifndef DIALOGS_UTILITY_OUTPUT_UTILITY_OUTPUT_DIALOG_H_
+#define DIALOGS_UTILITY_OUTPUT_UTILITY_OUTPUT_DIALOG_H_
 
 #include <QDialog>
 #include <QString>
@@ -36,19 +36,18 @@ struct SummaryItem {
 class UtilityOutputDialog : public QDialog {
     Q_OBJECT
 
-public:
+ public:
     explicit UtilityOutputDialog(const QString& title,
-                                 const QString& description,
-                                 const std::vector<QString>& summaryItems,
-                                 const QString& rawLog,
-                                 QWidget *parent = nullptr);
+        const QString& description,
+        const std::vector<QString>& summaryItems,
+        const QString& rawLog, QWidget *parent = nullptr);
 
-private slots:
+ private slots:
     void toggleLogViewer(bool checked);
 
-private:
+ private:
     QTextEdit* m_rawLogTextEdit;
     QPushButton* m_toggleButton;
 };
 
-#endif // UTILITY_OUTPUT_DIALOG_H
+#endif  // DIALOGS_UTILITY_OUTPUT_UTILITY_OUTPUT_DIALOG_H_

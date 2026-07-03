@@ -96,7 +96,8 @@ enum class DecompositionMethod {
 };
 Q_ENUM_NS(DecompositionMethod)
 
-inline const QStringList patchTypes = { "patch", "wall", "empty", "symmetry", "wedge" };
+inline const QStringList patchTypes =
+    { "patch", "wall", "empty", "symmetry", "wedge" };
 
 // Store entered results
 struct BoundaryCondition {
@@ -191,8 +192,9 @@ struct TurbulenceModel {
     QStringList fields;
 };
 
-using TurbulenceDatabase = QMap<QString, QMap<QString, std::vector<TurbulenceModel>>>;
+using TurbulenceDatabase = QMap<QString, QMap<QString,
+                            std::vector<TurbulenceModel>>>;
 
 };
 
-#endif // CORE_TYPES_H_
+#endif  // CORE_TYPES_H_

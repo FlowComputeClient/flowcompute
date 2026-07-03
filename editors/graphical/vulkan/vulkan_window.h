@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef VULKAN_WINDOW_H_
-#define VULKAN_WINDOW_H_
+#ifndef EDITORS_GRAPHICAL_VULKAN_VULKAN_WINDOW_H_
+#define EDITORS_GRAPHICAL_VULKAN_VULKAN_WINDOW_H_
 
 #include <QMatrix4x4>
 #include <QVulkanWindow>
@@ -40,8 +40,9 @@ struct TransformMatrices {
 class VulkanWindow : public QVulkanWindow {
     Q_OBJECT
 
-public:
-    VulkanWindow(std::shared_ptr<RenderData> data, QWindow *parent = nullptr);
+ public:
+    explicit VulkanWindow(std::shared_ptr<RenderData> data,
+                           QWindow *parent = nullptr);
     QVulkanWindowRenderer *createRenderer() override;
     void renderGeometry();
 
@@ -68,12 +69,12 @@ public:
         return m_isUboDirty.exchange(false, std::memory_order_acquire);
     }
 
-protected:
+ protected:
     void wheelEvent(QWheelEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
 
-private:
+ private:
     // New camera state variables
     QPointF m_lastMousePos;
     std::array<float, 3> m_clearColor;
@@ -95,4 +96,4 @@ private:
     std::atomic<bool> m_isUboDirty{true};
 };
 
-#endif // VULKAN_WINDOW_H_
+#endif  // EDITORS_GRAPHICAL_VULKAN_VULKAN_WINDOW_H_

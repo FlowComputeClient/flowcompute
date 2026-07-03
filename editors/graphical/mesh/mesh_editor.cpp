@@ -17,9 +17,12 @@
 
 #include "mesh_editor.h"
 
-#include <algorithm>
-
 #include <QMetaEnum>
+
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "../../../dialogs/solver/solver_io.h"
 #include "../../../main_window.h"
@@ -35,7 +38,6 @@ MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
     QWidget(parent), m_renderData(renderData), m_casePath(casePath),
     m_targetId(targetId), m_families(families), m_turbModels(turbModels),
     m_fieldData(fieldData), m_vulkanInstance(instance) {
-
     // Get the current solver
     QString solver = "simpleFoam";
     m_mainWin = qobject_cast<MainWindow*>(this->parent());
@@ -91,7 +93,7 @@ MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
 
     // Create the mesh editor
     QWidget* rightPane;
-    if(!renderData->data.empty()) {
+    if (!renderData->data.empty()) {
         m_vulkanWindow = new VulkanWindow(m_renderData);
         m_vulkanWindow->setVulkanInstance(m_vulkanInstance);
 
@@ -132,7 +134,6 @@ void MeshEditor::applyTheme(const QString& theme) {
 }
 
 QStringList MeshEditor::getSolverFields(const QString& solver) {
-
     QStringList solverFields;
 
     // Iterate through families
@@ -148,20 +149,15 @@ QStringList MeshEditor::getSolverFields(const QString& solver) {
 
 QStringList MeshEditor::getTurbulenceFields(const QString& simulationType,
                                             const QString& model) {
-
     // Iterate through the outer map (simulation types)
     for (auto outerIt = m_turbModels.cbegin(); outerIt != m_turbModels.cend();
          ++outerIt) {
-
         // Check if the outer key contains the target simulationType
         if (outerIt.key().contains(simulationType)) {
-
-            // outerIt.value() is the inner QMap<QString, QList<TurbulenceModel>>
+            // outerIt.value() is the QMap<QString, QList<TurbulenceModel>>
             for (const auto& turbList : outerIt.value()) {
-
                 // Iterate through TurbulenceModel structs
                 for (const auto& turb : turbList) {
-
                     // If the name matches, we found our target
                     if (turb.name == model) {
                         return turb.fields;
@@ -175,7 +171,6 @@ QStringList MeshEditor::getTurbulenceFields(const QString& simulationType,
 
 // Update surface data
 void MeshEditor::updateMesh(std::shared_ptr<RenderData> newMesh) {
-
     // Update data
     m_renderData = newMesh;
 
@@ -191,9 +186,9 @@ void MeshEditor::updateMesh(std::shared_ptr<RenderData> newMesh) {
 }
 
 void MeshEditor::updatePatches() {
-
     // Filter empty boundaries and get boundary list
-    QByteArray fileData = m_mainWin->targetSystems[m_targetId]->getFileContent(m_casePath + "/constant/polyMesh/boundary");
+    QByteArray fileData = m_mainWin->targetSystems[m_targetId]->getFileContent(
+        m_casePath + "/constant/polyMesh/boundary");
     if (!fileData.isEmpty()) {
         m_boundaries = SolverIO::parseBoundaryPatches(fileData);
         // auto [newData, m_boundaries] = SolverIO::removeEmptyPatches(fileData);
@@ -201,7 +196,7 @@ void MeshEditor::updatePatches() {
     }
 
     // Update list of patch names
-    for(const auto& patch: m_renderData->patches) {
+    for (const auto& patch : m_renderData->patches) {
         m_patchNames.push_back(std::string(patch.name));
     }
 
@@ -210,14 +205,14 @@ void MeshEditor::updatePatches() {
         std::remove_if(m_boundaries.begin(), m_boundaries.end(),
            [this](const FlowCompute::MeshPatch& boundary) {
                std::string nameToCheck = boundary.name.toStdString();
-               return std::find(m_patchNames.begin(), m_patchNames.end(), nameToCheck) == m_patchNames.end();
+               return std::find(m_patchNames.begin(), m_patchNames.end(),
+                                nameToCheck) == m_patchNames.end();
            }), m_boundaries.end());
 
     m_leftPane->setPatches(m_boundaries);
 }
 
 void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
-
     // Select only patches whose names or types have changed
     std::vector<FlowCompute::MeshPatch> filtered;
     std::copy_if(patches.begin(), patches.end(),
@@ -226,11 +221,11 @@ void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
     });
 
     // Update boundary file
-    QByteArray fileData = m_mainWin->targetSystems[m_targetId]->getFileContent(m_casePath + "/constant/polyMesh/boundary");
+    QByteArray fileData = m_mainWin->targetSystems[m_targetId]->getFileContent(
+        m_casePath + "/constant/polyMesh/boundary");
     SolverIO::BoundaryFileParts parts = SolverIO::splitBoundaryFile(fileData);
     auto dict = std::make_shared<OpenFoamDictionary>(parts.payload);
-    if(!dict->hasSyntaxErrors()) {
-
+    if (!dict->hasSyntaxErrors()) {
         // Create updated text
         QString updatedPayload = SolverIO::updateBoundaryFile(dict, filtered);
 
@@ -242,7 +237,8 @@ void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
         finalFileData.append("\n)\n");
 
         // Update data
-        m_mainWin->targetSystems[m_targetId]->writeData(finalFileData, m_casePath + "/constant/polyMesh/boundary");
+        m_mainWin->targetSystems[m_targetId]->writeData(finalFileData,
+            m_casePath + "/constant/polyMesh/boundary");
 
         // Refresh navigator
         QString caseName = m_casePath.split("/").last();
@@ -256,7 +252,8 @@ void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
         QMessageBox errorDialog(this);
         errorDialog.setWindowTitle("Parse Error");
         errorDialog.setText(QString("<b>Failed to parse boundary file</b>"));
-        errorDialog.setInformativeText("The file may contain syntax errors or unsupported keywords.");
+        errorDialog.setInformativeText("The file may contain syntax errors "
+                                       "or unsupported keywords.");
         errorDialog.setIcon(QMessageBox::Warning);
         errorDialog.exec();
     }

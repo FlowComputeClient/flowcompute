@@ -17,8 +17,9 @@
 
 #include "node_data.h"
 
-NodeData::NodeData(const QString& name, const QString& fullPath, NodeType type) :
-    QStandardItem(name), name(name), fullPath(fullPath), nodeType(type) {
+NodeData::NodeData(const QString& name, const QString& fullPath,
+        NodeType type) : QStandardItem(name), name(name), fullPath(fullPath),
+    nodeType(type) {
 
     setForeground(QBrush(Qt::black));
     setIcon(getIconForType(type));

@@ -20,16 +20,17 @@
 #include <QComboBox>
 #include <QVBoxLayout>
 
+#include <vector>
+
 #include "../../../geometry/graphic_data.h"
 #include "../table_delegate.h"
 
 MeshLeftPane::MeshLeftPane(QStringList fields,
-                           const QHash<QString, FlowCompute::FieldDef>& fieldData,
-                           const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
-                           QWidget* parent):
+       const QHash<QString, FlowCompute::FieldDef>& fieldData,
+       const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
+       QWidget* parent):
     QWidget(parent), m_fields(fields), m_fieldData(fieldData),
     m_boundaryConditions(boundaryConditions) {
-
     // Vertical layout
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setSpacing(15);
@@ -115,7 +116,8 @@ MeshLeftPane::MeshLeftPane(QStringList fields,
     m_patchTable->setColumnCount(3);
     m_patchTable->horizontalHeader()->setVisible(false);
     m_patchTable->setColumnWidth(0, 30);
-    m_patchTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    m_patchTable->horizontalHeader()
+        ->setSectionResizeMode(1, QHeaderView::Stretch);
     m_patchTable->verticalHeader()->setVisible(false);
     m_patchTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
     m_patchTable->setTabKeyNavigation(true);
@@ -131,7 +133,8 @@ MeshLeftPane::MeshLeftPane(QStringList fields,
     m_applyButton->setEnabled(false);
 
     // Set event handling for the patch name
-    connect(m_patchTable, &QTableWidget::itemChanged, this, [this](QTableWidgetItem* item) {
+    connect(m_patchTable, &QTableWidget::itemChanged, this,
+            [this](QTableWidgetItem* item) {
         int row = item->row();
 
         // Handle name change
@@ -148,8 +151,8 @@ MeshLeftPane::MeshLeftPane(QStringList fields,
     layout->addStretch();
 }
 
-void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>& patches) {
-
+void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>&
+                                  patches) {
     m_boundaryPatches = patches;
 
     // Configure the table
@@ -158,8 +161,7 @@ void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>& patches
     m_patchTable->blockSignals(true);
 
     // Add rows to the table
-    for(int i = 0; i < static_cast<int>(patches.size()); i++) {
-
+    for (int i = 0; i < static_cast<int>(patches.size()); i++) {
         // Get the patch color
         QColor color(
             static_cast<int>(patchColors[i][0] * 255.0f),
@@ -175,7 +177,8 @@ void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>& patches
 
         // Column 2: Patch name
         QTableWidgetItem *nameItem = new QTableWidgetItem(patches[i].name);
-        nameItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable);
+        nameItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
+                           Qt::ItemIsEditable);
         m_patchTable->setItem(i, 1, nameItem);
 
         // Column 3: Patch type
@@ -187,7 +190,8 @@ void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>& patches
         m_patchTable->setCellWidget(i, 2, patchBox);
 
         // Set event-handling for the patch type
-        connect(patchBox, &QComboBox::currentTextChanged, this, [this, i](const QString& text) {
+        connect(patchBox, &QComboBox::currentTextChanged, this,
+                [this, i](const QString& text) {
             if (m_boundaryPatches[i].type != text) {
                 m_boundaryPatches[i].type = text;
                 m_boundaryPatches[i].typeChanged = true;

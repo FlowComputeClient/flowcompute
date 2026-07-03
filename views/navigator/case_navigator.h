@@ -15,16 +15,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef CASE_NAVIGATOR_H_
-#define CASE_NAVIGATOR_H_
+#ifndef VIEWS_NAVIGATOR_CASE_NAVIGATOR_H_
+#define VIEWS_NAVIGATOR_CASE_NAVIGATOR_H_
 
 #include <QDebug>
 #include <QMouseEvent>
 #include <QStyleFactory>
 #include <QTreeView>
 
-#include "navigator_model.h"
-#include "node_data.h"
+#include "./navigator_model.h"
+#include "./node_data.h"
 
 class MainWindow;
 
@@ -81,4 +81,4 @@ class CaseNavigator : public QTreeView {
     NodeType checkType(QString name, QString fullPath);
 };
 
-#endif // CASE_NAVIGATOR_H_
+#endif  // VIEWS_NAVIGATOR_CASE_NAVIGATOR_H_

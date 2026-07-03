@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef MESH_READER_H
-#define MESH_READER_H
+#ifndef GEOMETRY_MESH_MESH_READER_H_
+#define GEOMETRY_MESH_MESH_READER_H_
 
 #include <QBuffer>
 #include <QByteArray>
@@ -28,7 +28,7 @@
 #include "../graphic_data.h"
 
 namespace MeshReader {
-    RenderData readMesh(const QString& fileName, const QByteArray& fileData);
+RenderData readMesh(const QString& fileName, const QByteArray& fileData);
 };
 
-#endif // MESH_READER_H
+#endif  // GEOMETRY_MESH_MESH_READER_H_

@@ -19,12 +19,11 @@
 
 TreeSitterHighlighter::TreeSitterHighlighter(QTextDocument *parent)
     : QSyntaxHighlighter(parent) {
-
-    // Initialize this highlighter's exclusive parser
+    // Set the highlighter's parser
     m_parser.reset(ts_parser_new());
     ts_parser_set_language(m_parser.get(), tree_sitter_openfoam());
 
-    // Setup some basic Qt text formats
+    // Set basic text formats
     m_keywordFormat.setForeground(QColor(0x56, 0x9C, 0xD6));
     m_keywordFormat.setFontWeight(QFont::Bold);
     m_keywordFormat.setFontItalic(false);
@@ -47,7 +46,6 @@ TreeSitterHighlighter::TreeSitterHighlighter(QTextDocument *parent)
 }
 
 void TreeSitterHighlighter::setSyntaxConfig(const SyntaxConfig& cfg) {
-
     // Set the keyword format
     m_keywordFormat.setForeground(cfg.keyword.color);
     if (cfg.keyword.bold) {
@@ -125,14 +123,12 @@ void TreeSitterHighlighter::setTreeAsync(TSTree* newTree,
 
 // Synchronous parse: For small files and incremental edits
 void TreeSitterHighlighter::parseStringSync(const QByteArray& utf8Text) {
-
     m_documentUtf8 = utf8Text;
     TSTree* newTree = ts_parser_parse_string(
         m_parser.get(),
         nullptr,
         m_documentUtf8.constData(),
-        m_documentUtf8.size()
-        );
+        m_documentUtf8.size());
 
     m_tree.reset(newTree);
     rehighlight();
@@ -167,21 +163,16 @@ void TreeSitterHighlighter::applyFormatting(TSNode node,
                     // Otherwise, it is an identifier acting as a value
                     setFormat(relativeStart, length, m_enumFormat);
                 }
-            }
-            else if (nodeType == "number") {
+            } else if (nodeType == "number") {
                 setFormat(relativeStart, length, m_numberFormat);
-            }
-            else if (nodeType == "string") {
+            } else if (nodeType == "string") {
                 setFormat(relativeStart, length, m_stringFormat);
-            }
-            else if (nodeType == "boolean") {
+            } else if (nodeType == "boolean") {
                 setFormat(relativeStart, length, m_keywordFormat);
-            }
-            else if (nodeType == "line_comment" ||
+            } else if (nodeType == "line_comment" ||
                        nodeType == "block_comment") {
                 setFormat(relativeStart, length, m_commentFormat);
-            }
-            else if (nodeType == "include_directive" ||
+            } else if (nodeType == "include_directive" ||
                        nodeType == "calc_directive" ||
                        nodeType == "code_stream") {
                 setFormat(relativeStart, length, m_macroFormat);
@@ -197,7 +188,8 @@ void TreeSitterHighlighter::applyFormatting(TSNode node,
 // Update your highlightBlock to use it:
 void TreeSitterHighlighter::highlightBlock(const QString &text) {
 
-    if (!m_tree || text.isEmpty()) return;
+    if (!m_tree || text.isEmpty())
+        return;
 
     int blockStart = currentBlock().position();
     int blockEnd = blockStart + text.length();

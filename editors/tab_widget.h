@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef TAB_WIDGET_H_
-#define TAB_WIDGET_H_
+#ifndef EDITORS_TAB_WIDGET_H_
+#define EDITORS_TAB_WIDGET_H_
 
 #include <QDebug>
 #include <QFile>
@@ -60,4 +60,4 @@ class TabWidget : public QTabWidget {
     void changeDirtyState(QWidget*, bool);
 };
 
-#endif // TAB_WIDGET_H_
+#endif  // EDITORS_TAB_WIDGET_H_

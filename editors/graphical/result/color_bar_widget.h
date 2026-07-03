@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef COLOR_BAR_WIDGET_H_
-#define COLOR_BAR_WIDGET_H_
+#ifndef EDITORS_GRAPHICAL_RESULT_COLOR_BAR_WIDGET_H_
+#define EDITORS_GRAPHICAL_RESULT_COLOR_BAR_WIDGET_H_
 
 #include <QPainter>
 #include <QLinearGradient>
@@ -31,4 +31,4 @@ class ColorBarWidget : public QWidget {
     void paintEvent(QPaintEvent *event) override;
 };
 
-#endif // COLOR_BAR_WIDGET_H_
+#endif  // EDITORS_GRAPHICAL_RESULT_COLOR_BAR_WIDGET_H_

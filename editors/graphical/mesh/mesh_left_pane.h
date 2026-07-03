@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef MESH_LEFT_PANE_H_
-#define MESH_LEFT_PANE_H_
+#ifndef EDITORS_GRAPHICAL_MESH_MESH_LEFT_PANE_H_
+#define EDITORS_GRAPHICAL_MESH_MESH_LEFT_PANE_H_
 
 #include <QCheckBox>
 #include <QDoubleSpinBox>
@@ -29,12 +29,15 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <string>
+#include <vector>
+
 #include "../../../core_types.h"
 
 class MeshLeftPane : public QWidget {
     Q_OBJECT
 
-  public:
+ public:
     explicit MeshLeftPane(QStringList fields,
       const QHash<QString, FlowCompute::FieldDef>& fieldData,
       const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
@@ -44,14 +47,14 @@ class MeshLeftPane : public QWidget {
     std::vector<std::string> getPatchNames() const;
     void setPatches(const std::vector<FlowCompute::MeshPatch>& patches);
 
-  signals:
+ signals:
     void dirtyStateChanged(bool isDirty);
     void meshCheckRequested();
     void meshPatchRequested(double angle);
     void meshRenumberRequested();
     void patchApplyRequested(std::vector<FlowCompute::MeshPatch>& patches);
 
-  private:
+ private:
     QDoubleSpinBox* m_angleSpin;
     QHash<QString, FlowCompute::FieldData> m_fieldEditorMap;
     QPushButton *m_checkButton, *m_renumberButton, *m_patchButton,
@@ -63,11 +66,11 @@ class MeshLeftPane : public QWidget {
     std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
     std::vector<FlowCompute::MeshPatch> m_boundaryPatches;
 
-  private slots:
+ private slots:
     void onCheckButtonClicked();
     void onRenumberButtonClicked();
     void onPatchButtonClicked();
     void onApplyButtonClicked();
 };
 
-#endif // MESH_LEFT_PANE_H_
+#endif  // EDITORS_GRAPHICAL_MESH_MESH_LEFT_PANE_H_

@@ -17,12 +17,14 @@
 
 #include "vulkan_window.h"
 
+#include <algorithm>
 #include <cmath>
+#include <memory>
+#include <utility>
 
 VulkanWindow::VulkanWindow(std::shared_ptr<RenderData> meshData,
                            QWindow *parent)
     : QVulkanWindow(parent), m_renderData(std::move(meshData)) {
-
     // Make sure resources aren't released when the window loses visibility
     setFlags(QVulkanWindow::PersistentResources);
 
@@ -82,7 +84,6 @@ void VulkanWindow::updateViewMatrix() {
 }
 
 void VulkanWindow::wheelEvent(QWheelEvent *event) {
-
     // angleDelta().y() returns the scroll amount. Standard click is 120.
     float scrollDelta = event->angleDelta().y();
     const float zoomBase = 1.1f;
@@ -105,7 +106,6 @@ void VulkanWindow::wheelEvent(QWheelEvent *event) {
 }
 
 void VulkanWindow::mousePressEvent(QMouseEvent *event) {
-
     if (event->button() == Qt::LeftButton ||
         event->button() == Qt::MiddleButton) {
         m_lastMousePos = event->pos();
@@ -113,8 +113,7 @@ void VulkanWindow::mousePressEvent(QMouseEvent *event) {
 }
 
 void VulkanWindow::mouseMoveEvent(QMouseEvent *event) {
-
-    // Use Qt 6 position() for sub-pixel precision
+    // Use position() for sub-pixel precision
     QPointF currentPos = event->position();
     QPointF delta = currentPos - m_lastMousePos;
 
@@ -193,12 +192,6 @@ void VulkanWindow::applyTheme(const QString& theme) {
             static_cast<float>(color.blueF())
         };
     }
-
-    /*
-    qDebug() << newClearColor[0];
-    qDebug() << newClearColor[1];
-    qDebug() << newClearColor[2];
-    */
 
     // Lock to update the variable and alert the renderer
     {

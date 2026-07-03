@@ -17,15 +17,18 @@
 
 #include "surface_editor.h"
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 SurfaceEditor::SurfaceEditor(std::shared_ptr<RenderData> renderData,
     const QString& fullPath, int targetId, QVulkanInstance* instance,
     bool isBinary, QWidget* parent):
 
     QWidget(parent), m_renderData(renderData), m_fullPath(fullPath),
     m_targetId(targetId), m_isBinary(isBinary), m_vulkanInstance(instance) {
-
     // Get list of patch names
-    for(const auto& patch: m_renderData->patches) {
+    for (const auto& patch : m_renderData->patches) {
         m_patchNames.push_back(std::string(patch.name));
     }
 
@@ -43,7 +46,7 @@ SurfaceEditor::SurfaceEditor(std::shared_ptr<RenderData> renderData,
 
     // Create Vulkan window
     QWidget* rightPane;
-    if(!renderData->data.empty()) {
+    if (!renderData->data.empty()) {
         m_vulkanWindow = new VulkanWindow(m_renderData);
         m_vulkanWindow->setVulkanInstance(m_vulkanInstance);
 
@@ -80,15 +83,11 @@ SurfaceEditor::SurfaceEditor(std::shared_ptr<RenderData> renderData,
 }
 
 void SurfaceEditor::applyTheme(const QString& theme) {
-
-    qDebug() << "Applying theme " << theme;
-
     m_vulkanWindow->applyTheme(theme);
 }
 
 // Update surface data
 void SurfaceEditor::updateModel(std::shared_ptr<RenderData> newData) {
-
     // Update data
     m_renderData = newData;
 
@@ -97,7 +96,7 @@ void SurfaceEditor::updateModel(std::shared_ptr<RenderData> newData) {
 
     // Update patch names in left pane
     m_patchNames.clear();
-    for(const auto& patch: m_renderData->patches) {
+    for (const auto& patch : m_renderData->patches) {
         m_patchNames.push_back(patch.name);
     }
     m_leftPane->setPatchNames(m_patchNames);
@@ -124,7 +123,6 @@ void SurfaceEditor::changeBounds(double scaleFactor) {
 // Access changes to the patch names
 std::vector<std::pair<std::string, std::string>>
     SurfaceEditor::getPatchChanges() {
-
     std::vector<std::pair<std::string, std::string>> differences;
     std::vector<std::string> newPatchNames = m_leftPane->getPatchNames();
 

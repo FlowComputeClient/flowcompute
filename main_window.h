@@ -18,17 +18,6 @@
 #ifndef MAIN_WINDOW_H_
 #define MAIN_WINDOW_H_
 
-#include "core_types.h"
-
-#include "dialogs/new_case/wizard_new_case.h"
-#include "editors/tab_widget.h"
-#include "editors/text/text_editor.h"
-#include "geometry/graphic_data.h"
-#include "systems/wsl_system.h"
-#include "systems/local_system.h"
-#include "views/navigator/case_navigator.h"
-#include "views/console/console.h"
-
 #include <QAction>
 #include <QCoreApplication>
 #include <QDockWidget>
@@ -41,6 +30,21 @@
 #include <QVersionNumber>
 #include <QVulkanInstance>
 #include <QWindow>
+
+#include <map>
+#include <memory>
+#include <vector>
+
+#include "dialogs/new_case/wizard_new_case.h"
+#include "editors/tab_widget.h"
+#include "editors/text/text_editor.h"
+#include "geometry/graphic_data.h"
+#include "systems/wsl_system.h"
+#include "systems/local_system.h"
+#include "views/navigator/case_navigator.h"
+#include "views/console/console.h"
+
+#include "./core_types.h"
 
 // Store information about project in navigator
 struct CaseData {
@@ -220,4 +224,4 @@ class MainWindow : public QMainWindow {
     void longUtilityFinished(const QString& status, const QString& caseName,
                              UtilityType utilityType);
 };
-#endif // MAIN_WINDOW_H_
+#endif  // MAIN_WINDOW_H_

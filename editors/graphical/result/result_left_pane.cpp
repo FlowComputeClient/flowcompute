@@ -16,7 +16,6 @@
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
 #include "result_left_pane.h"
-#include "color_bar_widget.h"
 
 #include <QComboBox>
 #include <QFrame>
@@ -24,9 +23,10 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 
+#include "color_bar_widget.h"
+
 ResultLeftPane::ResultLeftPane(const QStringList& timeFolders, QWidget* parent):
     m_timeFolders(timeFolders), QWidget(parent) {
-
     setProperty("widgetType", "pane");
 
     // Vertical layout

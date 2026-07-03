@@ -15,17 +15,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef LOCAL_SYSTEM_H_
-#define LOCAL_SYSTEM_H_
+#ifndef SYSTEMS_LOCAL_SYSTEM_H_
+#define SYSTEMS_LOCAL_SYSTEM_H_
 
 #include "target_system.h"
 
 class LocalSystem : public TargetSystem {
     Q_OBJECT
 
-public:
-    LocalSystem() {};
-    ~LocalSystem() {};
+ public:
+    LocalSystem() {}
+    ~LocalSystem() {}
 
     QStringList findOpenFoam() override;
     QStringList getTutorials(QString path) override;
@@ -46,7 +46,7 @@ public:
     QString getResultFolders(QString path) override;
     bool deleteFile(const QString& path) override;
 
-signals:
+ signals:
     // Emitted every time a chunk of console output arrives
     void longUtilityOutputReceived(const QString& outputChunk);
 
@@ -58,4 +58,4 @@ signals:
     void longUtilityError(const QString& errorMessage);
 };
 
-#endif // LOCAL_SYSTEM_H_
+#endif  // SYSTEMS_LOCAL_SYSTEM_H_

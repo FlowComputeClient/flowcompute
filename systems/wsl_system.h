@@ -15,10 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef WSL_SYSTEM_H_
-#define WSL_SYSTEM_H_
-
-#include "target_system.h"
+#ifndef SYSTEMS_WSL_SYSTEM_H_
+#define SYSTEMS_WSL_SYSTEM_H_
 
 #include <QAbstractButton>
 #include <QButtonGroup>
@@ -41,6 +39,8 @@
 #include <string>
 #include <vector>
 
+#include "./target_system.h"
+
 struct ResultHeader {
     uint32_t magicNumber;
     uint32_t dataByteSize;
@@ -53,8 +53,8 @@ class WslSystem : public TargetSystem {
     Q_OBJECT
 
  public:
-    WslSystem() {};
-    ~WslSystem() {};
+    WslSystem() {}
+    ~WslSystem() {}
 
     bool checkDistributions();
     QStringList findOpenFoam() override;
@@ -88,10 +88,9 @@ class WslSystem : public TargetSystem {
     void longUtilityError(const QString& errorMessage);
 
  private:
-
     void terminateProcess();
     QString createSelectionDialog(const std::vector<std::string>& paths);
     QJsonObject contactServer(QString, QString);
 };
 
-#endif // WSL_SYSTEM_H_
+#endif  // SYSTEMS_WSL_SYSTEM_H_

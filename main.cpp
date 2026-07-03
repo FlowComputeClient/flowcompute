@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "main_window.h"
+#include <cstdio>
 
 #include <QApplication>
 #include <QDate>
@@ -27,12 +27,15 @@
 #include <QString>
 #include <QStyleFactory>
 
+#include "./main_window.h"
+
 // Global variables for the logger
 QString g_logFilePath;
 QMutex g_logMutex;
 
 // The Custom Message Handler
-void flowComputeLogHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+void flowComputeLogHandler(QtMsgType type, const QMessageLogContext &context,
+                           const QString &msg) {
 
     // Lock the mutex to ensure thread safety
     QMutexLocker locker(&g_logMutex);
@@ -48,8 +51,10 @@ void flowComputeLogHandler(QtMsgType type, const QMessageLogContext &context, co
     }
 
     // Format the final message: [Timestamp] [Level] Message
-    QString currentDateTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
-    QString logMessage = QString("[%1] [%2] %3").arg(currentDateTime, levelText, msg);
+    QString currentDateTime =
+        QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
+    QString logMessage =
+        QString("[%1] [%2] %3").arg(currentDateTime, levelText, msg);
 
     // Write to the file
     QFile file(g_logFilePath);
@@ -68,7 +73,8 @@ void flowComputeLogHandler(QtMsgType type, const QMessageLogContext &context, co
 void initializeConfig() {
 
     // Determine the writable directory path
-    QString configDirPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    QString configDirPath =
+        QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     QDir configDir(configDirPath);
 
     // Ensure the directory exists
@@ -76,8 +82,9 @@ void initializeConfig() {
         configDir.mkpath(".");
     }
 
-    QStringList configFiles = { "solvers.json", "turbulence.json", "fields.json", "boundary_conditions.json",
-                                "material_properties.json" };
+    QStringList configFiles = {
+        "solvers.json", "turbulence.json", "fields.json",
+        "boundary_conditions.json", "material_properties.json" };
     for (const auto& configFile : configFiles) {
 
         // Define the path for the writable JSON file

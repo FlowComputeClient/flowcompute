@@ -17,14 +17,16 @@
 
 #include "surface_left_pane.h"
 
-#include "../../../geometry/graphic_data.h"
-#include "../table_delegate.h"
-
 #include <QStyleOption>
 #include <QPainter>
 
-SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
+#include <string>
+#include <vector>
 
+#include "../../../geometry/graphic_data.h"
+#include "../table_delegate.h"
+
+SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     // Vertical layout
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setSpacing(15);
@@ -169,7 +171,6 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
 }
 
 void SurfaceLeftPane::setBounds(std::array<float, 3> bounds) {
-
     m_bounds = bounds;
     QString boundsStr = QString("<b>( %1, %2, %3 )</b>")
         .arg(m_bounds[0], 0, 'g', 5)
@@ -191,14 +192,12 @@ void SurfaceLeftPane::changeBounds(double scaleFactor) {
 
 void SurfaceLeftPane::setPatchNames(
     const std::vector<std::string>& patchNames) {
-
     // Configure the table
     m_patchTable->setRowCount(0);
     m_patchTable->setRowCount(static_cast<int>(patchNames.size()));
 
     // Add rows to the table
-    for(int i = 0; i < static_cast<int>(patchNames.size()); i++) {
-
+    for (int i = 0; i < static_cast<int>(patchNames.size()); i++) {
         // Get the patch color
         QColor color(
             static_cast<int>(patchColors[i][0] * 255.0f),
@@ -231,7 +230,6 @@ void SurfaceLeftPane::setPatchNames(
 }
 
 std::vector<std::string> SurfaceLeftPane::getPatchNames() const {
-
     // Reserve memory
     std::vector<std::string> patchNames;
     int rowCount = m_patchTable->rowCount();
@@ -273,4 +271,3 @@ void SurfaceLeftPane::paintEvent(QPaintEvent *event) {
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
     QWidget::paintEvent(event);
 }
-

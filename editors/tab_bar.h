@@ -15,18 +15,18 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef TAB_BAR_H_
-#define TAB_BAR_H_
+#ifndef EDITORS_TAB_BAR_H_
+#define EDITORS_TAB_BAR_H_
 
 #include <QTabBar>
 
 // Custom tab bar moves the close button
 class TabBar : public QTabBar {
-public:
+ public:
     using QTabBar::QTabBar;
 
-protected:
+ protected:
     void tabLayoutChange() override;
 };
 
-#endif // TAB_BAR_H_
+#endif  // EDITORS_TAB_BAR_H_

@@ -17,10 +17,15 @@
 
 #include "mesh_reader.h"
 
+#include <algorithm>
 #include <cstring>
+#include <limits>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
-RenderData MeshReader::readMesh(const QString& fileName, const QByteArray& fileData) {
-
+RenderData MeshReader::readMesh(const QString& fileName,
+                                const QByteArray& fileData) {
     RenderData mesh;
     mesh.format = RenderType::Mesh;
     if (fileData.isEmpty()) return mesh;
@@ -54,16 +59,14 @@ RenderData MeshReader::readMesh(const QString& fileName, const QByteArray& fileD
             QString namePart = line.mid(5).trimmed();
             currentPatchName = resolvePatchName(namePart.toStdString());
 
-            // If this is the first time seeing this patch name, record its order
+            // Check for new patch name
             if (patchBuckets.find(currentPatchName) == patchBuckets.end()) {
                 patchOrder.push_back(currentPatchName);
             }
             inSolid = true;
-        }
-        else if (line.startsWith("endsolid", Qt::CaseInsensitive)) {
+        } else if (line.startsWith("endsolid", Qt::CaseInsensitive)) {
             inSolid = false;
-        }
-        else if (inSolid && line.startsWith("vertex", Qt::CaseInsensitive)) {
+        } else if (inSolid && line.startsWith("vertex", Qt::CaseInsensitive)) {
             QStringList parts = line.split(wsRe, Qt::SkipEmptyParts);
             if (parts.size() >= 4) {
                 float x = parts[1].toFloat();
@@ -109,14 +112,15 @@ RenderData MeshReader::readMesh(const QString& fileName, const QByteArray& fileD
 
             // Safely copy the bucket name into the char[64] array
             std::strncpy(patch.name, name.c_str(), sizeof(patch.name) - 1);
-            patch.name[sizeof(patch.name) - 1] = '\0'; // Guarantee null-termination
+            patch.name[sizeof(patch.name) - 1] = '\0';  // Null-termination
 
             // Calculate vertex counts based on 6 floats per vertex
             patch.first = static_cast<uint32_t>(mesh.data.size() / 6);
             patch.count = static_cast<uint32_t>(bucketData.size() / 6);
 
             // Append the entire bucket to the final data vector
-            mesh.data.insert(mesh.data.end(), bucketData.begin(), bucketData.end());
+            mesh.data.insert(mesh.data.end(), bucketData.begin(),
+                             bucketData.end());
             mesh.patches.push_back(patch);
         }
     }

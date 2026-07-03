@@ -15,14 +15,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef TREE_SITTER_HIGHLIGHTER_H_
-#define TREE_SITTER_HIGHLIGHTER_H_
+#ifndef EDITORS_TEXT_TREE_SITTER_HIGHLIGHTER_H_
+#define EDITORS_TEXT_TREE_SITTER_HIGHLIGHTER_H_
+
+#include <tree_sitter/api.h>
 
 #include <QSyntaxHighlighter>
 #include <QTextDocument>
 #include <QTextCharFormat>
+
 #include <memory>
-#include <tree_sitter/api.h>
 
 // Forward declare your generated language function
 extern "C" const TSLanguage *tree_sitter_openfoam();
@@ -46,7 +48,7 @@ struct SyntaxConfig {
 class TreeSitterHighlighter : public QSyntaxHighlighter {
     Q_OBJECT
 
-public:
+ public:
     explicit TreeSitterHighlighter(QTextDocument *parent = nullptr);
 
     // Call this when the file is first loaded (or after a background parse)
@@ -55,10 +57,10 @@ public:
     void setTreeAsync(TSTree* newTree, const QByteArray& utf8Text);
     void setSyntaxConfig(const SyntaxConfig& cfg);
 
-protected:
+ protected:
     void highlightBlock(const QString &text) override;
 
-private:
+ private:
     void applyFormatting(TSNode node, int blockStart, int blockEnd);
 
     // Custom deleters for Tree-sitter C structs
@@ -66,7 +68,7 @@ private:
         void operator()(TSParser* p) const { ts_parser_delete(p); }
     };
     struct TSTreeDeleter   {
-        void operator()(TSTree* t)   const { ts_tree_delete(t); }
+        void operator()(TSTree* t) const { ts_tree_delete(t); }
     };
 
     std::unique_ptr<TSParser, TSParserDeleter> m_parser;
@@ -80,4 +82,4 @@ private:
         m_enumFormat, m_macroFormat, m_commentFormat;
 };
 
-#endif // TREE_SITTER_HIGHLIGHTER_H_
+#endif  // EDITORS_TEXT_TREE_SITTER_HIGHLIGHTER_H_

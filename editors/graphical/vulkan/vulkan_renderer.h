@@ -15,14 +15,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef VULKAN_RENDERER_H_
-#define VULKAN_RENDERER_H_
+#ifndef EDITORS_GRAPHICAL_VULKAN_VULKAN_RENDERER_H_
+#define EDITORS_GRAPHICAL_VULKAN_VULKAN_RENDERER_H_
 
 #include <QFile>
 #include <QMatrix4x4>
 #include <QVector3D>
 #include <QVulkanFunctions>
 #include <QVulkanWindow>
+
+#include <memory>
+#include <vector>
 
 #include "../../../geometry/graphic_data.h"
 
@@ -46,7 +49,7 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign) {
 
 class VulkanRenderer : public QVulkanWindowRenderer {
 
-public:
+ public:
     VulkanRenderer(VulkanWindow *w, std::shared_ptr<RenderData> meshData);
 
     // Vulkan functions
@@ -56,8 +59,7 @@ public:
     void releaseSwapChainResources() override;
     void releaseResources() override;
 
-protected:
-
+ protected:
     // Fundamental objects
     VulkanWindow *m_window;
     QVulkanDeviceFunctions *m_devFuncs;
@@ -119,8 +121,8 @@ protected:
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     std::array<VkPipeline, 2> m_pipelines = { VK_NULL_HANDLE, VK_NULL_HANDLE };
 
-private:
+ private:
     std::array<float, 3> m_clearColor;
 };
 
-#endif // VULKAN_RENDERER_H_
+#endif  // EDITORS_GRAPHICAL_VULKAN_VULKAN_RENDERER_H_

@@ -19,6 +19,8 @@
 
 #include <QDebug>
 
+#include <limits>
+
 // Forward declare the C-generated language function
 extern "C" const TSLanguage *tree_sitter_openfoam();
 
@@ -64,9 +66,7 @@ QString OpenFoamDictionary::getString(const QString& path) const {
     // Strip standard quotes
     if (text.startsWith('"') && text.endsWith('"')) {
         return text.mid(1, text.length() - 2);
-    }
-    // Strip verbatim block markers and trim whitespace
-    else if (nodeType == "verbatim_block" ||
+    } else if (nodeType == "verbatim_block" ||
              (text.startsWith("#{") && text.endsWith("#}"))) {
         return text.mid(2, text.length() - 4).trimmed();
     }
@@ -113,8 +113,7 @@ void OpenFoamDictionary::setValue(const QString& path,
         m_parser,
         nullptr,
         m_sourceText.constData(),
-        m_sourceText.size()
-        );
+        m_sourceText.size());
 
     m_tree.reset(newTree);
 }
@@ -148,30 +147,36 @@ TSNode OpenFoamDictionary::findNode(const QString& path) const {
             TSNode child = ts_node_child(currentNode, j);
 
             if (QString(ts_node_type(child)) == "entry") {
-                TSNode keyNode = ts_node_child_by_field_name(child, "key", strlen("key"));
+                TSNode keyNode =
+                    ts_node_child_by_field_name(child, "key", strlen("key"));
 
                 // Extract AND unquote the key before checking
-                QString extractedKey = unquote(getNodeText(keyNode, m_sourceText));
+                QString extractedKey =
+                    unquote(getNodeText(keyNode, m_sourceText));
 
                 if (extractedKey == currentKey) {
                     if (isLastPart) {
-                        TSNode valNode = ts_node_child_by_field_name(child, "value", strlen("value"));
+                        TSNode valNode =
+                            ts_node_child_by_field_name(child, "value",
+                                                        strlen("value"));
                         if (!ts_node_is_null(valNode)) {
                             return valNode;
                         }
 
-                        for (uint32_t k = 0; k < ts_node_child_count(child); ++k) {
-                            TSNode dictCandidate = ts_node_child(child, k);
-                            if (QString(ts_node_type(dictCandidate)) == "dict") {
-                                return dictCandidate;
+                        for (uint32_t k = 0;
+                             k < ts_node_child_count(child); ++k) {
+                            TSNode candidate = ts_node_child(child, k);
+                            if (QString(ts_node_type(candidate)) == "dict") {
+                                return candidate;
                             }
                         }
                         return {};
                     } else {
-                        for (uint32_t k = 0; k < ts_node_child_count(child); ++k) {
-                            TSNode dictCandidate = ts_node_child(child, k);
-                            if (QString(ts_node_type(dictCandidate)) == "dict") {
-                                currentNode = dictCandidate;
+                        for (uint32_t k = 0;
+                             k < ts_node_child_count(child); ++k) {
+                            TSNode candidate = ts_node_child(child, k);
+                            if (QString(ts_node_type(candidate)) == "dict") {
+                                currentNode = candidate;
                                 foundNextLevel = true;
                                 break;
                             }
@@ -192,17 +197,16 @@ TSNode OpenFoamDictionary::findNode(const QString& path) const {
 
 QStringList OpenFoamDictionary::getList(const QString& path) const {
     QStringList result;
-
-    // 1. Find the target node using your existing path logic
+    // Find the target node
     TSNode listNode = findNode(path);
 
-    // 2. Validate that it actually exists and is a list
+    // Make sure the target node is a list
     if (ts_node_is_null(listNode) ||
         QString(ts_node_type(listNode)) != "list") {
-        return result; // Return empty list
+        return result;  // Return empty list
     }
 
-    // 3. Iterate through the flat AST children
+    // Iterate through the flat AST children
     uint32_t childCount = ts_node_child_count(listNode);
     for (uint32_t i = 0; i < childCount; ++i) {
         TSNode child = ts_node_child(listNode, i);
@@ -217,7 +221,8 @@ QStringList OpenFoamDictionary::getList(const QString& path) const {
         QString text = getNodeText(child, m_sourceText);
 
         // Clean up string literals by stripping quotes
-        if (nodeType == "string" && text.startsWith('"') && text.endsWith('"')) {
+        if (nodeType == "string" && text.startsWith('"') &&
+            text.endsWith('"')) {
             text = text.mid(1, text.length() - 2);
         }
 
@@ -232,11 +237,12 @@ QStringList OpenFoamDictionary::getList(const QString& path) const {
 
 QStringList OpenFoamDictionary::getDictKeys(const QString& path) const {
     QStringList keys;
-    if (!m_tree) return keys;
+    if (!m_tree)
+        return keys;
 
     TSNode targetNode;
 
-    // 1. Determine the target node based on the path
+    // Determine the target node based on the path
     if (path.isEmpty()) {
         targetNode = ts_tree_root_node(m_tree.get());
     } else {
@@ -250,14 +256,13 @@ QStringList OpenFoamDictionary::getDictKeys(const QString& path) const {
         }
     }
 
-    // 2. Iterate through the children of the target node
+    // Iterate through the children of the target node
     uint32_t childCount = ts_node_child_count(targetNode);
     for (uint32_t i = 0; i < childCount; ++i) {
         TSNode child = ts_node_child(targetNode, i);
 
         // Root documents and dicts contain 'entry' nodes
         if (QString(ts_node_type(child)) == "entry") {
-
             // Extract just the 'key' field, ignoring the value block completely
             TSNode keyNode = ts_node_child_by_field_name(child, "key", 3);
 
@@ -309,41 +314,43 @@ void OpenFoamDictionary::renameKey(const QString& path,
 
                 if (extractedKey == currentKey) {
                     if (isLastPart) {
-                        // Target reached. Get byte offsets for the key specifically.
+                        // Get byte offsets for the key
                         uint32_t startByte = ts_node_start_byte(keyNode);
                         uint32_t endByte = ts_node_end_byte(keyNode);
                         uint32_t length = endByte - startByte;
 
-                        // Smart Replacement: Preserve quotes if the original key used them
+                        // Preserve quotes if the original key used them
                         QString replacement = newName;
-                        if (rawKeyText.startsWith('"') && rawKeyText.endsWith('"')) {
+                        if (rawKeyText.startsWith('"') &&
+                            rawKeyText.endsWith('"')) {
                             replacement = "\"" + newName + "\"";
                         }
 
                         // Mutate the raw text
-                        m_sourceText.replace(startByte, length, replacement.toUtf8());
+                        m_sourceText.replace(startByte, length,
+                                             replacement.toUtf8());
 
-                        // Re-parse immediately to keep the AST and byte offsets synchronized
+                        // Re-parse to keep the AST
                         TSTree* newTree = ts_parser_parse_string(
                             m_parser,
                             nullptr,
                             m_sourceText.constData(),
-                            m_sourceText.size()
-                            );
+                            m_sourceText.size());
                         m_tree.reset(newTree);
-
-                        return; // Success
+                        return;
                     } else {
                         // Not the last part, drill down into the dictionary
-                        for (uint32_t k = 0; k < ts_node_child_count(child); ++k) {
+                        for (uint32_t k = 0;
+                             k < ts_node_child_count(child); ++k) {
                             TSNode dictCandidate = ts_node_child(child, k);
-                            if (QString(ts_node_type(dictCandidate)) == "dict") {
+                            if (QString(
+                                    ts_node_type(dictCandidate)) == "dict") {
                                 currentNode = dictCandidate;
                                 foundNextLevel = true;
-                                break; // Break dictionary search loop
+                                break;
                             }
                         }
-                        break; // Break entry search loop, proceed to next path part
+                        break;
                     }
                 }
             }
@@ -354,7 +361,6 @@ void OpenFoamDictionary::renameKey(const QString& path,
             return;
         }
     }
-
     qWarning() << "Cannot rename key. Key not found:" << path;
 }
 
@@ -414,13 +420,14 @@ QList<SyntaxError> OpenFoamDictionary::getSyntaxErrors() const {
     QList<SyntaxError> errors;
 
     if (!m_tree) {
-        errors.append({0, 0, "", "Fatal parse failure: Abstract Syntax Tree could not be generated."});
+        errors.append({0, 0, "", "Fatal parse failure: Abstract Syntax Tree "
+                                 "could not be generated."});
         return errors;
     }
 
     TSNode rootNode = ts_tree_root_node(m_tree.get());
 
-    // Only initiate the traversal if the root node indicates an error exists anywhere in the tree
+    // Initiate the traversal if an error exists
     if (ts_node_has_error(rootNode)) {
         collectSyntaxErrors(rootNode, m_sourceText, errors);
     }
@@ -433,15 +440,16 @@ void OpenFoamDictionary::insertIntoDict(const QString& path,
     TSNode dictNode = findNode(path);
 
     // Ensure the target is actually a dictionary node
-    if (ts_node_is_null(dictNode) || QString(ts_node_type(dictNode)) != "dict") {
-        qWarning() << "Cannot insert: Path is not a valid dictionary ->" << path;
+    if (ts_node_is_null(dictNode) ||
+        QString(ts_node_type(dictNode)) != "dict") {
+        qWarning() << "Cannot insert: Path is not a dictionary ->" << path;
         return;
     }
 
     // Get the end byte of the dictionary block
     uint32_t endByte = ts_node_end_byte(dictNode);
 
-    // Step backwards to find the closing brace '}' so we insert *inside* the dict
+    // Step backwards to find the closing brace '}'
     int insertPos = static_cast<int>(endByte) - 1;
     while (insertPos > 0 && m_sourceText.at(insertPos) != '}') {
         insertPos--;
@@ -456,11 +464,11 @@ void OpenFoamDictionary::insertIntoDict(const QString& path,
             m_parser,
             nullptr,
             m_sourceText.constData(),
-            m_sourceText.size()
-            );
+            m_sourceText.size());
         m_tree.reset(newTree);
     } else {
-        qWarning() << "Failed to locate closing brace for dictionary insertion at path:" << path;
+        qWarning() << "Failed to locate closing brace for dictionary "
+                      "insertion at path:" << path;
     }
 }
 
@@ -475,7 +483,7 @@ void OpenFoamDictionary::removeEntry(const QString& path) {
 
     TSNode parentEntry = ts_node_parent(dictNode);
     if (QString(ts_node_type(parentEntry)) != "entry") {
-        parentEntry = dictNode; // Fallback just in case
+        parentEntry = dictNode;
     }
 
     uint32_t startByte = ts_node_start_byte(parentEntry);
@@ -490,7 +498,6 @@ void OpenFoamDictionary::removeEntry(const QString& path) {
         m_parser,
         nullptr,
         m_sourceText.constData(),
-        m_sourceText.size()
-        );
+        m_sourceText.size());
     m_tree.reset(newTree);
 }

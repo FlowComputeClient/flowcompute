@@ -15,13 +15,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "wsl_system.h"
-#include <QDebug>
+#include "./wsl_system.h"
 
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSettings>
 #include <QDebug>
+
+#include <string>
+#include <vector>
 
 QJsonObject WslSystem::contactServer(QString action, QString message) {
     QJsonObject result;
@@ -87,11 +89,10 @@ int WslSystem::launchShortUtility(const QString& cmd, QString& output) {
 
 void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName,
                                   UtilityType utilityType) {
-
-    // 1. Allocate socket on the heap so it survives after the function returns
+    // Allocate socket
     QTcpSocket* socket = new QTcpSocket(this);
 
-    // 2. Connect the socket's connection signal to trigger the request
+    // Connect the socket's connection signal
     connect(socket, &QTcpSocket::connected, this, [socket, cmd]() {
         QJsonObject request;
         request["action"] = "launchLongUtility";
@@ -100,7 +101,7 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName,
             QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
     });
 
-    // Connect the readyRead signal to process streaming chunks
+    // Connect the readyRead signal to process chunks
     connect(socket, &QTcpSocket::readyRead, this, [this, socket,
                                                    caseName, utilityType]() {
         while (socket->canReadLine()) {
@@ -122,9 +123,7 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName,
             if (status == "running") {
                 emit longUtilityOutputReceived(
                     result["output"].toString().trimmed());
-            }
-            // Handle the completion states
-            else if (status == "success" || status == "error") {
+            } else if (status == "success" || status == "error") {
                 emit longUtilityFinished(status, caseName, utilityType);
                 socket->disconnectFromHost();
             }
@@ -146,7 +145,6 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName,
 }
 
 QStringList WslSystem::findOpenFoam() {
-
     QStringList results;
     QJsonObject result = contactServer("checkOpenFoam", "");
     QJsonArray jsonArray = result["message"].toArray();
@@ -159,7 +157,6 @@ QStringList WslSystem::findOpenFoam() {
 }
 
 QStringList WslSystem::getTutorials(QString path) {
-
     QStringList results;
     QJsonObject result = contactServer("findTutorials", path);
     QJsonArray jsonArray = result["message"].toArray();
@@ -172,7 +169,6 @@ QStringList WslSystem::getTutorials(QString path) {
 }
 
 QStringList WslSystem::getHomeFolders() {
-
     QStringList results;
     QJsonObject result = contactServer("listDirectory", "");
     QJsonArray jsonArray = result["message"].toArray();
@@ -279,7 +275,6 @@ bool WslSystem::writeData(const QByteArray& payload,
 }
 
 bool WslSystem::createDirectories(const QStringList& dirPaths) {
-
     QJsonObject result = contactServer("createDirectories", dirPaths.join("|"));
     QString status = result["status"].toString();
     QJsonArray jsonArray = result["message"].toArray();
@@ -292,7 +287,6 @@ bool WslSystem::createDirectories(const QStringList& dirPaths) {
 }
 
 bool WslSystem::deleteFile(const QString& path) {
-
     QJsonObject result = contactServer("deleteFile", path);
     QString status = result["status"].toString();
     QJsonArray jsonArray = result["message"].toArray();
@@ -371,21 +365,18 @@ bool WslSystem::writeData(const QString& localPath,
 }
 
 QString WslSystem::checkPath(const QString& projPath) {
-
     QJsonObject result = contactServer("checkPath", projPath);
     QString path = result["message"].toString();
     return path;
 }
 
 QString WslSystem::getResultFolders(QString projPath) {
-
     QJsonObject result = contactServer("getResultFolders", projPath);
     QString res = result["message"].toString();
     return res;
 }
 
 QByteArray WslSystem::getFileContent(const QString& path) {
-
     QTcpSocket socket;
     socket.connectToHost(QHostAddress::LocalHost, 8080);
 
@@ -553,7 +544,6 @@ RenderData WslSystem::getResultData(const QString& path) {
 
 // Check for installed WSL distributions
 bool WslSystem::checkDistributions() {
-
     QString selectedDistribution;
     std::vector<std::string> distributions;
 
@@ -564,15 +554,14 @@ bool WslSystem::checkDistributions() {
     if (process.waitForFinished(3000)) {
         QByteArray output = process.readAllStandardOutput();
 
-        // wsl.exe outputs in UTF-16LE, so we must decode it accordingly
+        // wsl.exe outputs in UTF-16LE
         QString strOutput = QString::fromUtf16(
             reinterpret_cast<const char16_t*>(output.constData()),
-            output.size() / 2
-            );
+            output.size() / 2);
 
         // Split the output by newlines, skipping empty lines
-        QStringList lines = strOutput.split(QRegularExpression("[\r\n]+"),
-                                            Qt::SkipEmptyParts);
+        QStringList lines =
+            strOutput.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
 
         for (const QString& line : std::as_const(lines)) {
             QString dist = line.trimmed();
@@ -589,8 +578,7 @@ bool WslSystem::checkDistributions() {
     if (distributions.empty()) {
         qWarning() << "No WSL distributions found.";
         return false;
-    }
-    else if (distributions.size() == 1) {
+    } else if (distributions.size() == 1) {
         selectedDistribution = QString::fromStdString(distributions[0]);
     } else {
         selectedDistribution = createSelectionDialog(distributions);

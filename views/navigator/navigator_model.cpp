@@ -21,7 +21,8 @@ NavigatorModel::NavigatorModel(QObject *parent)
     : QStandardItemModel(parent) {}
 
 NodeData* NavigatorModel::nodeFromIndex(const QModelIndex &index) const {
-    if (!index.isValid()) return nullptr;
+    if (!index.isValid())
+        return nullptr;
 
     // QStandardItemModel naturally returns the item for an index
     QStandardItem* item = itemFromIndex(index);

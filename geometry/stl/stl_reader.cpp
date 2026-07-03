@@ -20,6 +20,10 @@
 #include <algorithm>
 #include <cstring>
 #include <limits>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 static_assert(true);
 #pragma pack(push, 1)
@@ -42,8 +46,8 @@ struct VertexHasher {
     }
 };
 
-std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName, const QByteArray& fileData) {
-
+std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName,
+                                                   const QByteArray& fileData) {
     RenderData mesh;
     mesh.format = RenderType::Surface;
     if (fileData.isEmpty()) return std::make_pair(mesh, false);
@@ -56,7 +60,8 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName, cons
                            std::numeric_limits<float>::lowest(),
                            std::numeric_limits<float>::lowest() };
 
-    std::unordered_map<std::array<float, 3>, uint32_t, VertexHasher> vertexCache;
+    std::unordered_map<
+        std::array<float, 3>, uint32_t, VertexHasher> vertexCache;
 
     // Set patch name (keeps std::string for intermediate logic)
     auto resolvePatchName = [&](std::string name) -> std::string {
@@ -73,7 +78,7 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName, cons
 
         auto it = vertexCache.find(v);
         if (it != vertexCache.end()) {
-            return it->second; // Return existing index
+            return it->second;  // Return existing index
         }
 
         // Assuming PositionOnly format: 3 floats per vertex
@@ -112,7 +117,7 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName, cons
         // Safely copy the resolved name into the char[64] array
         std::string resolvedName = resolvePatchName("");
         std::strncpy(patch.name, resolvedName.c_str(), sizeof(patch.name) - 1);
-        patch.name[sizeof(patch.name) - 1] = '\0'; // Guarantee null-termination
+        patch.name[sizeof(patch.name) - 1] = '\0';  // Null-termination
 
         patch.first = 0;
         patch.count = 0;
@@ -144,8 +149,7 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName, cons
         return std::make_pair(mesh, true);
 
     } else {
-
-        // ASCII Parsing with Bucketing
+        // ASCII Parsing
         QTextStream stream(fileData);
         QString line;
 
@@ -167,16 +171,15 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName, cons
                 QString namePart = line.mid(5).trimmed();
                 currentPatchName = resolvePatchName(namePart.toStdString());
 
-                // If this is the first time seeing this patch name, record its order
+                // Check for a new patch
                 if (patchBuckets.find(currentPatchName) == patchBuckets.end()) {
                     patchOrder.push_back(currentPatchName);
                 }
                 inSolid = true;
-            }
-            else if (line.startsWith("endsolid", Qt::CaseInsensitive)) {
+            } else if (line.startsWith("endsolid", Qt::CaseInsensitive)) {
                 inSolid = false;
-            }
-            else if (inSolid && line.startsWith("vertex", Qt::CaseInsensitive)) {
+            } else if (inSolid && line.startsWith("vertex",
+                                                  Qt::CaseInsensitive)) {
                 QStringList parts = line.split(wsRe, Qt::SkipEmptyParts);
                 if (parts.size() >= 4) {
                     float x = parts[1].toFloat();
@@ -198,13 +201,14 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName, cons
 
                 // Safely copy the bucket name into the char[64] array
                 std::strncpy(patch.name, name.c_str(), sizeof(patch.name) - 1);
-                patch.name[sizeof(patch.name) - 1] = '\0'; // Guarantee null-termination
+                patch.name[sizeof(patch.name) - 1] = '\0';
 
                 patch.first = static_cast<uint32_t>(mesh.indices.size());
                 patch.count = static_cast<uint32_t>(bucketIndices.size());
 
                 // Append the entire bucket to the final indices vector
-                mesh.indices.insert(mesh.indices.end(), bucketIndices.begin(), bucketIndices.end());
+                mesh.indices.insert(mesh.indices.end(), bucketIndices.begin(),
+                                    bucketIndices.end());
                 mesh.patches.push_back(patch);
             }
         }
@@ -237,30 +241,32 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
 
     qint64 fileSize = buffer.size();
     bool hasData = false;
-    QRegularExpression ws("\\s+"); // Used for whitespace splitting
+    QRegularExpression ws("\\s+");  // Used for whitespace splitting
 
-    // --- Binary STL Parsing ---
+    // Binary STL Parsing ---
     if (fileSize >= 84) {
         quint32 triangleCount = 0;
         buffer.seek(80);
-        if (buffer.read(reinterpret_cast<char*>(&triangleCount), sizeof(triangleCount)) == sizeof(triangleCount)) {
+        if (buffer.read(reinterpret_cast<char*>(&triangleCount),
+                        sizeof(triangleCount)) == sizeof(triangleCount)) {
             qint64 expectedSize = 84 + static_cast<qint64>(triangleCount) * 50;
 
             // If the file size matches the expected binary size
             if (fileSize == expectedSize) {
                 const char* dataPtr = fileData.constData() + 84;
 
-                // --- NEW: Parse the 80-byte header for a patch name ---
+                // Parse the 80-byte header for a patch name
                 char header[81] = {0};
                 std::memcpy(header, fileData.constData(), 80);
                 QString headerStr = QString::fromLocal8Bit(header).trimmed();
-                QString patchName = "solid"; // Default for binary
+                QString patchName = "solid";  // Default for binary
 
                 if (headerStr.startsWith("solid", Qt::CaseInsensitive)) {
                     QString extracted = headerStr.mid(5).trimmed();
                     if (!extracted.isEmpty()) {
                         // Take the first word after "solid"
-                        patchName = extracted.split(ws, Qt::SkipEmptyParts).first();
+                        patchName =
+                            extracted.split(ws, Qt::SkipEmptyParts).first();
                     }
                 }
                 metrics.patches.push_back(patchName.toStdString());
@@ -276,7 +282,8 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
                 };
 
                 for (quint32 i = 0; i < triangleCount; ++i) {
-                    const StlTriangle* tri = reinterpret_cast<const StlTriangle*>(dataPtr + i * 50);
+                    const StlTriangle* tri =
+                        reinterpret_cast<const StlTriangle*>(dataPtr + i * 50);
                     updateBoundingBox(tri->v1);
                     updateBoundingBox(tri->v2);
                     updateBoundingBox(tri->v3);
@@ -290,9 +297,11 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
                         firstTriangleCentroid = (p1 + p2 + p3) / 3.0f;
 
                         // Extract normal from binary struct
-                        QVector3D explicitNormal(tri->normal[0], tri->normal[1], tri->normal[2]);
+                        QVector3D explicitNormal(tri->normal[0], tri->normal[1],
+                                                 tri->normal[2]);
                         if (explicitNormal.isNull()) {
-                            firstTriangleNormal = QVector3D::crossProduct(p2 - p1, p3 - p1).normalized();
+                            firstTriangleNormal =
+                        QVector3D::crossProduct(p2 - p1, p3 - p1).normalized();
                         } else {
                             firstTriangleNormal = explicitNormal.normalized();
                         }
@@ -306,7 +315,7 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
         }
     }
 
-    // --- ASCII Fallback Parsing ---
+    // ASCII Parsing
     if (!hasData) {
         buffer.seek(0);
         QTextStream in(&buffer);
@@ -328,7 +337,8 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
                 std::string pNameStr = patchName.toStdString();
 
                 // Add to vector if it is unique
-                if (std::find(metrics.patches.begin(), metrics.patches.end(), pNameStr) == metrics.patches.end()) {
+                if (std::find(metrics.patches.begin(), metrics.patches.end(),
+                              pNameStr) == metrics.patches.end()) {
                     metrics.patches.push_back(pNameStr);
                 }
                 continue;
@@ -356,12 +366,16 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
                     if (!firstTriangleCached) {
                         currentFaceVertices.push_back(QVector3D(vx, vy, vz));
                         if (currentFaceVertices.size() == 3) {
-                            firstTriangleCentroid = (currentFaceVertices[0] + currentFaceVertices[1] + currentFaceVertices[2]) / 3.0f;
+                            firstTriangleCentroid =
+                                (currentFaceVertices[0] + currentFaceVertices[1]
+                                    + currentFaceVertices[2]) / 3.0f;
                             // Calculate normal geometrically
-                            firstTriangleNormal = QVector3D::crossProduct(
-                                                      currentFaceVertices[1] - currentFaceVertices[0],
-                                                      currentFaceVertices[2] - currentFaceVertices[0]
-                                                      ).normalized();
+                            firstTriangleNormal =
+                                QVector3D::crossProduct(
+                                    currentFaceVertices[1] -
+                                    currentFaceVertices[0],
+                                    currentFaceVertices[2] -
+                                    currentFaceVertices[0]).normalized();
 
                             firstTriangleCached = true;
                         }
@@ -372,7 +386,8 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
     }
 
     if (!hasData) {
-        throw std::runtime_error("Data does not appear to be a valid Binary or ASCII STL or contains no vertices.");
+        throw std::runtime_error("Data does not appear to be a valid binary "
+                                 "or ASCII STL or contains no vertices.");
     }
 
     // --- Calculate the Interior Point ---
@@ -390,7 +405,8 @@ GeometryMetrics StlReader::readMetrics(const QByteArray& fileData) {
         }
 
         // Project inward along the inverted normal
-        metrics.intpoint = firstTriangleCentroid - (firstTriangleNormal * stepSize);
+        metrics.intpoint =
+            firstTriangleCentroid - (firstTriangleNormal * stepSize);
         metrics.isValid = true;
     }
 

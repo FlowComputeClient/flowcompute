@@ -26,7 +26,6 @@ bool TableDelegate::eventFilter(QObject *editor, QEvent *event) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent*>(event);
 
         if (keyEvent->key() == Qt::Key_Tab) {
-
             // Access the widget
             QWidget *widgetEditor = qobject_cast<QWidget*>(editor);
             if (!widgetEditor) {

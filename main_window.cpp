@@ -15,7 +15,21 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "main_window.h"
+#include "./main_window.h"
+
+#include <QApplication>
+#include <QtConcurrent>
+#include <QFuture>
+#include <QFutureWatcher>
+#include <QGuiApplication>
+#include <QProgressBar>
+#include <QProgressDialog>
+#include <QStatusBar>
+
+#include <string>
+#include <memory>
+#include <utility>
+#include <vector>
 
 #include "dialogs/mesh/wizard_mesh.h"
 #include "dialogs/preferences/preferences_dialog.h"
@@ -29,22 +43,12 @@
 #include "editors/graphical/result/result_editor.h"
 #include "geometry/mesh/mesh_reader.h"
 #include "geometry/stl/stl_reader.h"
-#include "utils.h"
-
-#include <QApplication>
-#include <QtConcurrent>
-#include <QFuture>
-#include <QFutureWatcher>
-#include <QGuiApplication>
-#include <QProgressBar>
-#include <QProgressDialog>
-#include <QStatusBar>
+#include "./utils.h"
 
 bool MainWindow::s_isWindows = false;
 bool MainWindow::s_isWslAvailable = false;
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
-
 // Check environment
 #ifdef Q_OS_WIN
     s_isWindows = true;
@@ -80,7 +84,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Bold.ttf");
     QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Italic.ttf");
     if (regularId != -1) {
-        QString fontFamily = QFontDatabase::applicationFontFamilies(regularId).at(0);
+        QString fontFamily =
+            QFontDatabase::applicationFontFamilies(regularId).at(0);
         m_font = QFont(fontFamily);
         m_font.setPointSize(12);
         m_font.setStyleHint(QFont::Monospace);
@@ -261,12 +266,13 @@ MainWindow::~MainWindow() = default;
 
 /* Create QActions for file operations */
 void MainWindow::createActions() {
-
     // Create new case
-    newCaseAction = new QAction(QIcon(":/images/new_case.png"), tr("&New Case Folder"), this);
+    newCaseAction = new QAction(QIcon(":/images/new_case.png"),
+                                tr("&New Case Folder"), this);
     newCaseAction->setShortcuts(QKeySequence::New);
     newCaseAction->setStatusTip(tr("Create a new case folder"));
-    connect(newCaseAction, &QAction::triggered, this, &MainWindow::runNewCaseWizard);
+    connect(newCaseAction, &QAction::triggered, this,
+            &MainWindow::runNewCaseWizard);
 
     // Save file
     saveFileAction = new QAction(QIcon(":/images/save.png"), tr("&Save"), this);
@@ -378,9 +384,11 @@ void MainWindow::createActions() {
             &MainWindow::runSolverConfiguration);
 
     // Run solver
-    runSolverAction = new QAction(QIcon(":/images/run_solver.png"), tr("&Run solver"), this);
+    runSolverAction = new QAction(QIcon(":/images/run_solver.png"),
+                                  tr("&Run solver"), this);
     solverAction->setStatusTip(tr("Launch solver"));
-    connect(runSolverAction, &QAction::triggered, this, &MainWindow::runSolverExecution);
+    connect(runSolverAction, &QAction::triggered, this,
+            &MainWindow::runSolverExecution);
 
     // Stop solver
     stopSolverAction = new QAction(QIcon(":/images/stop_solver.png"),
@@ -403,7 +411,6 @@ void MainWindow::createActions() {
 
 // Assemble actions within main menu
 void MainWindow::createMenus() {
-
     // Create file menu
     fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(newCaseAction);
@@ -460,7 +467,6 @@ void MainWindow::createMenus() {
 
 // Add entries to toolbars
 void MainWindow::createToolBar() {
-
     // Create tool bar
     toolBar = addToolBar(tr("Toolbar"));
     toolBar->addAction(newCaseAction);
@@ -500,7 +506,7 @@ void MainWindow::createToolBar() {
 }
 
 void MainWindow::applyTheme(const QString& themeFile) {
-
+    // Access files in the themes folder
     QString styleText;
     m_themeFile = themeFile;
     QFile file(m_configDir.filePath("themes/" + m_themeFile));
@@ -602,15 +608,16 @@ void MainWindow::applyTheme(const QString& themeFile) {
     }
     if (!styleText.isEmpty()) {
         QApplication* app = qobject_cast<QApplication*>(qApp);
-        if (app) { app->setStyleSheet(styleText); }
+        if (app)
+            app->setStyleSheet(styleText);
     }
 
     // Apply theme to editors
     for (int i = 0; i < m_tabWidget->count(); ++i) {
         QString tabName = m_tabWidget->tabText(i);
-        if(m_tabMap.contains(tabName)) {
-
-            switch(m_tabMap[tabName].type) {
+        qDebug() << tabName << ": " << static_cast<int>(m_tabMap[tabName].type);
+        if (m_tabMap.contains(tabName)) {
+            switch (m_tabMap[tabName].type) {
             case EditorType::TEXT: {
                 TextEditor* textEditor =
                     qobject_cast<TextEditor*>(m_tabWidget->widget(i));
@@ -642,7 +649,6 @@ void MainWindow::applyTheme(const QString& themeFile) {
 
 void MainWindow::createEditor(EditorType type, QString& fileName,
                               const QString& fullPath, bool logMessage) {
-
     // Get case name
     QString caseName;
     if ((type != EditorType::MESH) && (type != EditorType::RESULT)) {
@@ -660,7 +666,7 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
     QByteArray data;
 
     // Update log
-    if(logMessage) m_console->appendPlainText(tr("Reading %1\n").arg(path));
+    if (logMessage) m_console->appendPlainText(tr("Reading %1\n").arg(path));
 
     // Read data
     if ((type != EditorType::MESH) && (type != EditorType::RESULT)) {
@@ -691,7 +697,6 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
 
     // Create text editor
     if (type == EditorType::TEXT) {
-
         // Create new tab
         TextEditor* textEditor = new TextEditor(this);
         textEditor->setFont(m_font);
@@ -715,26 +720,25 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
 
         // Configure the save action
         connect(m_tabWidget, &QTabWidget::currentChanged,
-                this, [=, this](int index) {
-                    TextEditor* currentEditor =
-                        qobject_cast<TextEditor*>(m_tabWidget->widget(index));
-                    if (currentEditor) {
-                        saveFileAction->setEnabled(
-                            currentEditor->document()->isModified());
-                    } else {
-                        saveFileAction->setEnabled(false);
-                    }
-                });
+            this, [=, this](int index) {
+                TextEditor* currentEditor =
+                    qobject_cast<TextEditor*>(m_tabWidget->widget(index));
+                if (currentEditor) {
+                    saveFileAction->setEnabled(
+                        currentEditor->document()->isModified());
+                } else {
+                    saveFileAction->setEnabled(false);
+                }
+            });
         return;
     }
 
     // Create editor
     if (type == EditorType::SURFACE) {
-
         // Convert data to RenderData structure
         bool isBinary = false;
         RenderData model;
-        if(fileName.endsWith(".stl", Qt::CaseInsensitive)) {
+        if (fileName.endsWith(".stl", Qt::CaseInsensitive)) {
             std::pair<RenderData, bool> res =
                 StlReader::readStlFile(fileName, data);
             model = res.first;
@@ -759,7 +763,7 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
                 });
     }
     if (type == EditorType::MESH) {
-
+        // Create mesh editor
         QProgressDialog* progress =
             new QProgressDialog("Loading Mesh Data...", QString(), 0, 0, this);
         progress->setWindowModality(Qt::WindowModal);
@@ -812,11 +816,10 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
     }
 
     if (type == EditorType::RESULT) {
-
         // Get list of time folders
         QString resultPath = casePath + "/postProcessing/surfaces";
         QString res = targetSystems[targetId]->getResultFolders(resultPath);
-        if(!res.isEmpty()) {
+        if (!res.isEmpty()) {
             QStringList timeFolders = res.split(',');
             QString lastTime = timeFolders.last();
             resultPath += "/" + lastTime;
@@ -843,7 +846,6 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
     }
 
     if (type != EditorType::MESH) {
-
         // Update tab widget
         m_tabWidget->setCurrentIndex(tabIndex);
         m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
@@ -854,7 +856,6 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
 }
 
 void MainWindow::deleteFile(const QString& fileName, const QString& fullPath) {
-
     // Construct path to delete
     QString caseName, filePath, casePath;
     if (fullPath.isEmpty()) {
@@ -870,7 +871,7 @@ void MainWindow::deleteFile(const QString& fileName, const QString& fullPath) {
 
     // Delete file
     int targetId = m_caseMap[caseName].targetSystemId;
-    if(!targetSystems[targetId]->deleteFile(filePath)) {
+    if (!targetSystems[targetId]->deleteFile(filePath)) {
         qDebug() << "Failed to delete " << filePath;
     }
 
@@ -880,7 +881,6 @@ void MainWindow::deleteFile(const QString& fileName, const QString& fullPath) {
 
 std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName,
         QString casePath, QString openFoamPath, int targetId) {
-
     // Convert mesh to STL file
     QByteArray data;
     QString meshFile = caseName + "_tmp.stl";
@@ -901,7 +901,7 @@ std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName,
 void MainWindow::runMesh(const QString& caseName, bool runBlockMesh,
                          bool runSurfaceFeatureExtract, bool runSnappyHexMesh,
                          const QString& snappyCmd, int numCores) {
-
+    // Get OpenFoam path
     CaseData caseData = m_caseMap[caseName];
     int targetId = caseData.targetSystemId;
     QString casePath = caseData.casePath + "/" + caseName;
@@ -933,7 +933,7 @@ void MainWindow::runMesh(const QString& caseName, bool runBlockMesh,
     if (runSnappyHexMesh) {
 
         // Configure multicore operation
-        if(numCores > 1) {
+        if (numCores > 1) {
 
             // Create surfacePatchDict
             QString dictText =
@@ -951,7 +951,7 @@ void MainWindow::runMesh(const QString& caseName, bool runBlockMesh,
 }
 
 void MainWindow::runSolver(const QString& caseName, const QString& cmd) {
-
+    // Get OpenFoam path
     CaseData caseData = m_caseMap[caseName];
     int targetId = caseData.targetSystemId;
     QString casePath = caseData.casePath + "/" + caseName;
@@ -967,7 +967,6 @@ void MainWindow::runSolver(const QString& caseName, const QString& cmd) {
 
 void MainWindow::createCase(QString caseName, QString casePath, QStringList caseFiles,
                             int targetId, QString openFoamPath) {
-
     // Add case to map
     m_caseMap.insert(caseName, CaseData{casePath, caseFiles, targetId, openFoamPath});
 
@@ -984,8 +983,7 @@ void MainWindow::createCase(QString caseName, QString casePath, QStringList case
 
 // Create new case folder
 void MainWindow::saveFile() {
-
-    // Remove the " *" to get the real map key
+    // Remove the " *" to get the map key
     QString rawTabText = m_tabWidget->tabText(m_tabWidget->currentIndex());
     QString fileName = rawTabText.remove(" *");
 
@@ -996,14 +994,17 @@ void MainWindow::saveFile() {
         TabData tabData = m_tabMap[fileName];
         QString caseName = tabData.fullPath.split("/")[0];
         int targetId = m_caseMap[caseName].targetSystemId;
-        QString fullPath = m_caseMap[caseName].casePath + "/" + tabData.fullPath + "/" + fileName;
+        QString fullPath = m_caseMap[caseName].casePath + "/" +
+                           tabData.fullPath + "/" + fileName;
 
         // Save data for text editor
         if (tabData.type == EditorType::TEXT) {
-            TextEditor* editor = qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
+            TextEditor* editor =
+                qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
             if (editor) {
-                bool save = targetSystems[targetId]->writeData(editor->toPlainText().toUtf8(),
-                                                               fullPath);
+                bool save =
+                    targetSystems[targetId]->writeData(
+                        editor->toPlainText().toUtf8(), fullPath);
                 if (save) editor->document()->setModified(false);
             }
             return;
@@ -1011,7 +1012,8 @@ void MainWindow::saveFile() {
 
         // Save data for model editor
         if (tabData.type == EditorType::SURFACE) {
-            SurfaceEditor* editor = qobject_cast<SurfaceEditor*>(m_tabWidget->currentWidget());
+            SurfaceEditor* editor =
+                qobject_cast<SurfaceEditor*>(m_tabWidget->currentWidget());
             if (editor) {
 
                 QString output;
@@ -1020,24 +1022,29 @@ void MainWindow::saveFile() {
                 QString fileName = info.fileName();
 
                 // Delete patched file when saved
-                if(editor->isSurfacePatched()) {
+                if (editor->isSurfacePatched()) {
 
                     // Delete xyz.stl and rename xyz_patched.stl to xyz.stl
-                    QString patchName = info.completeBaseName() + "_patched." + info.suffix();
-                    QString cmd = QString("cd %1; rm %2; mv %3 %2; ").arg(path, fileName, patchName);
-                    if (targetSystems[targetId]->launchShortUtility(cmd, output) == 0) {
+                    QString patchName =
+                        info.completeBaseName() + "_patched." + info.suffix();
+                    QString cmd =
+                        QString("cd %1; rm %2; mv %3 %2; ").
+                                  arg(path, fileName, patchName);
+                    if (targetSystems[targetId]->
+                        launchShortUtility(cmd, output) == 0) {
                         editor->setSurfaceChanged(false);
                         onDirtyStateChanged(false, editor);
                     }
                 }
 
                 // Check if patch names have changed
-                std::vector<std::pair<std::string, std::string>> vec = editor->getPatchChanges();
+                std::vector<std::pair<std::string, std::string>> vec =
+                    editor->getPatchChanges();
                 if (!vec.empty()) {
 
-                    // Create command to replace old patch names with new patch names
+                    // Replace old patch names with new patch names
                     QString cmd = QString("cd %1; sed -i ").arg(path);
-                    for(const auto& change: vec) {
+                    for (const auto& change : vec) {
                         QString oldStr = QString::fromStdString(change.first);
                         QString newStr = QString::fromStdString(change.second);
                         cmd += QString("-e 's#%1#%2#g' ").arg(oldStr, newStr);
@@ -1045,7 +1052,8 @@ void MainWindow::saveFile() {
                     cmd += fileName;
 
                     // Perform text replacement
-                    if (targetSystems[targetId]->launchShortUtility(cmd, output) == 0) {
+                    if (targetSystems[targetId]->
+                            launchShortUtility(cmd, output) == 0) {
                         onDirtyStateChanged(false, editor);
                     }
                 }
@@ -1057,9 +1065,6 @@ void MainWindow::saveFile() {
 
 // Set preferences
 void MainWindow::setPreferences() {
-
-    // Get list of theme files
-
     // Create preferences dialog
     PreferencesDialog dlg(this);
     dlg.exec();
@@ -1071,14 +1076,18 @@ void MainWindow::setPreferences() {
 
 // Undo action in text editor
 void MainWindow::undo() {
-    TextEditor* editor = qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
-    if (editor) { editor->undo(); }
+    TextEditor* editor =
+        qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
+    if (editor)
+        editor->undo();
 }
 
 // Redo action in text editor
 void MainWindow::redo() {
-    TextEditor* editor = qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
-    if (editor) { editor->redo(); }
+    TextEditor* editor =
+        qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
+    if (editor)
+        editor->redo();
 }
 
 // Write text to the log
@@ -1086,8 +1095,9 @@ void MainWindow::log(const QString& text) {
     m_console->appendPlainText(text);
 }
 
-void MainWindow::updatePath(const QString& caseName, const QString& subDir, int targetId) {
-
+void MainWindow::updatePath(const QString& caseName, const QString& subDir,
+                            int targetId) {
+    // Get case path
     QString casePath = caseName;
     if (!subDir.isEmpty()) {
         casePath += "/" + subDir;
@@ -1096,20 +1106,17 @@ void MainWindow::updatePath(const QString& caseName, const QString& subDir, int 
     QString fullPath = m_caseMap[caseName].casePath + "/" + casePath;
     QStringList files = targetSystems[targetId]->getFiles(fullPath);
 
-    if(!files.isEmpty()) {
+    if (!files.isEmpty()) {
         m_navigator->updatePath(casePath, files);
     }
 }
 
 void MainWindow::onDirtyStateChanged(bool isDirty, QWidget* widget) {
-
     // Get the index of the editor
-    // QWidget* senderWidget = qobject_cast<QWidget*>(sender());
     if (!widget) return;
     int index = m_tabWidget->indexOf(widget);
 
     if (index != -1) {
-
         // Get the current tab text
         QString tabText = m_tabWidget->tabText(index);
 
@@ -1134,7 +1141,6 @@ void MainWindow::onDirtyStateChanged(bool isDirty, QWidget* widget) {
 
 void MainWindow::updateResultEditor(const QString& casePath, int targetId,
                                     const QString& timeFolder) {
-
     // Access data in time folder
     QString resultPath = casePath + "/postProcessing/surfaces/" + timeFolder;
     RenderData renderData =
@@ -1180,16 +1186,16 @@ void MainWindow::runMeshExecution() {
 }
 
 // Check if utility is available
-QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath, int targetId,
-                                               const QStringList& utilities) {
-
+QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath,
+                                int targetId, const QStringList& utilities) {
+    // Get case path
     QMap<QString, bool> utilMap;
     QString casePath = fullPath.left(fullPath.lastIndexOf('/'));
 
     // Get OpenFOAM path
     QString openFoamPath;
     QString caseName = QFileInfo(casePath).fileName();
-    if(m_caseMap.contains(caseName)) {
+    if (m_caseMap.contains(caseName)) {
         openFoamPath = m_caseMap[caseName].openFoamPath;
     } else {
         qWarning() << "Case " << caseName << " is not in case map.";
@@ -1197,8 +1203,11 @@ QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath, int targ
     }
 
     QString utilityList = utilities.join(" ");
-    QString cmd = QString("cd %1; source %2/etc/bashrc; out=\"\"; for u in %3; do command -v $u >/dev/null 2>&1 && out+=\"$u:true,\""
-                          "|| out+=\"$u:false,\"; done; echo \"${out%,}\"").arg(casePath, openFoamPath, utilityList);
+    QString cmd =
+        QString("cd %1; source %2/etc/bashrc; out=\"\"; for u in %3; "
+                "do command -v $u >/dev/null 2>&1 && out+=\"$u:true,\""
+                "|| out+=\"$u:false,\"; done; echo \"${out%,}\"").
+                  arg(casePath, openFoamPath, utilityList);
 
     // Get result from checking utilities
     QString output;
@@ -1206,12 +1215,12 @@ QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath, int targ
         output.remove("\n");
         QStringList res;
         QStringList utils = output.split(",");
-        for (const auto& util: std::as_const(utils)) {
+        for (const auto& util : std::as_const(utils)) {
             res = util.split(":");
             utilMap[res[0]] = (res[1] == "true");
         }
     } else {
-        for (const auto& util: utilities) {
+        for (const auto& util : utilities) {
             utilMap[util] = false;
         }
     }
@@ -1221,7 +1230,7 @@ QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath, int targ
 // Run autoPatch
 void MainWindow::runMeshPatch(double angle, const QString& casePath,
                               int targetId) {
-
+    // Get OpenFOAM path
     QString openFoamPath;
     QString caseName = QFileInfo(casePath).fileName();
     if (m_caseMap.contains(caseName)) {
@@ -1234,18 +1243,21 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath,
     // Make sure autoPatch is present
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
     if (!utilMap.value("autoPatch", false)) {
-        QMessageBox::warning(this, tr("Utility Not Found"), tr("The autoPatch utility could not be found."));
+        QMessageBox::warning(this, tr("Utility Not Found"),
+                             tr("The autoPatch utility could not be found."));
         return;
     }
 
     // Run autoPatch
     QString result;
-    QString cmd = QString("cd \"%1\"; source %2/etc/bashrc; autoPatch -overwrite %3")
-                      .arg(casePath, openFoamPath, QString::number(angle));
+    QString cmd =
+        QString("cd \"%1\"; source %2/etc/bashrc; autoPatch -overwrite %3")
+            .arg(casePath, openFoamPath, QString::number(angle));
     targetSystems[targetId]->launchShortUtility(cmd, result);
 
     // Reload mesh
-    QProgressDialog* progress = new QProgressDialog("Loading Mesh Data...", QString(), 0, 0, this);
+    QProgressDialog* progress = new QProgressDialog("Loading Mesh Data...",
+                                                    QString(), 0, 0, this);
     progress->setWindowModality(Qt::WindowModal);
     progress->setMinimumWidth(300);
     progress->setAttribute(Qt::WA_DeleteOnClose);
@@ -1253,9 +1265,10 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath,
 
     // Setup the Future Watcher
     using RenderDataPtr = std::shared_ptr<RenderData>;
-    QFutureWatcher<RenderDataPtr>* watcher = new QFutureWatcher<RenderDataPtr>(this);
+    QFutureWatcher<RenderDataPtr>* watcher =
+        new QFutureWatcher<RenderDataPtr>(this);
 
-    // Connect the watcher's finished signal to handle the result on the MAIN thread
+    // Connect the watcher's finished signal to handle the result
     connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
             [this, watcher, progress, casePath, targetId]() {
 
@@ -1265,7 +1278,8 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath,
                 RenderDataPtr renderData = watcher->result();
 
                 if (renderData) {
-                    MeshEditor* editor = qobject_cast<MeshEditor*>(m_tabWidget->currentWidget());
+                    MeshEditor* editor =
+                        qobject_cast<MeshEditor*>(m_tabWidget->currentWidget());
                     editor->updateMesh(renderData);
                 }
 
@@ -1283,7 +1297,7 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath,
 }
 
 void MainWindow::runMeshCheck(const QString& casePath, int targetId) {
-
+    // Get OpenFoam path
     QString openFoamPath;
     QString caseName = QFileInfo(casePath).fileName();
     if (m_caseMap.contains(caseName)) {
@@ -1296,18 +1310,21 @@ void MainWindow::runMeshCheck(const QString& casePath, int targetId) {
     // Make sure checkMesh is present
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
     if (!utilMap.value("checkMesh", false)) {
-        QMessageBox::warning(this, tr("Utility Not Found"), tr("The checkMesh utility could not be found."));
+        QMessageBox::warning(this, tr("Utility Not Found"),
+            tr("The checkMesh utility could not be found."));
         return;
     }
 
     // Run checkMesh
-    QString cmd = QString("cd \"%1\"; source %2/etc/bashrc; checkMesh -constant")
-                      .arg(casePath, openFoamPath);
+    QString cmd =
+        QString("cd \"%1\"; source %2/etc/bashrc; checkMesh -constant")
+            .arg(casePath, openFoamPath);
 
     // Get output
     QString logText;
     targetSystems[targetId]->launchShortUtility(cmd, logText);
-    if(logText.isEmpty()) { return; }
+    if (logText.isEmpty())
+        return;
 
     // Parse output
     QString status = "Unknown";
@@ -1326,19 +1343,24 @@ void MainWindow::runMeshCheck(const QString& casePath, int targetId) {
 
     // Topology Counts
     QRegularExpression pointsRegex("points:\\s+(\\d+)");
-    if (auto match = pointsRegex.match(logText); match.hasMatch()) points = match.captured(1);
+    if (auto match = pointsRegex.match(logText); match.hasMatch())
+        points = match.captured(1);
 
     QRegularExpression facesRegex("faces:\\s+(\\d+)");
-    if (auto match = facesRegex.match(logText); match.hasMatch()) faces = match.captured(1);
+    if (auto match = facesRegex.match(logText); match.hasMatch())
+        faces = match.captured(1);
 
     QRegularExpression cellsRegex("cells:\\s+(\\d+)");
-    if (auto match = cellsRegex.match(logText); match.hasMatch()) cells = match.captured(1);
+    if (auto match = cellsRegex.match(logText); match.hasMatch())
+        cells = match.captured(1);
 
     QRegularExpression bboxRegex("Overall domain bounding box\\s+(.*)");
-    if (auto match = bboxRegex.match(logText); match.hasMatch()) boundingBox = match.captured(1);
+    if (auto match = bboxRegex.match(logText); match.hasMatch())
+        boundingBox = match.captured(1);
 
     QRegularExpression aspectRegex("Max aspect ratio = ([\\d\\.]+)");
-    if (auto match = aspectRegex.match(logText); match.hasMatch()) maxAspectRatio = match.captured(1);
+    if (auto match = aspectRegex.match(logText); match.hasMatch())
+        maxAspectRatio = match.captured(1);
 
     QRegularExpression orthoRegex("Mesh non-orthogonality Max:\\s+([\\d\\.]+)\\s+average:\\s+([\\d\\.]+)");
     if (auto match = orthoRegex.match(logText); match.hasMatch()) {
@@ -1347,34 +1369,44 @@ void MainWindow::runMeshCheck(const QString& casePath, int targetId) {
     }
 
     QRegularExpression skewRegex("Max skewness = ([\\d\\.]+)");
-    if (auto match = skewRegex.match(logText); match.hasMatch()) maxSkewness = match.captured(1);
+    if (auto match = skewRegex.match(logText); match.hasMatch())
+        maxSkewness = match.captured(1);
 
     QRegularExpression volRegex("Min volume = ([\\d\\.\\-eE\\+]+)");
-    if (auto match = volRegex.match(logText); match.hasMatch()) minVolume = match.captured(1);
+    if (auto match = volRegex.match(logText); match.hasMatch())
+        minVolume = match.captured(1);
 
     QRegularExpression areaRegex("Minimum face area = ([\\d\\.\\-eE\\+]+)");
-    if (auto match = areaRegex.match(logText); match.hasMatch()) minFaceArea = match.captured(1);
+    if (auto match = areaRegex.match(logText); match.hasMatch())
+        minFaceArea = match.captured(1);
 
     // Construct the formatted string using chained .arg() calls for safety
     std::vector<QString> messageStrings;
     messageStrings.push_back(QString("Overall Status: %1\n").arg(status));
-    messageStrings.push_back(QString("Topology: %1 Cells, %2 Faces, %3 Points\n").arg(cells, faces, points));
-    messageStrings.push_back(QString("Bounding Box: %1\n").arg(boundingBox));
-    messageStrings.push_back(QString("Max Aspect Ratio: %1\n").arg(maxAspectRatio));
-    messageStrings.push_back(QString("Non-Orthogonality: Max %1, Average %2\n").arg(nonOrthoMax, nonOrthoAvg));
-    messageStrings.push_back(QString("Max Face Skewness: %1\n").arg(maxSkewness));
+    messageStrings.push_back(
+        QString("Topology: %1 Cells, %2 Faces, %3 Points\n").
+            arg(cells, faces, points));
+    messageStrings.push_back(
+        QString("Bounding Box: %1\n").arg(boundingBox));
+    messageStrings.push_back(
+        QString("Max Aspect Ratio: %1\n").arg(maxAspectRatio));
+    messageStrings.push_back(
+        QString("Non-Orthogonality: Max %1, Average %2\n").
+            arg(nonOrthoMax, nonOrthoAvg));
+    messageStrings.push_back(
+        QString("Max Face Skewness: %1\n").arg(maxSkewness));
     messageStrings.push_back(QString("Min Cell Volume: %1\n").arg(minVolume));
     messageStrings.push_back(QString("Min Face Area: %1\n").arg(minFaceArea));
 
     // Display dialog
-    UtilityOutputDialog dlg(tr("Mesh Check Results"), tr("Output of checkMesh:"),
-                            messageStrings, logText, this);
+    UtilityOutputDialog dlg(tr("Mesh Check Results"),
+        tr("Output of checkMesh:"), messageStrings, logText, this);
     dlg.exec();
 }
 
 // Run renumberMesh
 void MainWindow::runMeshRenumber(const QString& casePath, int targetId) {
-
+    // Get OpenFoam path
     QString openFoamPath;
     QString caseName = QFileInfo(casePath).fileName();
     if (m_caseMap.contains(caseName)) {
@@ -1387,12 +1419,14 @@ void MainWindow::runMeshRenumber(const QString& casePath, int targetId) {
     // Make sure renumberMesh is present
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
     if (!utilMap.value("renumberMesh", false)) {
-        QMessageBox::warning(this, tr("Utility Not Found"), tr("The renumberMesh utility could not be found."));
+        QMessageBox::warning(this, tr("Utility Not Found"),
+                        tr("The renumberMesh utility could not be found."));
         return;
     }
 
     // Run renumberMesh
-    QString cmd = QString("cd \"%1\"; source %2/etc/bashrc; renumberMesh -constant -overwrite")
+    QString cmd = QString("cd \"%1\"; source %2/etc/bashrc; "
+                          "renumberMesh -constant -overwrite")
                       .arg(casePath, openFoamPath);
 
     // Execute the tool
@@ -1449,7 +1483,6 @@ void MainWindow::runMeshRenumber(const QString& casePath, int targetId) {
 // Run surfacePatch
 void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
                                  int targetId, bool isBinary) {
-
     // Variables for command string
     QFileInfo info(fullPath);
     QString path = info.path();
@@ -1464,7 +1497,7 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
     if (index != -1) {
         casePath = fullPath.left(index);
     } else {
-        qWarning() << "STL file is not located in a valid OpenFOAM triSurface directory.";
+        qWarning() << "STL file is not in a valid triSurface directory.";
         return;
     }
 
@@ -1481,8 +1514,9 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
     if (utilMap.value("surfaceAutoPatch", false)) {
         if (isBinary) {
             QString symlinkName = info.completeBaseName() + ".stlb";
-            cmd = QString("cd \"%1\" && ln -s \"%2\" \"%3\" && surfaceAutoPatch \"%3\" %4 \"%5\"; rm -f \"%3\"")
-                      .arg(path, fileName, symlinkName, QString::number(angle), tmpName);
+            cmd = QString("cd \"%1\" && ln -s \"%2\" \"%3\" && "
+                          "surfaceAutoPatch \"%3\" %4 \"%5\"; rm -f \"%3\"")
+            .arg(path, fileName, symlinkName, QString::number(angle), tmpName);
         } else {
             cmd = QString("cd \"%1\" && surfaceAutoPatch \"%2\" %3 \"%4\"")
             .arg(path, fileName, QString::number(angle), tmpName);
@@ -1492,15 +1526,16 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
         QString result;
         targetSystems[targetId]->launchShortUtility(cmd, result);
         qDebug() << result;
-    }
-    else if (utilMap.value("surfacePatch", false)) {
-
+    } else if (utilMap.value("surfacePatch", false)) {
         // Create surfacePatchDict
-        QString dictText = Utils::createSurfacePatchDict(openFoamPath, fileName, angle);
-        targetSystems[targetId]->writeData(dictText.toUtf8(), casePath + "/system/surfacePatchDict");
+        QString dictText =
+            Utils::createSurfacePatchDict(openFoamPath, fileName, angle);
+        targetSystems[targetId]->writeData(
+            dictText.toUtf8(), casePath + "/system/surfacePatchDict");
 
         // Run surfacePatch
-        cmd = QString("cd \"%1\"; source %2/etc/bashrc; surfacePatch").arg(casePath, openFoamPath);
+        cmd = QString("cd \"%1\"; source %2/etc/bashrc; surfacePatch").
+              arg(casePath, openFoamPath);
         QString result;
         targetSystems[targetId]->launchShortUtility(cmd, result);
 
@@ -1509,29 +1544,33 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
 
             // Read patched file content
             QString newPath = path + "/" + stem + "_patched.stl";
-            QByteArray newData = targetSystems[targetId]->getFileContent(newPath);
+            QByteArray newData =
+                targetSystems[targetId]->getFileContent(newPath);
 
             if (newData.size() > 0) {
 
                 // Create new RenderData
-                std::pair<RenderData, bool> res = StlReader::readStlFile(fileName, newData);
+                std::pair<RenderData, bool> res =
+                    StlReader::readStlFile(fileName, newData);
                 RenderData mesh = res.first;
-                std::shared_ptr<RenderData> meshData = std::make_shared<RenderData>(std::move(mesh));
+                std::shared_ptr<RenderData> meshData =
+                    std::make_shared<RenderData>(std::move(mesh));
 
                 // Pass data to SurfaceEditor
-                SurfaceEditor* editor = qobject_cast<SurfaceEditor*>(m_tabWidget->currentWidget());
+                SurfaceEditor* editor =
+                    qobject_cast<SurfaceEditor*>(m_tabWidget->currentWidget());
                 editor->updateModel(meshData);
             }
         } else if (result.contains("unchanged")) {
             QMessageBox::warning(this, tr("No Patches Generated"),
-                                 tr("The surfacePatch utility didn't generate any patches.\n\n"
-                                    "You may want to reduce the featureAngle or update surfacePatchDict."));
+             tr("The surfacePatch utility didn't generate any patches.\n\n"
+            "You may want to reduce the angle or update surfacePatchDict."));
         }
     }
 }
 
-void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isBinary) {
-
+void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId,
+                                 bool isBinary) {
     // Variables for command string
     QFileInfo info(fullPath);
     QString path = info.path();
@@ -1543,7 +1582,7 @@ void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isB
     if (index != -1) {
         casePath = fullPath.left(index);
     } else {
-        qWarning() << "STL file is not located in a valid OpenFOAM triSurface directory.";
+        qWarning() << "STL file is not in a valid triSurface directory.";
         return;
     }
 
@@ -1557,7 +1596,7 @@ void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isB
 
     // Access utility map
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
-    if(!utilMap.value("surfaceCheck", true)) {
+    if (!utilMap.value("surfaceCheck", true)) {
         qDebug() << "The surfaceCheck utility can't be found";
         return;
     }
@@ -1570,32 +1609,33 @@ void MainWindow::runSurfaceCheck(const QString& fullPath, int targetId, bool isB
         cmd = QString("ln -s %1 %2 && surfaceCheck %2 ; rm -f %2")
                   .arg(safePath, symlinkPath);
     } else {
-        cmd = QString("source %1/etc/bashrc; surfaceCheck %2").arg(openFoamPath, safePath);
+        cmd = QString("source %1/etc/bashrc; surfaceCheck %2").
+              arg(openFoamPath, safePath);
     }
 
     // Get output
     QString result;
     targetSystems[targetId]->launchShortUtility(cmd, result);
-    if(result.isEmpty()) { return; }
+    if (result.isEmpty())
+        return;
 
     // Display dialog containing result
     std::vector<QString> messageStrings;
     for (auto line : QStringTokenizer(result, u'\n')) {
-        if((line.startsWith(u"Surface")) || (line.startsWith(u"Number"))) {
+        if ((line.startsWith(u"Surface")) || (line.startsWith(u"Number"))) {
             messageStrings.push_back(line.toString() + "\n");
         }
     }
 
     // Display dialog
     UtilityOutputDialog dlg(tr("Surface Check Results"),
-                            tr("Output of the surfaceCheck utiilty:"), messageStrings, result, this);
+    tr("Output of the surfaceCheck utiilty:"), messageStrings, result, this);
     dlg.exec();
 }
 
 // Run surfacePatch
 void MainWindow::runSurfaceScale(double scaleFactor, const QString& fullPath,
                                  int targetId) {
-
     // Variables for command string
     QFileInfo info(fullPath);
     QString path = info.path();
@@ -1609,7 +1649,7 @@ void MainWindow::runSurfaceScale(double scaleFactor, const QString& fullPath,
     if (index != -1) {
         casePath = fullPath.left(index);
     } else {
-        qWarning() << "STL file is not located in a valid OpenFOAM triSurface directory.";
+        qWarning() << "STL file is not in a valid triSurface directory.";
         return;
     }
     caseName = QFileInfo(casePath).fileName();
@@ -1643,8 +1683,7 @@ void MainWindow::runSurfaceScale(double scaleFactor, const QString& fullPath,
 }
 
 QString MainWindow::getSelectedCase() {
-
-    // Get selected case from the m_navigator
+    // Get selected case from the navigator
     QString selectedCase = m_navigator->getSelectedCase();
     if (selectedCase.isEmpty()) {
 
@@ -1653,10 +1692,7 @@ QString MainWindow::getSelectedCase() {
             int index = m_tabWidget->currentIndex();
             QString tabPath = m_tabWidget->tabBar()->tabData(index).toString();
             selectedCase = tabPath.split("/")[0];
-        }
-
-        // Choose the last case in the list
-        else {
+        } else {
             QStringList cases = m_navigator->getCases();
             selectedCase = cases.back();
         }
@@ -1665,15 +1701,14 @@ QString MainWindow::getSelectedCase() {
 }
 
 void MainWindow::runSolverConfiguration() {
-
     // Get the selected case
     QString caseName = getSelectedCase();
     QStringList cases = m_caseMap.keys();
 
     // Create solver wizard if parsing succeeds
     SolverWizard* wizard = new SolverWizard(caseName, cases, m_solverFamilies,
-                                            m_turbulenceModels, m_transportProperties, m_fieldData,
-                                            m_boundaryConditions, this);
+        m_turbulenceModels, m_transportProperties, m_fieldData,
+        m_boundaryConditions, this);
     if (wizard->parseFiles()) {
         wizard->exec();
     } else {
@@ -1683,7 +1718,6 @@ void MainWindow::runSolverConfiguration() {
 
 // Launch solver execution wizard
 void MainWindow::runSolverExecution() {
-
     // Launch the dialog
     QString caseName = getSelectedCase();
     QStringList cases = m_caseMap.keys();
@@ -1692,15 +1726,15 @@ void MainWindow::runSolverExecution() {
 }
 
 // Stop solver execution
-void MainWindow::stopSolverExecution() {
+void MainWindow::stopSolverExecution() {}
 
-}
-
-void MainWindow::longUtilityFinished(const QString& status, const QString& caseName, UtilityType utilityType) {
-
+void MainWindow::longUtilityFinished(const QString& status,
+                    const QString& caseName, UtilityType utilityType) {
+    // Get the ID of the target system
     int targetId = m_caseMap[caseName].targetSystemId;
 
-    switch(utilityType) {
+    // Refresh navigator
+    switch (utilityType) {
     case UtilityType::MESH:
         updatePath(caseName, "constant/polyMesh", targetId);
         updatePath(caseName, "system", targetId);
@@ -1712,7 +1746,7 @@ void MainWindow::longUtilityFinished(const QString& status, const QString& caseN
 }
 
 void MainWindow::loadSolverFamilies() {
-
+    // Load data from solvers.json
     QFile file(m_configDir.filePath("solvers.json"));
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray data = file.readAll();
@@ -1727,24 +1761,33 @@ void MainWindow::loadSolverFamilies() {
                     FlowCompute::SolverFamily family;
                     family.name = obj["category"].toString();
                     QJsonArray solverArray = obj["solvers"].toArray();
-                    for (const QJsonValue& solverVal : std::as_const(solverArray)) {
+                    for (const QJsonValue& solverVal :
+                         std::as_const(solverArray)) {
 
-                        // Handle the case where it is an object with potential overrides
+                        // Read object
                         if (solverVal.isObject()) {
                             QJsonObject solverObj = solverVal.toObject();
                             FlowCompute::SolverDef solverDef;
                             solverDef.name = solverObj["name"].toString();
                             QString algoStr = solverObj["algorithm"].toString();
-                            solverDef.algorithm = FlowCompute::Algorithm(QMetaEnum::fromType<FlowCompute::Algorithm>().
-                                                                         keyToValue(algoStr.toUtf8().constData()));
-                            solverDef.fields = solverObj["fields"].toVariant().toStringList();
-                            solverDef.transportProperties = solverObj["transportProperties"].toVariant().toStringList();
+                            solverDef.algorithm = FlowCompute::Algorithm(
+                                QMetaEnum::fromType<FlowCompute::Algorithm>().
+                                    keyToValue(algoStr.toUtf8().constData()));
+                            solverDef.fields =
+                                solverObj["fields"].toVariant().toStringList();
+                            solverDef.transportProperties =
+                                solverObj["transportProperties"].toVariant().
+                                                            toStringList();
                             if (solverObj.contains("thermalProperties")) {
-                                solverDef.thermalProperties = solverObj["thermalProperties"].toVariant().toStringList();
+                                solverDef.thermalProperties =
+                                    solverObj["thermalProperties"].toVariant().
+                                                              toStringList();
                             } else {
                                 solverDef.thermalProperties = {};
                             }
-                            solverDef.isSteadyState = solverObj["is_steady_state"].toBool(solverDef.isSteadyState);
+                            solverDef.isSteadyState =
+                                solverObj["is_steady_state"].toBool(
+                                    solverDef.isSteadyState);
                             family.solvers.append(solverDef);
                         }
                     }
@@ -1757,7 +1800,7 @@ void MainWindow::loadSolverFamilies() {
 }
 
 void MainWindow::loadMaterialProperties() {
-
+    // Load data from material_properties.json
     QFile file(m_configDir.filePath("material_properties.json"));
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray data = file.readAll();
@@ -1771,11 +1814,15 @@ void MainWindow::loadMaterialProperties() {
             m_transportProperties.clear();
 
             // Check the transportProperties object
-            if (rootObj.contains("transportProperties") && rootObj["transportProperties"].isObject()) {
-                QJsonObject transportObj = rootObj["transportProperties"].toObject();
+            if (rootObj.contains("transportProperties") &&
+                rootObj["transportProperties"].isObject()) {
+                QJsonObject transportObj =
+                    rootObj["transportProperties"].toObject();
 
                 // Iterate through items
-                for (auto it = transportObj.constBegin(); it != transportObj.constEnd(); ++it) {
+                for (auto it = transportObj.constBegin();
+                     it != transportObj.constEnd(); ++it) {
+
                     QString transportPropertyName = it.key();
 
                     if (it.value().isObject()) {
@@ -1784,28 +1831,35 @@ void MainWindow::loadMaterialProperties() {
 
                         // Extract fields
                         propertyDef.name = propDetails["name"].toString();
-                        propertyDef.dimensions = propDetails["dimensions"].toString();
-                        propertyDef.defaultVal = propDetails["default"].toString();
-                        m_transportProperties[transportPropertyName] = propertyDef;
+                        propertyDef.dimensions =
+                            propDetails["dimensions"].toString();
+                        propertyDef.defaultVal =
+                            propDetails["default"].toString();
+                        m_transportProperties[transportPropertyName] =
+                            propertyDef;
                     } else {
-                        qWarning() << "Value for property" << transportPropertyName << "is not a valid JSON object.";
+                        qWarning() << "Value for property" <<
+                            transportPropertyName << "is not a valid object.";
                     }
                 }
             } else {
-                qWarning() << "'transportProperties' object is missing or invalid in material_properties.json.";
+                qWarning() << "'transportProperties' object is missing or "
+                              "invalid in material_properties.json.";
             }
 
         } else {
-            qWarning() << "Failed to parse material_properties.json: Root is not a JSON Object.";
+            qWarning() << "Failed to parse material_properties.json: "
+                          "Root is not a JSON Object.";
         }
         file.close();
     } else {
-        qWarning() << "Failed to open material_properties.json at:" << file.fileName();
+        qWarning() << "Failed to open material_properties.json at:" <<
+            file.fileName();
     }
 }
 
 void MainWindow::loadTurbulenceModels() {
-
+    // Load data from turbulence.json
     QFile file(m_configDir.filePath("turbulence.json"));
     if (file.open(QIODevice::ReadOnly)) {
         QByteArray data = file.readAll();
@@ -1819,14 +1873,16 @@ void MainWindow::loadTurbulenceModels() {
             m_turbulenceModels.clear();
 
             // Iterate through categories
-            for (auto catIt = rootObj.constBegin(); catIt != rootObj.constEnd(); ++catIt) {
+            for (auto catIt = rootObj.constBegin();
+                 catIt != rootObj.constEnd(); ++catIt) {
                 QString categoryName = catIt.key();
                 QJsonObject subCatObj = catIt.value().toObject();
 
-                QMap<QString, std::vector<FlowCompute::TurbulenceModel>> subCatMap;
+                QMap<QString, std::vector<FlowCompute::TurbulenceModel>> subMap;
 
                 // Iterate through subcategories
-                for (auto subCatIt = subCatObj.constBegin(); subCatIt != subCatObj.constEnd(); ++subCatIt) {
+                for (auto subCatIt = subCatObj.constBegin();
+                     subCatIt != subCatObj.constEnd(); ++subCatIt) {
                     QString subCategoryName = subCatIt.key();
                     QJsonObject modelsObj = subCatIt.value().toObject();
 
@@ -1848,14 +1904,14 @@ void MainWindow::loadTurbulenceModels() {
                     }
 
                     // Insert the populated list into the subcategory map
-                    subCatMap.insert(subCategoryName, modelList);
+                    subMap.insert(subCategoryName, modelList);
                 }
 
                 // Insert the subcategory map into the main category map
-                m_turbulenceModels.insert(categoryName, subCatMap);
+                m_turbulenceModels.insert(categoryName, subMap);
             }
         } else {
-            qWarning() << "Failed to parse turbulence.json: Root is not a JSON Object.";
+            qWarning() << "Failed to parse turbulence.json: root not object.";
         }
         file.close();
     } else {
@@ -1864,7 +1920,7 @@ void MainWindow::loadTurbulenceModels() {
 }
 
 void MainWindow::loadFieldData() {
-
+    // Load data from fields.json
     QFile file(m_configDir.filePath("fields.json"));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return;
@@ -1895,8 +1951,10 @@ void MainWindow::loadFieldData() {
 
         FlowCompute::FieldDef data;
         QString classStr = fieldObj.value("class").toString();
-        data.fieldClass = FlowCompute::FieldClass(QMetaEnum::fromType<FlowCompute::FieldClass>().
-                                                  keyToValue(classStr.toUtf8().constData()));
+        data.fieldClass =
+            FlowCompute::FieldClass(
+                QMetaEnum::fromType<FlowCompute::FieldClass>().
+                    keyToValue(classStr.toUtf8().constData()));
         data.dimensions = fieldObj.value("dimensions").toString();
 
         // Handle default value conversion
@@ -1917,8 +1975,7 @@ void MainWindow::loadFieldData() {
 }
 
 void MainWindow::loadBoundaryConditions() {
-
-    // Read file content
+    // Load data from boundary_conditions.json
     QFile file(m_configDir.filePath("boundary_conditions.json"));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         return;
@@ -1942,7 +1999,7 @@ void MainWindow::loadBoundaryConditions() {
     }
 
     // A helper lambda to keep the array conversion DRY
-    auto jsonArrayToStringList = [](const QJsonArray& jsonArray) {
+    auto arrayToStringList = [](const QJsonArray& jsonArray) {
         QStringList list;
         for (const QJsonValue& val : jsonArray) {
             list.append(val.toString());
@@ -1961,16 +2018,15 @@ void MainWindow::loadBoundaryConditions() {
         bc.name = obj.value("name").toString();
 
         // Convert the nested JSON arrays into QStringLists
-        bc.categories = jsonArrayToStringList(obj.value("categories").toArray());
-        bc.types      = jsonArrayToStringList(obj.value("types").toArray());
-        bc.patchTypes = jsonArrayToStringList(obj.value("patchTypes").toArray());
-        bc.parameters = jsonArrayToStringList(obj.value("parameters").toArray());
+        bc.categories = arrayToStringList(obj.value("categories").toArray());
+        bc.types      = arrayToStringList(obj.value("types").toArray());
+        bc.patchTypes = arrayToStringList(obj.value("patchTypes").toArray());
+        bc.parameters = arrayToStringList(obj.value("parameters").toArray());
         m_boundaryConditions.push_back(bc);
     }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
-
     // Check tabs
     for (int i = 0; i < m_tabWidget->count(); ++i) {
         if (!m_tabWidget->promptToSave(i)) {
@@ -1987,7 +2043,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     settings.beginWriteArray("Cases");
     QStringList cases = m_navigator->getCases();
 
-    // We need an integer index for the array, so we use a traditional for-loop
+    // Iterate through cases
     for (int i = 0; i < cases.size(); ++i) {
         settings.setArrayIndex(i);
         QString caseName = cases.at(i);

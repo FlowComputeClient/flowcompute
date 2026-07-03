@@ -15,14 +15,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "tab_bar.h"
 #include "tab_widget.h"
 
 #include <QMessageBox>
 #include <QStringBuilder>
 
-TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
+#include "tab_bar.h"
 
+TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
     // Access parent
     window = parent;
 
@@ -76,7 +76,6 @@ void TabWidget::closeAllTabs() {
 }
 
 bool TabWidget::promptToSave(int index) {
-
     // Make the tab at the given index current
     this->setCurrentIndex(index);
 
@@ -104,7 +103,7 @@ bool TabWidget::promptToSave(int index) {
         emit saveTab();
         return true;
     } else if (resBtn == QMessageBox::Cancel) {
-        return false; // Tell the caller to abort!
+        return false;
     }
 
     // If they clicked Discard, it's safe to proceed.
@@ -129,19 +128,18 @@ void TabWidget::destroyTab(int index) {
 }
 
 void TabWidget::changeDirtyState(QWidget* editor, bool dirty) {
-
     // Get name of tab
     int index = indexOf(editor);
     QString name = tabText(index);
 
     // Add asterisk to mark editor as dirty
-    if(dirty && (name[0] != '*')) {
+    if (dirty && (name[0] != '*')) {
         setTabText(index, name.prepend("* "));
         return;
     }
 
     // Remove asterisk to mark editor as not dirty
-    if(!dirty && (name[0] == '*')) {
+    if (!dirty && (name[0] == '*')) {
         setTabText(index, name.remove(0, 2));
         return;
     }
