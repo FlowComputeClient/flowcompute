@@ -27,9 +27,9 @@
 #include <memory>
 #include <mutex>
 
-#include "vulkan_renderer.h"
+#include "editors/graphical/vulkan/vulkan_renderer.h"
 
-#include "../../../geometry/graphic_data.h"
+#include "geometry/graphic_data.h"
 
 struct TransformMatrices {
     QMatrix4x4 model;

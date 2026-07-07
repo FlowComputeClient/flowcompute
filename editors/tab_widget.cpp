@@ -15,12 +15,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "tab_widget.h"
+#include "editors/tab_widget.h"
 
 #include <QMessageBox>
 #include <QStringBuilder>
 
-#include "tab_bar.h"
+#include "editors/tab_bar.h"
 
 TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
     // Access parent

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "mesh_editor.h"
+#include "editors/graphical/mesh/mesh_editor.h"
 
 #include <QMetaEnum>
 
@@ -24,9 +24,9 @@
 #include <string>
 #include <vector>
 
-#include "../../../dialogs/solver/solver_io.h"
-#include "../../../main_window.h"
-#include "../../../parser/open_foam_dictionary.h"
+#include "wizards/solver/solver_io.h"
+#include "./main_window.h"
+#include "parser/open_foam_dictionary.h"
 
 MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
        const QString& casePath, int targetId,
@@ -191,8 +191,10 @@ void MeshEditor::updatePatches() {
         m_casePath + "/constant/polyMesh/boundary");
     if (!fileData.isEmpty()) {
         m_boundaries = SolverIO::parseBoundaryPatches(fileData);
-        // auto [newData, m_boundaries] = SolverIO::removeEmptyPatches(fileData);
-        // m_mainWin->targetSystems[m_targetId]->writeData(newData, m_casePath + "/constant/polyMesh/boundary");
+        // auto [newData, m_boundaries] =
+        //   SolverIO::removeEmptyPatches(fileData);
+        // m_mainWin->targetSystems[m_targetId]->writeData(newData, m_casePath
+        // + "/constant/polyMesh/boundary");
     }
 
     // Update list of patch names

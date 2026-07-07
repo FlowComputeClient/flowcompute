@@ -26,9 +26,9 @@
 #include <string>
 #include <vector>
 
-#include "../vulkan/vulkan_window.h"
-#include "../../../geometry/graphic_data.h"
-#include "mesh_left_pane.h"
+#include "editors/graphical/vulkan/vulkan_window.h"
+#include "geometry/graphic_data.h"
+#include "editors/graphical/mesh/mesh_left_pane.h"
 
 class MainWindow;
 

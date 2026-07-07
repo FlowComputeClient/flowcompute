@@ -31,11 +31,11 @@
 #include <utility>
 #include <vector>
 
-#include "dialogs/mesh/wizard_mesh.h"
+#include "wizards/mesh/wizard_mesh.h"
 #include "dialogs/preferences/preferences_dialog.h"
 #include "dialogs/run_mesh/run_mesh_dialog.h"
 #include "dialogs/run_solver/run_solver_dialog.h"
-#include "dialogs/solver/wizard_solver.h"
+#include "wizards/solver/wizard_solver.h"
 #include "dialogs/utility_output/utility_output_dialog.h"
 
 #include "editors/graphical/surface/surface_editor.h"
@@ -61,21 +61,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setWindowIcon(QIcon(":/images/flowcompute.png"));
 #endif
 
-    /*
-    // Set title and icon
-    setStyleSheet(
-        "QWidget { background-color: #F4F1EA; }"
-        "QComboBox, QLineEdit, QTextEdit, QPlainTextEdit { background-color: white; }"
-        "QComboBox QAbstractItemView { background-color: white; }"
-        "QListWidget { background-color: white; }"
-        "QDoubleSpinBox { background-color: white; }"
-        "QSpinBox { background-color: white; }"
-        "QGroupBox { border: 1px solid gray; margin-top: 8px; padding-top: 10px; padding-bottom: 10px; padding-left: 15px; padding-right: 15px; }"
-        "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 5px; font: bold; }"
-        "QTreeWidget { background-color: white; }"
-        "QTreeView { background-color: white; }"
-        );
-    */
     setWindowTitle("FlowCompute 0.8.0 - Visual CFD Made Simple");
 
     // Configure font
@@ -252,7 +237,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     connect(m_tabWidget, &TabWidget::saveTab, this, &MainWindow::saveFile);
 
     // Configure logging from the navigator
-    // connect(m_navigator, &CaseNavigator::createEditor, this, &MainWindow::createEditor);
+    // connect(m_navigator, &CaseNavigator::createEditor, this,
+    // &MainWindow::createEditor);
 
     // Load data from JSON configuration files
     loadSolverFamilies();
@@ -570,7 +556,7 @@ void MainWindow::applyTheme(const QString& themeFile) {
                         parseSyntaxItem(syntaxObj["keyword"]);
                     m_textTheme.syntaxConfig.number =
                         parseSyntaxItem(syntaxObj["number"]);
-                    m_textTheme.syntaxConfig.string =
+                    m_textTheme.syntaxConfig.stringItem =
                         parseSyntaxItem(syntaxObj["string"]);
                     m_textTheme.syntaxConfig.enumItem =
                         parseSyntaxItem(syntaxObj["enum"]);
@@ -649,96 +635,83 @@ void MainWindow::applyTheme(const QString& themeFile) {
 
 void MainWindow::createEditor(EditorType type, QString& fileName,
                               const QString& fullPath, bool logMessage) {
+    // Check for existing editor
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        QString tabName = m_tabWidget->tabText(i);
+        EditorType tabType = m_tabMap[tabName].type;
+        QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
+        if (tabName.startsWith(fileName) && tabPath == fullPath &&
+            type == tabType) {
+            m_tabWidget->setCurrentIndex(i);
+            return;
+        }
+    }
+
     // Get case name
-    QString caseName;
+    QString caseName, timeFolder;
     if ((type != EditorType::MESH) && (type != EditorType::RESULT)) {
         caseName = fullPath.split('/').first();
     } else {
+        int pos = fileName.indexOf(" (");
+        if (pos != -1) {
+            if (type == EditorType::RESULT) {
+                QString number = fileName.mid(pos + 9);
+                number.chop(1);
+                bool ok;
+                int timeVal = number.toInt(&ok);
+                timeFolder = (ok) ? QString::number(timeVal) : "";
+            }
+            fileName.truncate(pos);
+        }
         caseName = fileName;
     }
+
+    // Access case data
     CaseData caseData = m_caseMap[caseName];
     int targetId = caseData.targetSystemId;
     QString casePath = caseData.casePath + "/" + caseName;
     QString path = caseData.casePath + "/" + fullPath + "/" + fileName;
     QString openFoamPath = caseData.openFoamPath;
-    int tabIndex;
+
     TabData tabData;
-    QByteArray data;
+    tabData.fullPath = fullPath;
+    tabData.type = type;
 
     // Update log
     if (logMessage) m_console->appendPlainText(tr("Reading %1\n").arg(path));
 
-    // Read data
-    if ((type != EditorType::MESH) && (type != EditorType::RESULT)) {
-        data = targetSystems[targetId]->getFileContent(path);
-    }
-
-    // Check to see if there's already an editor
-    if (m_tabMap.contains(fileName)) {
-        tabData = m_tabMap[fileName];
-        if (tabData.fullPath == fullPath) {
-
-            // Iterate through tabs
-            for (int i = 0; i < m_tabWidget->count(); ++i) {
-                QString tabName = m_tabWidget->tabText(i);
-                QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
-                if (tabName == fileName && tabPath == fullPath) {
-                    m_tabWidget->setCurrentIndex(i);
-                    return;
-                }
-            }
-        }
-    }
-
-    // Update tabMap
-    tabData.fullPath = fullPath;
-    tabData.type = type;
-    m_tabMap.insert(fileName, tabData);
-
-    // Create text editor
+    // Text editor
     if (type == EditorType::TEXT) {
-        // Create new tab
         TextEditor* textEditor = new TextEditor(this);
         textEditor->setFont(m_font);
+
+        QByteArray data = targetSystems[targetId]->getFileContent(path);
         textEditor->setTextData(data);
         textEditor->applyTheme(m_textTheme);
-        tabIndex = m_tabWidget->addTab(textEditor, fileName);
+
+        int tabIndex = m_tabWidget->addTab(textEditor, fileName);
         m_tabWidget->setCurrentIndex(tabIndex);
         m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
 
-        // Enable undo and redo actions according to the editor
         connect(textEditor->document(), &QTextDocument::undoAvailable,
                 undoAction, &QAction::setEnabled);
         connect(textEditor->document(), &QTextDocument::redoAvailable,
                 redoAction, &QAction::setEnabled);
+        connect(textEditor, &TextEditor::dirtyStateChanged, this,
+                [this, textEditor](bool isDirty) {
+            onDirtyStateChanged(isDirty, textEditor);
+        });
 
-        // Configure event handling
-        connect(textEditor, &TextEditor::dirtyStateChanged,
-                this, [this, textEditor](bool isDirty) {
-                    onDirtyStateChanged(isDirty, textEditor);
-                });
-
-        // Configure the save action
-        connect(m_tabWidget, &QTabWidget::currentChanged,
-            this, [=, this](int index) {
-                TextEditor* currentEditor =
-                    qobject_cast<TextEditor*>(m_tabWidget->widget(index));
-                if (currentEditor) {
-                    saveFileAction->setEnabled(
-                        currentEditor->document()->isModified());
-                } else {
-                    saveFileAction->setEnabled(false);
-                }
-            });
-        return;
+        // Track immediately for synchronous tabs
+        m_tabMap.insert(fileName, tabData);
     }
 
-    // Create editor
+    // Surface editor
     if (type == EditorType::SURFACE) {
-        // Convert data to RenderData structure
         bool isBinary = false;
         RenderData model;
         if (fileName.endsWith(".stl", Qt::CaseInsensitive)) {
+            QByteArray data = targetSystems[targetId]->getFileContent(path);
             std::pair<RenderData, bool> res =
                 StlReader::readStlFile(fileName, data);
             model = res.first;
@@ -747,136 +720,151 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
         std::shared_ptr<RenderData> modelData =
             std::make_shared<RenderData>(std::move(model));
 
-        // Create editor
         SurfaceEditor* surfaceEditor = new SurfaceEditor(modelData, path,
             targetId, &m_vulkanInstance, isBinary, this);
-        tabIndex = m_tabWidget->addTab(surfaceEditor, fileName);
+        surfaceEditor->applyTheme(m_graphicalTheme);
+        int tabIndex = m_tabWidget->addTab(surfaceEditor, fileName);
+        m_tabWidget->setCurrentIndex(tabIndex);
+        m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+
+        // Action default configurations
+        undoAction->setDisabled(true);
+        redoAction->setDisabled(true);
+        saveFileAction->setDisabled(true);
+
         connect(surfaceEditor, &SurfaceEditor::surfacePatchRequested,
-                this, &MainWindow::runSurfacePatch);
+            this, &MainWindow::runSurfacePatch);
         connect(surfaceEditor, &SurfaceEditor::surfaceCheckRequested,
-                this, &MainWindow::runSurfaceCheck);
+            this, &MainWindow::runSurfaceCheck);
         connect(surfaceEditor, &SurfaceEditor::surfaceScaleRequested,
-                this, &MainWindow::runSurfaceScale);
-        connect(surfaceEditor, &SurfaceEditor::dirtyStateChanged,
-                this, [this, surfaceEditor](bool isDirty) {
-                    onDirtyStateChanged(isDirty, surfaceEditor);
-                });
+            this, &MainWindow::runSurfaceScale);
+        connect(surfaceEditor, &SurfaceEditor::dirtyStateChanged, this,
+            [this, surfaceEditor](bool isDirty) {
+            onDirtyStateChanged(isDirty, surfaceEditor);
+        });
+
+        m_tabMap.insert(fileName, tabData);
     }
+
+    // Mesh editor
     if (type == EditorType::MESH) {
-        // Create mesh editor
         QProgressDialog* progress =
-            new QProgressDialog("Loading Mesh Data...", QString(), 0, 0, this);
+            new QProgressDialog("Loading mesh...", QString(), 0, 0, this);
         progress->setWindowModality(Qt::WindowModal);
         progress->setMinimumWidth(300);
         progress->setAttribute(Qt::WA_DeleteOnClose);
         progress->show();
 
-        // Setup the Future Watcher
         using RenderDataPtr = std::shared_ptr<RenderData>;
         QFutureWatcher<RenderDataPtr>* watcher =
             new QFutureWatcher<RenderDataPtr>(this);
 
-        // Connect the finished signal to handle the result
         connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
-        [this, watcher, progress, casePath, targetId, fileName, fullPath]() {
+            [this, watcher, progress, casePath, targetId, fileName, fullPath,
+            tabData]() {
             progress->close();
-
-            // Retrieve the result from the background thread
             RenderDataPtr renderData = watcher->result();
 
             if (renderData) {
-                MeshEditor* meshEditor = new MeshEditor(renderData,
-                    casePath, targetId, m_solverFamilies, m_turbulenceModels,
-                    m_fieldData, m_boundaryConditions, &m_vulkanInstance, this);
+                MeshEditor* meshEditor =
+                    new MeshEditor(renderData, casePath, targetId,
+                        m_solverFamilies, m_turbulenceModels, m_fieldData,
+                            m_boundaryConditions, &m_vulkanInstance, this);
+                meshEditor->applyTheme(m_graphicalTheme);
                 connect(meshEditor, &MeshEditor::meshPatchRequested,
-                        this, &MainWindow::runMeshPatch);
+                    this, &MainWindow::runMeshPatch);
                 connect(meshEditor, &MeshEditor::meshCheckRequested,
-                        this, &MainWindow::runMeshCheck);
+                    this, &MainWindow::runMeshCheck);
                 connect(meshEditor, &MeshEditor::meshRenumberRequested,
-                        this, &MainWindow::runMeshRenumber);
+                    this, &MainWindow::runMeshRenumber);
 
-                int tabIndex =
-                    m_tabWidget->addTab(meshEditor, fileName + " (mesh)");
+                QString tabTitle = fileName + " (mesh)";
+                int tabIndex = m_tabWidget->addTab(meshEditor, tabTitle);
                 m_tabWidget->setCurrentIndex(tabIndex);
                 m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+
                 undoAction->setDisabled(true);
                 redoAction->setDisabled(true);
                 saveFileAction->setDisabled(true);
-            }
 
-            // Clean up the watcher
+                // Insert into tab map
+                m_tabMap.insert(tabTitle, tabData);
+            }
             watcher->deleteLater();
         });
 
-        // Start the background thread
         QFuture<RenderDataPtr> future =
-            QtConcurrent::run(&MainWindow::getMeshData, this,
-                              caseName, casePath, openFoamPath, targetId);
+            QtConcurrent::run(&MainWindow::getMeshData, this, caseName,
+                casePath, openFoamPath, targetId);
         watcher->setFuture(future);
     }
 
+    // Result editor
     if (type == EditorType::RESULT) {
-        // Get list of time folders
+        // Get time folders
         QString resultPath = casePath + "/postProcessing/surfaces";
         QString res = targetSystems[targetId]->getResultFolders(resultPath);
-        if (!res.isEmpty()) {
-            QStringList timeFolders = res.split(',');
-            QString lastTime = timeFolders.last();
-            resultPath += "/" + lastTime;
-            RenderData renderData =
-                targetSystems[targetId]->getResultData(resultPath);
-            std::shared_ptr<RenderData> resultData =
-                std::make_shared<RenderData>(std::move(renderData));
-            if (resultData) {
+        if (res.isEmpty()) {
+            qWarning() << "Couldn't find result folders";
+            return;
+        }
+        QStringList timeFolders = res.split(',');
+
+        // Set desired time folder
+        if (timeFolder.isEmpty())
+            timeFolder = timeFolders.back();
+
+        // Create progress dialog
+        QProgressDialog* progress =
+            new QProgressDialog("Loading Results...", QString(), 0, 0, this);
+        progress->setWindowModality(Qt::WindowModal);
+        progress->setMinimumWidth(300);
+        progress->setAttribute(Qt::WA_DeleteOnClose);
+        progress->show();
+
+        using RenderDataPtr = std::shared_ptr<RenderData>;
+        QFutureWatcher<RenderDataPtr>* watcher =
+            new QFutureWatcher<RenderDataPtr>(this);
+
+        connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
+            [this, watcher, progress, casePath, targetId, fileName, fullPath,
+            timeFolders, timeFolder, tabData]() {
+            progress->close();
+
+            // Access render data
+            RenderDataPtr renderData = watcher->result();
+            if (renderData) {
                 ResultEditor* resultEditor = new ResultEditor(timeFolders,
-                    resultData, casePath, targetId, &m_vulkanInstance, this);
-                connect(resultEditor, &ResultEditor::timeChanged,
-                        this, &MainWindow::updateResultEditor);
-                int tabIndex =
-                    m_tabWidget->addTab(resultEditor,
-                        fileName + QString(" (result@%1)").arg(lastTime));
+                    timeFolder, renderData, casePath, targetId,
+                    &m_vulkanInstance, this);
+                resultEditor->applyTheme(m_graphicalTheme);
+                connect(resultEditor, &ResultEditor::timeChanged, this,
+                    &MainWindow::updateResultEditor);
+
+                // Implemented your specific request here: (result=N)
+                QString tabTitle =
+                    fileName + QString(" (result=%1)").arg(timeFolder);
+                int tabIndex = m_tabWidget->addTab(resultEditor, tabTitle);
+
                 m_tabWidget->setCurrentIndex(tabIndex);
                 m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+
                 undoAction->setDisabled(true);
                 redoAction->setDisabled(true);
                 saveFileAction->setDisabled(true);
+
+                // Add to tab map
+                m_tabMap.insert(tabTitle, tabData);
             }
-        }
-        return;
+            watcher->deleteLater();
+        });
+
+        resultPath = resultPath + "/" + timeFolder;
+        QFuture<RenderDataPtr> future =
+            QtConcurrent::run(
+                &MainWindow::getResultData, this, resultPath, targetId);
+        watcher->setFuture(future);
     }
-
-    if (type != EditorType::MESH) {
-        // Update tab widget
-        m_tabWidget->setCurrentIndex(tabIndex);
-        m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
-        undoAction->setDisabled(true);
-        redoAction->setDisabled(true);
-        saveFileAction->setDisabled(true);
-    }
-}
-
-void MainWindow::deleteFile(const QString& fileName, const QString& fullPath) {
-    // Construct path to delete
-    QString caseName, filePath, casePath;
-    if (fullPath.isEmpty()) {
-        caseName = filePath;
-        filePath = m_caseMap[caseName].casePath + "/" + caseName;
-        casePath = caseName;
-    } else {
-        caseName = fullPath.split('/').first();
-        filePath = m_caseMap[caseName].casePath + "/" +
-                   fullPath + "/" + fileName;
-        casePath = fullPath;
-    }
-
-    // Delete file
-    int targetId = m_caseMap[caseName].targetSystemId;
-    if (!targetSystems[targetId]->deleteFile(filePath)) {
-        qDebug() << "Failed to delete " << filePath;
-    }
-
-    // Update case navigator
-
 }
 
 std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName,
@@ -896,6 +884,35 @@ std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName,
 
     // Convert data to RenderData structure
     return std::make_shared<RenderData>(MeshReader::readMesh(caseName, data));
+}
+
+std::shared_ptr<RenderData> MainWindow::getResultData(QString resultPath,
+                                                      int targetId) {
+
+    // Convert data to RenderData structure
+    return std::make_shared<RenderData>(
+        targetSystems[targetId]->getResultData(resultPath));
+}
+
+void MainWindow::deleteFile(const QString& fileName, const QString& fullPath) {
+
+    // Construct path to delete
+    QString caseName, filePath, casePath;
+    if (fullPath.isEmpty()) {
+        caseName = filePath;
+        filePath = m_caseMap[caseName].casePath + "/" + caseName;
+        casePath = caseName;
+    } else {
+        caseName = fullPath.split('/').first();
+        filePath = m_caseMap[caseName].casePath + "/" +
+                   fullPath + "/" + fileName;
+        casePath = fullPath;
+    }
+
+    // Delete file
+    int targetId = m_caseMap[caseName].targetSystemId;
+    QStringList result = targetSystems[targetId]->processPaths(filePath,
+                            PathOperationType::DELETE);
 }
 
 void MainWindow::runMesh(const QString& caseName, bool runBlockMesh,
@@ -961,14 +978,18 @@ void MainWindow::runSolver(const QString& caseName, const QString& cmd) {
     m_console->clear();
 
     // Execute command
-    QString command = QString("cd %1; source %2/etc/bashrc; " + cmd).arg(casePath, openFoamPath);
-    targetSystems[targetId]->launchLongUtility(command, caseName, UtilityType::SOLVER);
+    QString command =
+        QString("cd %1; source %2/etc/bashrc; " + cmd).
+                      arg(casePath, openFoamPath);
+    targetSystems[targetId]->launchLongUtility(
+        command, caseName, UtilityType::SOLVER);
 }
 
-void MainWindow::createCase(QString caseName, QString casePath, QStringList caseFiles,
-                            int targetId, QString openFoamPath) {
+void MainWindow::createCase(QString caseName, QString casePath,
+        QStringList caseFiles, int targetId, QString openFoamPath) {
     // Add case to map
-    m_caseMap.insert(caseName, CaseData{casePath, caseFiles, targetId, openFoamPath});
+    m_caseMap.insert(caseName, CaseData{casePath, caseFiles, targetId,
+                                        openFoamPath});
 
     // Update utility map if necessary
     if (!m_utilMap.contains(openFoamPath)) {
@@ -1104,7 +1125,8 @@ void MainWindow::updatePath(const QString& caseName, const QString& subDir,
     }
 
     QString fullPath = m_caseMap[caseName].casePath + "/" + casePath;
-    QStringList files = targetSystems[targetId]->getFiles(fullPath);
+    QStringList files = targetSystems[targetId]->processPaths(fullPath,
+        PathOperationType::LIST);
 
     if (!files.isEmpty()) {
         m_navigator->updatePath(casePath, files);
@@ -1132,7 +1154,7 @@ void MainWindow::onDirtyStateChanged(bool isDirty, QWidget* widget) {
 
         m_tabWidget->setTabText(index, tabText);
 
-        // 4. Update the save action if the modified file is currently being viewed
+        // Update the save action if the modified file is being viewed
         if (m_tabWidget->currentIndex() == index) {
             saveFileAction->setEnabled(isDirty);
         }
@@ -1244,7 +1266,7 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath,
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
     if (!utilMap.value("autoPatch", false)) {
         QMessageBox::warning(this, tr("Utility Not Found"),
-                             tr("The autoPatch utility could not be found."));
+            tr("The autoPatch utility could not be found."));
         return;
     }
 
@@ -1362,7 +1384,8 @@ void MainWindow::runMeshCheck(const QString& casePath, int targetId) {
     if (auto match = aspectRegex.match(logText); match.hasMatch())
         maxAspectRatio = match.captured(1);
 
-    QRegularExpression orthoRegex("Mesh non-orthogonality Max:\\s+([\\d\\.]+)\\s+average:\\s+([\\d\\.]+)");
+    QRegularExpression orthoRegex("Mesh non-orthogonality Max:\\s+([\\d\\.]+)"
+                                  "\\s+average:\\s+([\\d\\.]+)");
     if (auto match = orthoRegex.match(logText); match.hasMatch()) {
         nonOrthoMax = match.captured(1);
         nonOrthoAvg = match.captured(2);
@@ -1448,7 +1471,8 @@ void MainWindow::runMeshRenumber(const QString& casePath, int targetId) {
     }
 
     // Extract "Before renumbering" statistics
-    QRegularExpression beforeRegex("Before renumbering\\s+band\\s+:\\s+(\\S+)\\s+profile\\s+:\\s+(\\S+)");
+    QRegularExpression beforeRegex("Before renumbering\\s+band\\s+:\\s+(\\S+)"
+                                   "\\s+profile\\s+:\\s+(\\S+)");
     QRegularExpressionMatch beforeMatch = beforeRegex.match(result);
     if (beforeMatch.hasMatch()) {
         beforeBand = beforeMatch.captured(1).trimmed();
@@ -1456,7 +1480,8 @@ void MainWindow::runMeshRenumber(const QString& casePath, int targetId) {
     }
 
     // Extract "After renumbering" statistics
-    QRegularExpression afterRegex("After renumbering\\s+band\\s+:\\s+(\\S+)\\s+profile\\s+:\\s+(\\S+)");
+    QRegularExpression afterRegex("After renumbering\\s+band\\s+:\\s+(\\S+)"
+                                  "\\s+profile\\s+:\\s+(\\S+)");
     QRegularExpressionMatch afterMatch = afterRegex.match(result);
     if (afterMatch.hasMatch()) {
         afterBand = afterMatch.captured(1).trimmed();
@@ -2061,14 +2086,10 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     // Save open tabs to settings
     settings.remove("Tabs");
     settings.beginWriteArray("Tabs");
-    const QString suffix = " (mesh)";
 
     for (int i = 0; i < m_tabWidget->count(); ++i) {
         settings.setArrayIndex(i);
         QString fileName = m_tabWidget->tabText(i);
-        if (fileName.endsWith(suffix)) {
-            fileName.chop(suffix.length());
-        }
         TabData data = m_tabMap.value(fileName);
 
         // Save values to settings

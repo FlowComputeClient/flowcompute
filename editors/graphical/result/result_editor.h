@@ -33,9 +33,9 @@ class ResultEditor : public QWidget {
 
  public:
     explicit ResultEditor(const QStringList& timeFolders,
-                          std::shared_ptr<RenderData> renderData,
-                          const QString& casePath, int targetId,
-                          QVulkanInstance* instance, QWidget* parent = nullptr);
+        QString timeFolder, std::shared_ptr<RenderData> renderData,
+        const QString& casePath, int targetId,
+        QVulkanInstance* instance, QWidget* parent = nullptr);
     void updateResult(std::shared_ptr<RenderData> newData);
     void applyTheme(const QString& theme);
 

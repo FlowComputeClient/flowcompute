@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "tree_sitter_highlighter.h"
+#include "editors/text/tree_sitter_highlighter.h"
+
+#include <algorithm>
+#include <string>
 
 TreeSitterHighlighter::TreeSitterHighlighter(QTextDocument *parent)
     : QSyntaxHighlighter(parent) {
@@ -65,13 +68,13 @@ void TreeSitterHighlighter::setSyntaxConfig(const SyntaxConfig& cfg) {
     m_numberFormat.setFontItalic(cfg.number.italic);
 
     // Set the string format
-    m_stringFormat.setForeground(cfg.string.color);
-    if (cfg.string.bold) {
+    m_stringFormat.setForeground(cfg.stringItem.color);
+    if (cfg.stringItem.bold) {
         m_stringFormat.setFontWeight(QFont::Bold);
     } else {
         m_stringFormat.setFontWeight(QFont::Normal);
     }
-    m_stringFormat.setFontItalic(cfg.string.italic);
+    m_stringFormat.setFontItalic(cfg.stringItem.italic);
 
     // Set the enumerated type format
     m_enumFormat.setForeground(cfg.enumItem.color);
@@ -187,7 +190,6 @@ void TreeSitterHighlighter::applyFormatting(TSNode node,
 
 // Update your highlightBlock to use it:
 void TreeSitterHighlighter::highlightBlock(const QString &text) {
-
     if (!m_tree || text.isEmpty())
         return;
 

@@ -15,12 +15,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "vulkan_renderer.h"
+#include "editors/graphical/vulkan/vulkan_renderer.h"
 
 #include <algorithm>
 #include <vector>
 
-#include "vulkan_window.h"
+#include "editors/graphical/vulkan/vulkan_window.h"
 
 // Create vertex buffer
 void VulkanRenderer::createVertexBuffer() {

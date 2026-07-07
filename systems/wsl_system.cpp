@@ -25,7 +25,8 @@
 #include <string>
 #include <vector>
 
-QJsonObject WslSystem::contactServer(QString action, QString message) {
+QJsonObject WslSystem::contactServer(QString action, QString message,
+                                     int opType) {
     QJsonObject result;
 
     // Create socket
@@ -37,6 +38,9 @@ QJsonObject WslSystem::contactServer(QString action, QString message) {
         QJsonObject request;
         request["action"] = action;
         request["message"] = message;
+        if (opType != -1) {
+            request["opType"] = opType;
+        }
 
         socket.write(
             QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
@@ -49,7 +53,6 @@ QJsonObject WslSystem::contactServer(QString action, QString message) {
 
                 QJsonParseError parseError;
                 QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
-
                 if (parseError.error != QJsonParseError::NoError) {
                     qWarning() << "JSON Parse Error:"
                                << parseError.errorString();
@@ -73,6 +76,20 @@ QJsonObject WslSystem::contactServer(QString action, QString message) {
         qWarning() << "Could not connect to WSL server on port 8080.";
     }
     return result;
+}
+
+QStringList WslSystem::processPaths(QString path, PathOperationType opType) {
+    QStringList results;
+
+    QJsonObject result = contactServer("processPaths", path,
+        static_cast<int>(opType));
+    QJsonArray jsonArray = result["message"].toArray();
+    for (const QJsonValue& value : std::as_const(jsonArray)) {
+        if (value.isString()) {
+            results.append(value.toString());
+        }
+    }
+    return results;
 }
 
 // Launch a utility in the server
@@ -168,30 +185,6 @@ QStringList WslSystem::getTutorials(QString path) {
     return results;
 }
 
-QStringList WslSystem::getHomeFolders() {
-    QStringList results;
-    QJsonObject result = contactServer("listDirectory", "");
-    QJsonArray jsonArray = result["message"].toArray();
-    for (const QJsonValue& value : std::as_const(jsonArray)) {
-        if (value.isString()) {
-            results.append(value.toString());
-        }
-    }
-    return results;
-}
-
-QStringList WslSystem::getFiles(QString path) {
-    QStringList results;
-    QJsonObject result = contactServer("listFiles", path);
-    QJsonArray jsonArray = result["message"].toArray();
-    for (const QJsonValue& value : std::as_const(jsonArray)) {
-        if (value.isString()) {
-            results.append(value.toString());
-        }
-    }
-    return results;
-}
-
 QStringList WslSystem::copyTutorialFolders(QString tutPath, QString projPath) {
     QStringList results;
     QJsonObject result = contactServer("copyTutorialFolders",
@@ -274,29 +267,6 @@ bool WslSystem::writeData(const QByteArray& payload,
     }
 }
 
-bool WslSystem::createDirectories(const QStringList& dirPaths) {
-    QJsonObject result = contactServer("createDirectories", dirPaths.join("|"));
-    QString status = result["status"].toString();
-    QJsonArray jsonArray = result["message"].toArray();
-
-    if (status == "success") {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-bool WslSystem::deleteFile(const QString& path) {
-    QJsonObject result = contactServer("deleteFile", path);
-    QString status = result["status"].toString();
-    QJsonArray jsonArray = result["message"].toArray();
-    if (status == "success") {
-        return true;
-    } else {
-        return false;
-    }
-}
-
 bool WslSystem::writeData(const QString& localPath,
                           const QString& remoteFilePath) {
     QFile file(localPath);
@@ -362,12 +332,6 @@ bool WslSystem::writeData(const QString& localPath,
                    << response["message"].toString();
         return false;
     }
-}
-
-QString WslSystem::checkPath(const QString& projPath) {
-    QJsonObject result = contactServer("checkPath", projPath);
-    QString path = result["message"].toString();
-    return path;
 }
 
 QString WslSystem::getResultFolders(QString projPath) {

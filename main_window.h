@@ -35,7 +35,7 @@
 #include <memory>
 #include <vector>
 
-#include "dialogs/new_case/wizard_new_case.h"
+#include "wizards/new_case/wizard_new_case.h"
 #include "editors/tab_widget.h"
 #include "editors/text/text_editor.h"
 #include "geometry/graphic_data.h"
@@ -111,6 +111,9 @@ class MainWindow : public QMainWindow {
     std::shared_ptr<RenderData> getMeshData(
         QString caseName, QString casePath,
         QString openFoamPath, int targetId);
+
+    std::shared_ptr<RenderData> getResultData(
+        QString resultPath, int targetId);
 
     // Check utilities
     QMap<QString, QMap<QString, bool>> m_utilMap;

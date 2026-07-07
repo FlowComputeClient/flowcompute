@@ -59,10 +59,7 @@ class WslSystem : public TargetSystem {
     bool checkDistributions();
     QStringList findOpenFoam() override;
     QStringList getTutorials(QString path) override;
-    QStringList getHomeFolders() override;
-    QStringList getFiles(QString path) override;
     QStringList copyTutorialFolders(QString tutPath, QString projPath) override;
-    QString checkPath(const QString& path) override;
     QByteArray getFileContent(const QString& path) override;
     RenderData getResultData(const QString& path) override;
     bool writeData(const QByteArray& payload,
@@ -72,9 +69,8 @@ class WslSystem : public TargetSystem {
     int launchShortUtility(const QString& cmd, QString& output) override;
     void launchLongUtility(const QString& cmd, const QString& caseName,
                            UtilityType utilityType) override;
-    bool createDirectories(const QStringList& dirPaths) override;
     QString getResultFolders(QString path) override;
-    bool deleteFile(const QString& path) override;
+    QStringList processPaths(QString path, PathOperationType type) override;
 
  signals:
     // Emitted every time a chunk of console output arrives
@@ -90,7 +86,7 @@ class WslSystem : public TargetSystem {
  private:
     void terminateProcess();
     QString createSelectionDialog(const std::vector<std::string>& paths);
-    QJsonObject contactServer(QString, QString);
+    QJsonObject contactServer(QString action, QString message, int opType = -1);
 };
 
 #endif  // SYSTEMS_WSL_SYSTEM_H_

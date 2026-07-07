@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "result_left_pane.h"
+#include "editors/graphical/result/result_left_pane.h"
 
 #include <QComboBox>
 #include <QFrame>
@@ -25,8 +25,9 @@
 
 #include "color_bar_widget.h"
 
-ResultLeftPane::ResultLeftPane(const QStringList& timeFolders, QWidget* parent):
-    m_timeFolders(timeFolders), QWidget(parent) {
+ResultLeftPane::ResultLeftPane(const QStringList& timeFolders,
+    QString timeFolder, QWidget* parent):
+    m_timeFolders(timeFolders), m_timeFolder(timeFolder), QWidget(parent) {
     setProperty("widgetType", "pane");
 
     // Vertical layout
@@ -82,7 +83,11 @@ ResultLeftPane::ResultLeftPane(const QStringList& timeFolders, QWidget* parent):
         }
     });
 
-    if (maxIndex > 0) {
+    // Get index of timeFolder in the timeFolders QStringList
+    int index = m_timeFolders.indexOf(m_timeFolder);
+    if (index != -1) {
+        timeSlider->setValue(index);
+    } else if (maxIndex > 0) {
         timeSlider->setValue(maxIndex);
     }
 

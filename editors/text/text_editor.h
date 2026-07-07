@@ -23,7 +23,7 @@
 #include <QPlainTextEdit>
 #include <QWidget>
 
-#include "tree_sitter_highlighter.h"
+#include "editors/text/tree_sitter_highlighter.h"
 
 struct TextEditorConfig {
     QColor background = QColor(0x1E, 0x1E, 0x1E);

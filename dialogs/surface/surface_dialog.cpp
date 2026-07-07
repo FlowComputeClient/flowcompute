@@ -17,7 +17,7 @@
 
 #include "surface_dialog.h"
 
-#include "../../dialogs/solver/solver_structs.h"
+#include "../../wizards/solver/solver_structs.h"
 
 #include <QMetaEnum>
 

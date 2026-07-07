@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "color_bar_widget.h"
+#include "editors/graphical/result/color_bar_widget.h"
 
 ColorBarWidget::ColorBarWidget(QWidget *parent) : QWidget(parent) {
     setMinimumSize(80, 200);

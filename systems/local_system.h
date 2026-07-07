@@ -29,10 +29,7 @@ class LocalSystem : public TargetSystem {
 
     QStringList findOpenFoam() override;
     QStringList getTutorials(QString path) override;
-    QStringList getHomeFolders() override;
-    QStringList getFiles(QString path) override;
     QStringList copyTutorialFolders(QString tutPath, QString projPath) override;
-    QString checkPath(const QString& basePath) override;
     QByteArray getFileContent(const QString& path) override;
     RenderData getResultData(const QString& path) override;
     bool writeData(const QByteArray& payload,
@@ -42,9 +39,8 @@ class LocalSystem : public TargetSystem {
     int launchShortUtility(const QString& cmd, QString& output) override;
     void launchLongUtility(const QString& cmd, const QString& caseName,
                            UtilityType utilityType) override;
-    bool createDirectories(const QStringList& dirPaths) override;
     QString getResultFolders(QString path) override;
-    bool deleteFile(const QString& path) override;
+    QStringList processPaths(QString path, PathOperationType type) override;
 
  signals:
     // Emitted every time a chunk of console output arrives

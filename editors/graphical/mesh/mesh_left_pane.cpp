@@ -15,15 +15,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "mesh_left_pane.h"
+#include "editors/graphical/mesh/mesh_left_pane.h"
 
 #include <QComboBox>
 #include <QVBoxLayout>
 
 #include <vector>
 
-#include "../../../geometry/graphic_data.h"
-#include "../table_delegate.h"
+#include "geometry/graphic_data.h"
+#include "editors/graphical/table_delegate.h"
 
 MeshLeftPane::MeshLeftPane(QStringList fields,
        const QHash<QString, FlowCompute::FieldDef>& fieldData,

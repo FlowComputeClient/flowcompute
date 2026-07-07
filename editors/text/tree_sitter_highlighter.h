@@ -26,7 +26,7 @@
 
 #include <memory>
 
-// Forward declare your generated language function
+// Forward declare the generated language function
 extern "C" const TSLanguage *tree_sitter_openfoam();
 
 struct SyntaxItem {
@@ -38,7 +38,7 @@ struct SyntaxItem {
 struct SyntaxConfig {
     SyntaxItem keyword = { QColor(0x56, 0x9C, 0xD6), true, false };
     SyntaxItem number = { QColor(0xB5, 0xCE, 0xA8), false, false };
-    SyntaxItem string = { QColor(0xCE, 0x91, 0x78), false, false };
+    SyntaxItem stringItem = { QColor(0xCE, 0x91, 0x78), false, false };
     SyntaxItem enumItem = { QColor(0x4E, 0xC9, 0xB0), false, false };
     SyntaxItem comment = { QColor(0x6A, 0x99, 0x55), false, true };
     SyntaxItem punctuation = { QColor(0x80, 0x80, 0x80), false, false };

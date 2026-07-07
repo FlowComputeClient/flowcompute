@@ -32,7 +32,7 @@
 #include <string>
 #include <vector>
 
-#include "../../../core_types.h"
+#include "./core_types.h"
 
 class MeshLeftPane : public QWidget {
     Q_OBJECT

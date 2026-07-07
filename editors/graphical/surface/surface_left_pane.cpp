@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "surface_left_pane.h"
+#include "editors/graphical/surface/surface_left_pane.h"
 
 #include <QStyleOption>
 #include <QPainter>
@@ -23,8 +23,8 @@
 #include <string>
 #include <vector>
 
-#include "../../../geometry/graphic_data.h"
-#include "../table_delegate.h"
+#include "geometry/graphic_data.h"
+#include "editors/graphical/table_delegate.h"
 
 SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     // Vertical layout

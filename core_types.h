@@ -195,6 +195,14 @@ struct TurbulenceModel {
 using TurbulenceDatabase = QMap<QString, QMap<QString,
                             std::vector<TurbulenceModel>>>;
 
+// This is already in target_system.h
+enum class PathOperationType {
+    CREATE = 0,
+    DELETE,
+    CHECK,
+    LIST
+};
+
 };
 
 #endif  // CORE_TYPES_H_

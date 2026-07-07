@@ -219,8 +219,13 @@ void CaseNavigator::fetchChildren(NodeData* node) {
     QString fullPath = casePath + "/" + nodePath;
 
     // Access children at the given path
+    /*
     QStringList items =
         mainWin->targetSystems[targetSystemId]->getFiles(fullPath);
+    */
+    QStringList items =
+        mainWin->targetSystems[targetSystemId]->processPaths(fullPath,
+            PathOperationType::LIST);
 
     // Create a node for each child
     QList<NodeData*> childFolders, childFiles;

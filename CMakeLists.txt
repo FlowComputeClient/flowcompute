@@ -22,38 +22,6 @@ qt_add_executable(FlowCompute
     dialogs/surface/surface_dialog.h
     dialogs/surface/surface_dialog.cpp
 
-    dialogs/new_case/wizard_new_case.h
-    dialogs/new_case/wizard_new_case.cpp
-    dialogs/new_case/page_10_intro.h
-    dialogs/new_case/page_10_intro.cpp
-    dialogs/new_case/page_20_tutorial.h
-    dialogs/new_case/page_20_tutorial.cpp
-    dialogs/new_case/page_30_interactive.h
-    dialogs/new_case/page_30_interactive.cpp
-    dialogs/new_case/page_40_project.cpp
-    dialogs/new_case/page_40_project.h
-    dialogs/new_case/template_strings.h
-
-    dialogs/mesh/mesh_structs.h
-    dialogs/mesh/mesh_io.h
-    dialogs/mesh/mesh_io.cpp
-    dialogs/mesh/wizard_mesh.h
-    dialogs/mesh/wizard_mesh.cpp
-    dialogs/mesh/page_10_geometry.h
-    dialogs/mesh/page_10_geometry.cpp
-    dialogs/mesh/page_20_blockmesh.h
-    dialogs/mesh/page_20_blockmesh.cpp
-    dialogs/mesh/page_30_blockmesh.h
-    dialogs/mesh/page_30_blockmesh.cpp
-    dialogs/mesh/page_40_surface_extraction.h
-    dialogs/mesh/page_40_surface_extraction.cpp
-    dialogs/mesh/page_50_castellation.h
-    dialogs/mesh/page_50_castellation.cpp
-    dialogs/mesh/page_60_snapcontrol.h
-    dialogs/mesh/page_60_snapcontrol.cpp
-    dialogs/mesh/page_70_layercontrol.h
-    dialogs/mesh/page_70_layercontrol.cpp
-
     dialogs/preferences/preferences_dialog.h
 	dialogs/preferences/preferences_dialog.cpp
 
@@ -65,34 +33,6 @@ qt_add_executable(FlowCompute
 
     dialogs/selection/selection_dialog.h
     dialogs/selection/selection_dialog.cpp
-
-    dialogs/solver/solver_structs.h
-    dialogs/solver/wizard_solver.h
-    dialogs/solver/wizard_solver.cpp
-    dialogs/solver/solver_io.h
-    dialogs/solver/solver_io.cpp
-    dialogs/solver/surface_widget.cpp
-    dialogs/solver/surface_widget.h
-    dialogs/solver/page_10_control.cpp
-    dialogs/solver/page_10_control.h
-    dialogs/solver/page_20_transient.h
-    dialogs/solver/page_20_transient.cpp
-    dialogs/solver/page_30_physics.cpp
-    dialogs/solver/page_30_physics.h
-    dialogs/solver/page_40_boundary.cpp
-    dialogs/solver/page_40_boundary.h
-    dialogs/solver/page_50_algorithm.cpp
-    dialogs/solver/page_50_algorithm.h
-    dialogs/solver/page_70_pimple.h
-    dialogs/solver/page_70_pimple.cpp
-    dialogs/solver/page_60_simple.h
-    dialogs/solver/page_60_simple.cpp
-    dialogs/solver/page_80_piso.h
-    dialogs/solver/page_80_piso.cpp
-    dialogs/solver/page_90_parallel.cpp
-    dialogs/solver/page_90_parallel.h
-    dialogs/solver/page_93_visualization.h
-    dialogs/solver/page_93_visualization.cpp
 
     dialogs/utility_output/utility_output_dialog.h
     dialogs/utility_output/utility_output_dialog.cpp
@@ -161,6 +101,65 @@ qt_add_executable(FlowCompute
     views/navigator/case_navigator.cpp
     views/navigator/node_data.cpp
 
+    wizards/new_case/wizard_new_case.h
+    wizards/new_case/wizard_new_case.cpp
+    wizards/new_case/page_10_intro.h
+    wizards/new_case/page_10_intro.cpp
+    wizards/new_case/page_20_tutorial.h
+    wizards/new_case/page_20_tutorial.cpp
+    wizards/new_case/page_30_interactive.h
+    wizards/new_case/page_30_interactive.cpp
+    wizards/new_case/page_40_project.cpp
+    wizards/new_case/page_40_project.h
+    wizards/new_case/template_strings.h
+
+    wizards/mesh/mesh_structs.h
+    wizards/mesh/mesh_io.h
+    wizards/mesh/mesh_io.cpp
+    wizards/mesh/wizard_mesh.h
+    wizards/mesh/wizard_mesh.cpp
+    wizards/mesh/page_10_geometry.h
+    wizards/mesh/page_10_geometry.cpp
+    wizards/mesh/page_20_blockmesh.h
+    wizards/mesh/page_20_blockmesh.cpp
+    wizards/mesh/page_30_blockmesh.h
+    wizards/mesh/page_30_blockmesh.cpp
+    wizards/mesh/page_40_surface_extraction.h
+    wizards/mesh/page_40_surface_extraction.cpp
+    wizards/mesh/page_50_castellation.h
+    wizards/mesh/page_50_castellation.cpp
+    wizards/mesh/page_60_snapcontrol.h
+    wizards/mesh/page_60_snapcontrol.cpp
+    wizards/mesh/page_70_layercontrol.h
+    wizards/mesh/page_70_layercontrol.cpp
+
+    wizards/solver/solver_structs.h
+    wizards/solver/wizard_solver.h
+    wizards/solver/wizard_solver.cpp
+    wizards/solver/solver_io.h
+    wizards/solver/solver_io.cpp
+    wizards/solver/surface_widget.cpp
+    wizards/solver/surface_widget.h
+    wizards/solver/page_10_control.cpp
+    wizards/solver/page_10_control.h
+    wizards/solver/page_20_transient.h
+    wizards/solver/page_20_transient.cpp
+    wizards/solver/page_30_physics.cpp
+    wizards/solver/page_30_physics.h
+    wizards/solver/page_40_boundary.cpp
+    wizards/solver/page_40_boundary.h
+    wizards/solver/page_50_algorithm.cpp
+    wizards/solver/page_50_algorithm.h
+    wizards/solver/page_70_pimple.h
+    wizards/solver/page_70_pimple.cpp
+    wizards/solver/page_60_simple.h
+    wizards/solver/page_60_simple.cpp
+    wizards/solver/page_80_piso.h
+    wizards/solver/page_80_piso.cpp
+    wizards/solver/page_90_parallel.cpp
+    wizards/solver/page_90_parallel.h
+    wizards/solver/page_93_visualization.h
+    wizards/solver/page_93_visualization.cpp
 )
 
 set_source_files_properties(
@@ -169,6 +168,7 @@ set_source_files_properties(
     PROPERTIES COMPILE_FLAGS "-w"
 )
 
+target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tree_sitter/include)
 target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/parser)
 target_link_libraries(FlowCompute PRIVATE Qt::Core Qt::Widgets Qt::Network Qt6::Concurrent)

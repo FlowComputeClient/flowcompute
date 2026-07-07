@@ -15,16 +15,19 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "vulkan_renderer.h"
-#include "vulkan_window.h"
+#include "editors/graphical/vulkan/vulkan_renderer.h"
+
+#include <memory>
+#include <vector>
+
+#include "editors/graphical/vulkan/vulkan_window.h"
 
 VulkanRenderer::VulkanRenderer(VulkanWindow *w,
-                               std::shared_ptr<RenderData> renderData):
+    std::shared_ptr<RenderData> renderData):
     m_window(w), m_renderData(renderData) {}
 
 uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter,
                                         VkMemoryPropertyFlags props) {
-
     VkPhysicalDevice physDev = m_window->physicalDevice();
     VkPhysicalDeviceMemoryProperties memProperties;
     m_window->vulkanInstance()->functions()->
@@ -45,7 +48,6 @@ uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter,
 }
 
 void VulkanRenderer::initResources() {
-
     // Access device
     m_device = m_window->device();
     m_devFuncs = m_window->vulkanInstance()->deviceFunctions(m_device);
@@ -71,7 +73,6 @@ void VulkanRenderer::initResources() {
 }
 
 void VulkanRenderer::startNextFrame() {
-
     // Check swapchain size
     const QSize size = m_window->swapChainImageSize();
     if (size.width() < 1 || size.height() < 1) {
@@ -86,7 +87,6 @@ void VulkanRenderer::startNextFrame() {
 
     // Check if mesh data has changed
     if (m_window->takeDataDirtyFlag()) {
-
         // Wait for the GPU to finish rendering
         m_devFuncs->vkDeviceWaitIdle(m_window->device());
 
@@ -110,7 +110,6 @@ void VulkanRenderer::startNextFrame() {
     // Update uniform data as needed
     int currentFrame = m_window->currentFrame();
     if (m_uboDirty[currentFrame]) {
-
         TransformMatrices matrices = m_window->getMatrices();
         UniformBufferObject ubo;
 
@@ -188,10 +187,9 @@ void VulkanRenderer::startNextFrame() {
         m_pipelines[0]);
 
     // Render the data
-    switch(m_renderData->format) {
+    switch (m_renderData->format) {
     case RenderType::Surface:
-        for (int i=0; i<m_renderData->patches.size(); i++) {
-
+        for (int i=0; i < m_renderData->patches.size(); i++) {
             // Set push constants
             m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
                 VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4 * sizeof(float),
@@ -204,8 +202,7 @@ void VulkanRenderer::startNextFrame() {
         }
         break;
     case RenderType::Mesh:
-        for (int i=0; i<m_renderData->patches.size(); i++) {
-
+        for (int i=0; i < m_renderData->patches.size(); i++) {
             // Set push constants
             m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
                 VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4 * sizeof(float),
@@ -245,14 +242,14 @@ void VulkanRenderer::startNextFrame() {
 }
 
 void VulkanRenderer::createPipelineStorage() {
-
     // Create pipeline cache
     VkPipelineCacheCreateInfo pipelineCacheInfo = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO
     };
     VkResult err = m_devFuncs->vkCreatePipelineCache(m_device,
         &pipelineCacheInfo, nullptr, &m_pipelineCache);
-    if (err != VK_SUCCESS) qFatal("Failed to create pipeline cache: %d", err);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to create pipeline cache: %d", err);
 
     // Build the pool sizes
     std::vector<VkDescriptorPoolSize> poolSizes;
@@ -272,7 +269,8 @@ void VulkanRenderer::createPipelineStorage() {
     };
     err = m_devFuncs->vkCreateDescriptorPool(m_device, &descPoolInfo, nullptr,
                                              &m_descPool);
-    if (err != VK_SUCCESS) qFatal("Failed to create descriptor pool: %d", err);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to create descriptor pool: %d", err);
 }
 
 void VulkanRenderer::createDescriptorSets() {
@@ -306,7 +304,8 @@ void VulkanRenderer::createDescriptorSets() {
     };
     VkResult err = m_devFuncs->vkCreateDescriptorSetLayout(m_device,
         &layoutInfo, nullptr, &m_descriptorSetLayout);
-    if (err != VK_SUCCESS) qFatal("Failed to create descriptor set layout");
+    if (err != VK_SUCCESS)
+        qFatal("Failed to create descriptor set layout");
 
     // Allocate the sets
     std::vector<VkDescriptorSetLayout> layouts(m_concurrentFrameCount,
@@ -320,7 +319,8 @@ void VulkanRenderer::createDescriptorSets() {
 
     err = m_devFuncs->vkAllocateDescriptorSets(m_device, &allocInfo,
                                                m_descriptorSets.data());
-    if (err != VK_SUCCESS) qFatal("Failed to allocate descriptor sets");
+    if (err != VK_SUCCESS)
+        qFatal("Failed to allocate descriptor sets");
 
     // Update the sets
     for (uint32_t i = 0; i < m_concurrentFrameCount; ++i) {
@@ -354,7 +354,6 @@ void VulkanRenderer::createDescriptorSets() {
 }
 
 void VulkanRenderer::createPipelines() {
-
     // Configure push constants
     VkPushConstantRange range = {
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -372,7 +371,8 @@ void VulkanRenderer::createPipelines() {
     };
     VkResult err = m_devFuncs->vkCreatePipelineLayout(m_device,
         &pipelineLayoutInfo, nullptr, &m_pipelineLayout);
-    if (err != VK_SUCCESS) qFatal("Failed to create pipeline layout: %d", err);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to create pipeline layout: %d", err);
 
     VkDynamicState dynamicStates[] = {
         VK_DYNAMIC_STATE_VIEWPORT,
@@ -441,8 +441,7 @@ void VulkanRenderer::createPipelines() {
             createShader(QStringLiteral(":/shaders/model/vert.spv"));
         shaderModules[1] =
             createShader(QStringLiteral(":/shaders/model/frag.spv"));
-    }
-    else if (m_renderData->format == RenderType::Mesh) {
+    } else if (m_renderData->format == RenderType::Mesh) {
         vertexBindingDesc = {
             .binding = 0,
             .stride = 6 * sizeof(float),
@@ -462,8 +461,7 @@ void VulkanRenderer::createPipelines() {
             createShader(QStringLiteral(":/shaders/mesh/vert.spv"));
         shaderModules[1] =
             createShader(QStringLiteral(":/shaders/mesh/frag.spv"));
-    }
-    else if (m_renderData->format == RenderType::Color) {
+    } else if (m_renderData->format == RenderType::Color) {
         vertexBindingDesc = {
             .binding = 0,
             .stride = 4 * sizeof(float),
@@ -656,7 +654,6 @@ void VulkanRenderer::createPipelines() {
 }
 
 VkShaderModule VulkanRenderer::createShader(const QString &name) {
-
     QFile file(name);
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning("Failed to read shader %s", qPrintable(name));
@@ -667,7 +664,7 @@ VkShaderModule VulkanRenderer::createShader(const QString &name) {
 
     VkShaderModuleCreateInfo shaderInfo = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-        .codeSize = (size_t)blob.size(),
+        .codeSize = static_cast<size_t>(blob.size()),
         .pCode = reinterpret_cast<const uint32_t *>(blob.constData())
     };
     VkShaderModule shaderModule;
@@ -681,11 +678,10 @@ VkShaderModule VulkanRenderer::createShader(const QString &name) {
 }
 
 void VulkanRenderer::releaseResources() {
-
     m_devFuncs->vkDeviceWaitIdle(m_device);
 
     // Destroy pipelines
-    for (int i=0; i<m_pipelines.size(); i++) {
+    for (int i=0; i < m_pipelines.size(); i++) {
         if (m_pipelines[i] != VK_NULL_HANDLE) {
             m_devFuncs->vkDestroyPipeline(m_device, m_pipelines[i], nullptr);
             m_pipelines[i] = VK_NULL_HANDLE;
@@ -781,7 +777,6 @@ void VulkanRenderer::releaseResources() {
 }
 
 void VulkanRenderer::initSwapChainResources() {
-
     // Get new dimensions
     QSize sz = m_window->swapChainImageSize();
 

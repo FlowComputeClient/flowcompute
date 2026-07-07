@@ -15,14 +15,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "result_editor.h"
+#include "editors/graphical/result/result_editor.h"
 
 #include <memory>
 
 ResultEditor::ResultEditor(const QStringList& timeFolders,
-                           std::shared_ptr<RenderData> renderData,
-                           const QString& casePath, int targetId,
-                           QVulkanInstance* instance, QWidget* parent):
+        QString timeFolder, std::shared_ptr<RenderData> renderData,
+        const QString& casePath, int targetId, QVulkanInstance* instance,
+        QWidget* parent):
     QWidget(parent), m_renderData(renderData), m_targetId(targetId),
     m_vulkanInstance(instance), m_casePath(casePath) {
     // Compute bounds of render data
@@ -32,7 +32,7 @@ ResultEditor::ResultEditor(const QStringList& timeFolders,
     bounds[2] = renderData->boundingBoxMax[2] - renderData->boundingBoxMin[2];
 
     // Create widgets for the left pane
-    m_leftPane = new ResultLeftPane(timeFolders, this);
+    m_leftPane = new ResultLeftPane(timeFolders, timeFolder, this);
     m_leftPane->setFixedWidth(150);
 
     // Create Vulkan window

@@ -67,4 +67,4 @@ class SurfaceLeftPane : public QWidget {
     void onPatchButtonClicked();
 };
 
-#endif // EDITORS_GRAPHICAL_SURFACE_SURFACE_LEFT_PANE_H_
+#endif  // EDITORS_GRAPHICAL_SURFACE_SURFACE_LEFT_PANE_H_

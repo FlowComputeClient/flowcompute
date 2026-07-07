@@ -38,7 +38,7 @@ class ResultLeftPane : public QWidget {
 
  public:
     explicit ResultLeftPane(const QStringList& timeFolders,
-                            QWidget* parent = nullptr);
+        QString timeFolder, QWidget* parent = nullptr);
 
  signals:
      void timeChange(const QString& timeFolder);
@@ -48,7 +48,7 @@ class ResultLeftPane : public QWidget {
     QHash<QString, FlowCompute::FieldData> m_fieldEditorMap;
     QPushButton *m_checkButton, *m_renumberButton,
         *m_patchButton, *m_applyButton;
-    QString m_currentField;
+    QString m_currentField, m_timeFolder;
     QStringList m_timeFolders;
     QTableWidget *m_patchTable;
 

@@ -27,7 +27,7 @@
 #include <memory>
 #include <vector>
 
-#include "../../../geometry/graphic_data.h"
+#include "geometry/graphic_data.h"
 
 class VulkanWindow;
 
@@ -48,7 +48,6 @@ static inline VkDeviceSize aligned(VkDeviceSize v, VkDeviceSize byteAlign) {
 }
 
 class VulkanRenderer : public QVulkanWindowRenderer {
-
  public:
     VulkanRenderer(VulkanWindow *w, std::shared_ptr<RenderData> meshData);
 

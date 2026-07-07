@@ -34,7 +34,7 @@ class TabWidget : public QTabWidget {
     Q_OBJECT
 
  public:
-    TabWidget(QMainWindow* parent = 0);
+    explicit TabWidget(QMainWindow* parent = 0);
     ~TabWidget();
     void setWorkspace(QString);
     void updateWorkspace();

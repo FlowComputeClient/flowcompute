@@ -26,9 +26,9 @@
 #include <string>
 #include <vector>
 
-#include "surface_left_pane.h"
-#include "../vulkan/vulkan_window.h"
-#include "../../../geometry/graphic_data.h"
+#include "editors/graphical/surface/surface_left_pane.h"
+#include "editors/graphical/vulkan/vulkan_window.h"
+#include "geometry/graphic_data.h"
 
 class SurfaceEditor : public QWidget {
     Q_OBJECT
