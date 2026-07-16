@@ -52,13 +52,6 @@
         <file>template/fvSolution</file>
         <file>template/turbulenceProperties</file>
         <file>template/transportProperties</file>
-        <file>template/p</file>
-        <file>template/U</file>
-        <file>template/g</file>
-        <file>template/p_rgh</file>
-        <file>template/nut</file>
-        <file>template/epsilon</file>
-        <file>template/omega</file>
         <file>themes/light.json</file>
         <file>themes/dark.json</file>
     </qresource>

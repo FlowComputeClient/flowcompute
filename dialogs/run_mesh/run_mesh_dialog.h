@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef RUN_MESH_DIALOG_H_
-#define RUN_MESH_DIALOG_H_
+#ifndef DIALOGS_RUN_MESH_RUN_MESH_DIALOG_H_
+#define DIALOGS_RUN_MESH_RUN_MESH_DIALOG_H_
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -24,19 +24,25 @@
 #include <QWidget>
 #include <QDialogButtonBox>
 
-class MainWindow;
+class SystemManager;
 
 class RunMeshDialog : public QDialog {
     Q_OBJECT
-public:
-    RunMeshDialog(const QString& selectedCase,
-                  const QStringList& caseList,
-                  QWidget* parent = nullptr);
+ public:
+    RunMeshDialog(const QString& caseName, const SystemManager& systemMgr,
+        const QStringList& files, bool isFoundation, QWidget* parent = nullptr);
+
+ signals:
+    void requestRunMesh(const QString& caseName, bool runBlockMesh,
+        bool runSurfaceFeature, bool runSnappyHexMesh,
+        const QString& snappyCmd, int numCores);
 
  private:
-    MainWindow* m_mainWin;
-
-    QCheckBox *m_runBlockMeshCheck, *m_runFeatureExtractCheck, *m_runSnappyHexMeshCheck;
+    const SystemManager& m_systemMgr;
+    QStringList m_files;
+    bool m_isFoundation;
+    QCheckBox *m_runBlockMeshCheck, *m_runSurfaceFeatureCheck,
+        *m_runSnappyHexMeshCheck;
     QCheckBox *m_meshOverwriteCheck, *m_meshReconstructCheck;
     QComboBox *m_meshModeCombo, *m_caseCombo, *m_numCoresCombo;
 
@@ -47,4 +53,4 @@ public:
     void onCaseChanged(QString caseName);
 };
 
-#endif // RUN_MESH_DIALOG_H_
+#endif  // DIALOGS_RUN_MESH_RUN_MESH_DIALOG_H_

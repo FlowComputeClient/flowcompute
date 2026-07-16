@@ -21,10 +21,10 @@
 
 ResultEditor::ResultEditor(const QStringList& timeFolders,
         QString timeFolder, std::shared_ptr<RenderData> renderData,
-        const QString& casePath, int targetId, QVulkanInstance* instance,
+        const QString& casePath, QVulkanInstance* instance,
         QWidget* parent):
-    QWidget(parent), m_renderData(renderData), m_targetId(targetId),
-    m_vulkanInstance(instance), m_casePath(casePath) {
+    QWidget(parent), m_renderData(renderData), m_vulkanInstance(instance),
+    m_casePath(casePath) {
     // Compute bounds of render data
     std::array<float, 3> bounds;
     bounds[0] = renderData->boundingBoxMax[0] - renderData->boundingBoxMin[0];
@@ -68,12 +68,10 @@ ResultEditor::ResultEditor(const QStringList& timeFolders,
 }
 
 void ResultEditor::onTimeChange(const QString& timeFolder) {
-    emit timeChanged(m_casePath, m_targetId, timeFolder);
+    emit timeChanged(m_casePath, timeFolder);
 }
 
 void ResultEditor::applyTheme(const QString& theme) {
-    // qDebug() << "ResultEditor theme: " << theme;
-
     m_vulkanWindow->applyTheme(theme);
 }
 

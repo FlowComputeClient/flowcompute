@@ -30,14 +30,14 @@
 #include "geometry/graphic_data.h"
 #include "editors/graphical/mesh/mesh_left_pane.h"
 
-class MainWindow;
+class TargetSystem;
 
 class MeshEditor : public QWidget {
     Q_OBJECT
 
  public:
     explicit MeshEditor(std::shared_ptr<RenderData> RenderData,
-        const QString& casePath, int targetId,
+        const QString& casePath, std::shared_ptr<TargetSystem> targetSystem,
         const std::vector<FlowCompute::SolverFamily>& families,
         const FlowCompute::TurbulenceDatabase& turbModels,
         const QHash<QString, FlowCompute::FieldDef>& fieldData,
@@ -49,13 +49,14 @@ class MeshEditor : public QWidget {
 
  signals:
     void dirtyStateChanged(bool isDirty);
+    void updatePath(QString caseName, QString subDir);
     void meshCheckRequested(const QString& fullPath, int targetId);
     void meshPatchRequested(double featureAngle, const QString& fullPath,
                             int targetId);
     void meshRenumberRequested(const QString& fullPath, int targetId);
 
  private:
-    MainWindow* m_mainWin;
+    std::shared_ptr<TargetSystem> m_targetSystem;
     MeshLeftPane* m_leftPane;
     bool m_isSurfaceChanged = false;
     int m_targetId;

@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_40_SURFACE_EXTRACTION_H_
-#define PAGE_40_SURFACE_EXTRACTION_H_
+#ifndef PAGE_40_SURFACE_FEATURE_H_
+#define PAGE_40_SURFACE_FEATURE_H_
 
 #include <QButtonGroup>
 #include <QCheckBox>
@@ -40,11 +40,11 @@
 class MainWindow;
 class MeshWizard;
 
-class SurfaceExtractionPage : public QWizardPage {
+class SurfaceFeaturePage : public QWizardPage {
     Q_OBJECT
 
  public:
-    explicit SurfaceExtractionPage(QWidget *parent);
+    explicit SurfaceFeaturePage(QWidget *parent);
     int nextId() const override;
 
  protected:
@@ -56,4 +56,4 @@ class SurfaceExtractionPage : public QWizardPage {
     QTableWidget* featureTable;
 };
 
-#endif  // PAGE_40_SURFACE_EXTRACTION_H_
+#endif  // PAGE_40_SURFACE_FEATURE_H_

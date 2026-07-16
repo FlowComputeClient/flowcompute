@@ -29,7 +29,8 @@ class LocalSystem : public TargetSystem {
 
     QStringList findOpenFoam() override;
     QStringList getTutorials(QString path) override;
-    QStringList copyTutorialFolders(QString tutPath, QString projPath) override;
+    QStringList copyTutorialFolders(QString tutPath,
+                                    QString projPath) override;
     QByteArray getFileContent(const QString& path) override;
     RenderData getResultData(const QString& path) override;
     bool writeData(const QByteArray& payload,
@@ -41,17 +42,6 @@ class LocalSystem : public TargetSystem {
                            UtilityType utilityType) override;
     QString getResultFolders(QString path) override;
     QStringList processPaths(QString path, PathOperationType type) override;
-
- signals:
-    // Emitted every time a chunk of console output arrives
-    void longUtilityOutputReceived(const QString& outputChunk);
-
-    // Emitted when the process finally completes or fails
-    void longUtilityFinished(const QString& status, const QString& caseName,
-                             UtilityType type);
-
-    // Emitted if there is a network or parsing failure
-    void longUtilityError(const QString& errorMessage);
 };
 
 #endif  // SYSTEMS_LOCAL_SYSTEM_H_

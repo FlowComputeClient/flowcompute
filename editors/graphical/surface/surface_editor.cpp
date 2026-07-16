@@ -73,13 +73,13 @@ SurfaceEditor::SurfaceEditor(std::shared_ptr<RenderData> renderData,
 
     // Handle events from the left pane
     connect(m_leftPane, &SurfaceLeftPane::surfacePatchRequested,
-            this, &SurfaceEditor::onSurfacePatchRequest);
+        this, &SurfaceEditor::onSurfacePatchRequest);
     connect(m_leftPane, &SurfaceLeftPane::surfaceCheckRequested,
-            this, &SurfaceEditor::onSurfaceCheckRequest);
+        this, &SurfaceEditor::onSurfaceCheckRequest);
     connect(m_leftPane, &SurfaceLeftPane::surfaceScaleRequested,
-            this, &SurfaceEditor::onSurfaceScaleRequest);
+        this, &SurfaceEditor::onSurfaceScaleRequest);
     connect(m_leftPane, &SurfaceLeftPane::dirtyStateChanged,
-            this, &SurfaceEditor::dirtyStateChanged);
+        this, &SurfaceEditor::dirtyStateChanged);
 }
 
 void SurfaceEditor::applyTheme(const QString& theme) {

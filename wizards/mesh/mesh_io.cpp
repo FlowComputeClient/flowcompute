@@ -17,7 +17,9 @@
 
 #include "mesh_io.h"
 
-#include "../../utils.h"
+#include <QDir>
+
+#include "utils.h"
 
 // Parse the block mesh file into a BlockMeshConfig structure
 BlockMeshConfig
@@ -123,13 +125,13 @@ BlockMeshConfig
 }
 
 // Parse surface feature extraction data
-std::map<QString, SurfaceFeatureExtractEntry>
+std::map<QString, SurfaceFeatureEntry>
     MeshIO::parseSurfaceFeatureData(
         const std::shared_ptr<OpenFoamDictionary> dict,
         const QStringList& geometryFiles) {
 
     // Clear existing map to ensure idempotence
-    std::map<QString, SurfaceFeatureExtractEntry> surfaceFeatureMap;
+    std::map<QString, SurfaceFeatureEntry> surfaceFeatureMap;
     if ((!dict) || (geometryFiles.empty())) return surfaceFeatureMap;
 
     // Helper lambda to safely parse OpenFOAM boolean syntax
@@ -145,9 +147,9 @@ std::map<QString, SurfaceFeatureExtractEntry>
     for (const QString& stlName : std::as_const(geometryFiles)) {
 
         // Initialize with safe OpenFOAM defaults (150.0, false, true, true)
-        SurfaceFeatureExtractEntry entry;
+        SurfaceFeatureEntry entry;
 
-        // --- 1. Parse Booleans using the new path syntax ---
+        // Parse Booleans
         QString writeObjStr = dict->getString(stlName + "/writeObj");
         entry.writeObj = parseOfBool(writeObjStr, true);
 
@@ -163,12 +165,12 @@ std::map<QString, SurfaceFeatureExtractEntry>
             "/extractFromSurfaceCoeffs/includedAngle");
 
         if (!std::isnan(angle)) {
-            entry.includedAngle = angle;
+            entry.angle = angle;
         } else {
             // Check if the user placed it at the top level of the STL block
             angle = dict->getNumber(stlName + "/includedAngle");
             if (!std::isnan(angle)) {
-                entry.includedAngle = angle;
+                entry.angle = angle;
             }
         }
         surfaceFeatureMap[stlName] = entry;
@@ -577,10 +579,10 @@ QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config,
     return dictStr;
 }
 
-// Update SurfaceFeatureExtractDict file
-QString MeshIO::updateSurfaceFeatureExtractDict(
+// Update surfaceFeatureExtractDict or surfaceFeaturesDict
+QString MeshIO::updateSurfaceFeatureDict(
     std::shared_ptr<OpenFoamDictionary> dict,
-    const std::map<QString, SurfaceFeatureExtractEntry>& entries) {
+    const std::map<QString, SurfaceFeatureEntry>& entries) {
 
     if (!dict) {
         qWarning() << "Cannot update surfaceFeatureExtractDict: Dictionary pointer is null.";
@@ -603,7 +605,7 @@ QString MeshIO::updateSurfaceFeatureExtractDict(
             << "        extractionMethod    extractFromSurface;\n"
             << "        extractFromSurfaceCoeffs\n"
             << "        {\n"
-            << "            includedAngle   " << config.includedAngle << ";\n"
+            << "            includedAngle   " << config.angle << ";\n"
             << "        }\n"
             << "        writeObj            " << writeObjStr << ";\n"
             // << "        nonManifoldEdges    " << nonManifoldStr << ";\n"
@@ -617,40 +619,69 @@ QString MeshIO::updateSurfaceFeatureExtractDict(
     return dict->getRawText();
 }
 
-QString MeshIO::createSurfaceFeatureExtractDict(
-    const std::map<QString, SurfaceFeatureExtractEntry>& entryMap,
-    QString openFoamPath) {
+QString MeshIO::createSurfaceFeatureDict(
+    const std::map<QString, SurfaceFeatureEntry>& entryMap, QString ofPath) {
 
     QString dictStr;
     QTextStream out(&dictStr);
 
+    // Determine which OpenFOAM release is used
+    QString dirName = QDir(ofPath).dirName();
+    const QRegularExpression foundationRegex("^openfoam\\d{2}$",
+        QRegularExpression::CaseInsensitiveOption);
+    bool isFoundation = foundationRegex.match(dirName).hasMatch();
+
     // Generate the standard OpenFOAM header
-    out << Utils::createFoamHeader("surfaceFeatureExtractDict", openFoamPath);
+    if (isFoundation) {
+        out << Utils::createFoamHeader("surfaceFeaturesDict", ofPath);
 
-    // Iterate through the map to generate the configuration blocks
-    for (const auto& [fileName, config] : entryMap) {
+        // Generate a block for each file (Foundation version)
+        for (const auto& [fileName, config] : entryMap) {
+            // Remove the extension for the block identifier
+            QString identifier = QFileInfo(fileName).baseName();
+            if (identifier.isEmpty()) {
+                identifier = fileName;
+            }
 
-        // Convert booleans to OpenFOAM's preferred yes/no format
-        QString writeObjStr = config.writeObj ? "yes" : "no";
-        // QString nonManifoldStr = config.nonManifoldEdges ? "yes" : "no";
-        QString openEdgesStr = config.openEdges ? "yes" : "no";
+            QString writeObjStr = config.writeObj ? "yes" : "no";
 
-        // Write the block, ensuring the filename is safely wrapped in quotes
-        out << fileName << "\n"
-            << "{\n"
-            << "    extractionMethod    extractFromSurface;\n"
-            << "    extractFromSurfaceCoeffs\n"
-            << "    {\n"
-            << "        includedAngle   " << config.includedAngle << ";\n"
-            << "    }\n"
-            << "    writeObj            " << writeObjStr << ";\n"
-            // << "    nonManifoldEdges    " << nonManifoldStr << ";\n"
-            << "    openEdges           " << openEdgesStr << ";\n"
-            << "}\n\n";
+            out << identifier << "\n"
+                << "{\n"
+                << "    surfaces\n"
+                << "    (\n"
+                << "        \"" << fileName << "\"\n"
+                << "    );\n"
+                << "    includedAngle           " << config.angle << ";\n"
+                << "    geometricTestOnly       yes;\n"
+                << "    writeObj                " << writeObjStr << ";\n"
+                << "}\n\n";
+        }
+    } else {
+        out << Utils::createFoamHeader("surfaceFeatureExtractDict", ofPath);
+
+        // Generate a block for each file
+        for (const auto& [fileName, config] : entryMap) {
+
+            // Write the block for the given file
+            QString writeObjStr = config.writeObj ? "yes" : "no";
+            QString openEdgesStr = config.openEdges ? "yes" : "no";
+            out << fileName << "\n"
+                << "{\n"
+                << "    extractionMethod    extractFromSurface;\n"
+                << "    extractFromSurfaceCoeffs\n"
+                << "    {\n"
+                << "        includedAngle   " << config.angle << ";\n"
+                << "    }\n"
+                << "    writeObj            " << writeObjStr << ";\n"
+                << "    nonManifoldEdges    yes;\n"
+                << "    openEdges           " << openEdgesStr << ";\n"
+                << "}\n\n";
+        }
     }
 
     // Write the standard OpenFOAM closing separator
-    out << "// ************************************************************************* //\n";
+    out << "// ***************************************"
+           "********************************** //\n";
 
     return dictStr;
 }
@@ -766,14 +797,19 @@ QString MeshIO::updateSnappyHexMeshDict(
 }
 
 QString MeshIO::createSnappyHexMeshDict(
-    const std::map<QString, SurfaceFeatureExtractEntry>& entryMap,
+    const std::map<QString, SurfaceFeatureEntry>& entryMap,
     const CastellatedMeshConfig& castConfig,
-    const SnapControlConfig& snapConfig,
-    const LayerControlConfig& layerConfig,
-    QString openFoamPath) {
+    const SnapControlConfig& snapConfig, const LayerControlConfig& layerConfig,
+    const QString& openFoamPath) {
 
     QString dictStr;
     QTextStream out(&dictStr);
+
+    // Determine which OpenFOAM release is used
+    QString dirName = QDir(openFoamPath).dirName();
+    const QRegularExpression foundationRegex("^openfoam\\d{2}$",
+        QRegularExpression::CaseInsensitiveOption);
+    bool isFoundation = foundationRegex.match(dirName).hasMatch();
 
     // Helper lambda to convert booleans to OpenFOAM format
     auto boolToStr = [](bool b) { return b ? "true" : "false"; };
@@ -781,17 +817,20 @@ QString MeshIO::createSnappyHexMeshDict(
     // Write Header
     out << Utils::createFoamHeader("snappyHexMeshDict", openFoamPath);
 
-    // 2. Global Switches
+    // Global switches
     out << "castellatedMesh    true;\n";
     out << "snap               true;\n";
     out << "addLayers          true;\n\n";
 
-    // 3. Geometry Definition Block
+    // Geometry definition
     out << "geometry\n{\n";
     for (const auto& surface: castConfig.refinementSurfaces) {
         out << "    " << surface.name << "\n"
             << "    {\n"
             << "        type triSurfaceMesh;\n";
+        if (isFoundation) {
+            out << "        file \"" << surface.name << "\";\n";
+        }
         if (!surface.regions.empty()) {
             out << "        regions\n";
             out << "        {\n";
@@ -821,7 +860,7 @@ QString MeshIO::createSnappyHexMeshDict(
     out << "    features\n    (\n";
     for (auto it = entryMap.begin(); it != entryMap.end(); ++it) {
         QString fileName = it->first;
-        SurfaceFeatureExtractEntry entry = it->second;
+        SurfaceFeatureEntry entry = it->second;
         fileName.replace(".stl", ".eMesh", Qt::CaseInsensitive);
         fileName.replace(".obj", ".eMesh", Qt::CaseInsensitive);
         out << "        {\n"

@@ -18,7 +18,6 @@
 #ifndef CONSOLE_H_
 #define CONSOLE_H_
 
-#include <QMainWindow>
 #include <QPlainTextEdit>
 #include <QWidget>
 
@@ -26,7 +25,7 @@ class Console : public QPlainTextEdit {
     Q_OBJECT
 
  public:
-    Console(QMainWindow* parent = 0);
+    Console(QWidget* parent = nullptr);
 };
 
 #endif // CONSOLE_H_

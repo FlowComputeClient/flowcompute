@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef WIZARD_NEW_CASE_H
-#define WIZARD_NEW_CASE_H
+#ifndef WIZARDS_NEW_CASE_WIZARD_NEW_CASE_H_
+#define WIZARDS_NEW_CASE_WIZARD_NEW_CASE_H_
 
 #include <QFile>
 #include <QWizard>
@@ -26,22 +26,13 @@
 #include "page_30_interactive.h"
 #include "page_40_project.h"
 
-#include "template_strings.h"
-
-class MainWindow;
+#include "systems/system_manager.h"
 
 enum class WizardPage {
     Page_Intro = 0,
     Page_Tutorial = 1,
     Page_Interactive = 2,
     Page_Project = 3
-};
-
-enum TargetType {
-    LOCAL_WINDOWS = 0,
-    LOCAL_LINUX = 1,
-    REMOTE_LINUX = 2,
-    COUNT
 };
 
 enum class CaseCreationType {
@@ -79,21 +70,26 @@ struct CaseConfig {
 class NewCaseWizard : public QWizard {
     Q_OBJECT
 
-public:
-    explicit NewCaseWizard(QWidget *parent);
-    void setTargetSystemId(int id);
+ public:
+    NewCaseWizard(bool m_isWindows, bool m_isWslAvailable,
+                  SystemManager& systemMgr, QWidget *parent);
     QStringList processPaths(QString path);
     QStringList getTutorials();
     QStringList findOpenFoam();
     CaseConfig& getCaseConfig() { return m_caseConfig; };
 
-protected:
+ signals:
+    void requestCaseCreation(QString caseName, QString casePath,
+        QStringList caseFiles, int systemId, QString openFoamPath);
+
+ protected:
     void accept() override;
     bool validateCurrentPage() override;
 
-private:
-    MainWindow* mainWin;
+ private:
+    const SystemManager& m_systemMgr;
     TargetType m_targetId;
+    std::shared_ptr<TargetSystem> m_system;
     QString m_openFoamPath, m_caseName;
     CaseConfig m_caseConfig;
     QString m_geometryFile;
@@ -105,4 +101,4 @@ private:
     void createCaseFiles(const QString&, const QString&, const QString&);
 };
 
-#endif // WIZARD_NEW_CASE_H
+#endif  // WIZARDS_NEW_CASE_WIZARD_NEW_CASE_H_

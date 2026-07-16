@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef TEMPLATE_STRINGS_H
-#define TEMPLATE_STRINGS_H
+#ifndef WIZARDS_NEW_CASE_TEMPLATE_STRINGS_H_
+#define WIZARDS_NEW_CASE_TEMPLATE_STRINGS_H_
 
 #include <QString>
 
@@ -144,4 +144,4 @@ RAS
 }
 )";
 
-#endif // TEMPLATE_STRINGS_H
+#endif  // WIZARDS_NEW_CASE_TEMPLATE_STRINGS_H_

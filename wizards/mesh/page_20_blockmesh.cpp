@@ -16,15 +16,17 @@
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
 #include "page_20_blockmesh.h"
-#include "page_10_geometry.h"
 
-#include "../../geometry/stl/stl_reader.h"
-#include "../../main_window.h"
+#include <QDir>
+#include <QPushButton>
+
+#include "page_10_geometry.h"
+#include "geometry/stl/stl_reader.h"
 #include "wizard_mesh.h"
 
 // Introduction page asks for the case name and platform
-BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
-
+BlockMeshPage1::BlockMeshPage1(const SystemManager& systemMgr,
+    QWidget *parent): m_systemMgr(systemMgr), QWizardPage(parent) {
     // Set title and style
     setTitle(tr("BlockMesh Configuration: Define Mesh Domain"));
 
@@ -103,7 +105,6 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     for(int i=0; i<3; i++) {
         actualSizeEdits[i] = new QLineEdit();
         actualSizeEdits[i]->setReadOnly(true);
-        // actualSizeEdits[i]->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
         sizesLayout->addWidget(actualSizeEdits[i]);
     }
     cellLayout->addRow(tr("Actual cell sizes:"), sizesLayout);
@@ -114,7 +115,6 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     for(int i=0; i<3; i++) {
         cellCountEdits[i] = new QLineEdit();
         cellCountEdits[i]->setReadOnly(true);
-        // cellCountEdits[i]->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
         numCellsLayout->addWidget(cellCountEdits[i]);
     }
     cellLayout->addRow(tr("Number of cells (Nx, Ny, Nz):"), numCellsLayout);
@@ -122,13 +122,11 @@ BlockMeshPage1::BlockMeshPage1(QWidget *parent): QWizardPage(parent) {
     // Display total cell count
     cellCountTotalEdit = new QLineEdit();
     cellCountTotalEdit->setReadOnly(true);
-    // cellCountTotalEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
     cellLayout->addRow(tr("Estimated cell count:"), cellCountTotalEdit);
 
     // Display maximum aspect ratio
     maxAspectRatioEdit = new QLineEdit();
     maxAspectRatioEdit->setReadOnly(true);
-    // maxAspectRatioEdit->setStyleSheet("QLineEdit { background-color: #f0f0f0; color: #333333; }");
     cellLayout->addRow(tr("Maximum aspect ratio:"), maxAspectRatioEdit);
 
     // Set the page layout
@@ -155,7 +153,8 @@ void BlockMeshPage1::initializePage() {
         if (index != -1) {
             m_scaleFactorCombo->setCurrentIndex(index);
         } else {
-            m_scaleFactorCombo->setCurrentText(QString::number(scaleValue, 'f', 4));
+            m_scaleFactorCombo->setCurrentText(
+                QString::number(scaleValue, 'f', 4));
         }
     }
 
@@ -173,18 +172,25 @@ void BlockMeshPage1::setBoundingBox() {
     // Get bounding boxes of geometry files
     QByteArray fileData;
     QVector<BoundingBox> boxes;
-    MainWindow* mainWin =
-        qobject_cast<MainWindow*>(this->wizard()->parentWidget());
-    CaseData caseData = mainWin->m_caseMap[caseName];
-    int targetSystemId = mainWin->m_caseMap[caseName].targetSystemId;
-    QString fullPath =
-        caseData.casePath + "/" + caseName + "/constant/triSurface";
+    CaseData caseData = m_systemMgr.getData(caseName);
+    QString openFoamPath = caseData.openFoamPath;
+
+    // Determine which OpenFOAM release is used
+    QString dirName = QDir(openFoamPath).dirName();
+    const QRegularExpression foundationRegex("^openfoam\\d{2}$",
+        QRegularExpression::CaseInsensitiveOption);
+    bool isFoundation = foundationRegex.match(dirName).hasMatch();
+
+    // Form path to geometry directory
+    QString subDir =
+        (isFoundation) ? "/constant/geometry" : "/constant/triSurface";
+    QString fullPath = caseData.casePath + "/" + caseName + subDir;
 
     // Iterate through geometry files
     meshWizard->getGeometryMap().clear();
     GeometryMetrics metrics;
     for (auto const& file: std::as_const(geometryFiles)) {
-        fileData = mainWin->targetSystems[targetSystemId]->getFileContent(
+        fileData = m_systemMgr.getSystem(caseName)->getFileContent(
             fullPath + "/" + file);
         if(file.endsWith(".stl")) {
             metrics = StlReader::readMetrics(fileData);
@@ -279,7 +285,8 @@ bool BlockMeshPage1::validatePage() {
     }
 
     // Write scale factor to struct
-    m_cfg->convertToMeters = getCurrentScaleFactor(m_scaleFactorCombo->currentText());
+    m_cfg->convertToMeters =
+        getCurrentScaleFactor(m_scaleFactorCombo->currentText());
 
     // Write cell counts to struct
     m_cfg->nX = cellCountEdits[0]->text().toInt();
@@ -334,8 +341,9 @@ void BlockMeshPage1::onScaleFactorChanged(const QString& text) {
     double zMax = m_rawGeomBox.max.z() / scale;
 
     // Update the geometry label
-    geometryLabel->setText(tr("Geometry bounds: (%1, %2, %3) to (%4, %5, %6)")
-                               .arg(xMin).arg(yMin).arg(zMin).arg(xMax).arg(yMax).arg(zMax));
+    geometryLabel->setText(
+        tr("Geometry bounds: (%1, %2, %3) to (%4, %5, %6)")
+            .arg(xMin).arg(yMin).arg(zMin).arg(xMax).arg(yMax).arg(zMax));
 
     // Re-apply the 5% padding to the scaled bounds
     double padX = std::max((xMax - xMin) * 0.05, 0.001);

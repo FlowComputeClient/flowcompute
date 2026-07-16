@@ -134,30 +134,6 @@ QStringList LocalSystem::getTutorials(QString path) {
     return {};
 }
 
-void findDirectories(const QString& currentPath, int currentDepth,
-                     QStringList& result) {
-    QDir dir(currentPath);
-
-    // Filter directories
-    dir.setFilter(QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks);
-
-    // Access list of files
-    QFileInfoList entries = dir.entryInfoList();
-
-    for (const QFileInfo& entry : std::as_const(entries)) {
-        QString dirName = entry.fileName();
-
-        // Skip hidden directories
-        if (dirName.startsWith('.')) {
-            continue;
-        }
-        result.append(entry.filePath());
-        if (currentDepth < 2) {
-            findDirectories(entry.filePath(), currentDepth + 1, result);
-        }
-    }
-}
-
 QStringList LocalSystem::copyTutorialFolders(QString tutPath,
                                              QString casePath) {
     return {};

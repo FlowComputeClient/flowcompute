@@ -17,26 +17,25 @@
 
 #include "wizard_mesh.h"
 
-#include "../../main_window.h"
-#include "../../utils.h"
+#include <QDir>
+
 #include "mesh_io.h"
+#include "utils.h"
 
 // Function declarations
-MeshWizard::MeshWizard(const QString& caseName, const QStringList& cases,
-                       QWidget *parent):
-    m_caseName(caseName), QWizard(parent) {
-
+MeshWizard::MeshWizard(const QString& caseName, const SystemManager& systemMgr,
+    QWidget *parent): m_caseName(caseName), m_systemMgr(systemMgr),
+    QWizard(parent) {
+    // Configure the wizard appearance
     setWizardStyle(QWizard::ClassicStyle);
     setWindowTitle(tr("Mesh Configuration Wizard"));
 
-    // Access the main window, get cases
-    mainWin = qobject_cast<MainWindow*>(this->parentWidget());
-
     // Add pages using setPage with their explicit IDs
-    setPage(Page_Geometry, new GeometryPage(m_caseName, cases, this));
-    setPage(Page_BlockMesh1, new BlockMeshPage1(this));
+    QStringList cases = m_systemMgr.getCases();
+    setPage(Page_Geometry, new GeometryPage(m_caseName, m_systemMgr, this));
+    setPage(Page_BlockMesh1, new BlockMeshPage1(m_systemMgr, this));
     setPage(Page_BlockMesh2, new BlockMeshPage2(this));
-    setPage(Page_SurfaceExtraction, new SurfaceExtractionPage(this));
+    setPage(Page_SurfaceExtraction, new SurfaceFeaturePage(this));
     setPage(Page_Castellation, new CastellationPage(this));
     setPage(Page_SnapControl, new SnapControlPage(this));
     setPage(Page_LayerControl, new LayerControlPage(this));
@@ -47,8 +46,8 @@ bool MeshWizard::loadParseFiles() {
 
     // Access OpenFOAM path on server
     m_caseName = field("caseName").toString();
-    m_targetId = mainWin->m_caseMap[m_caseName].targetSystemId;
-    m_casePath = mainWin->m_caseMap[m_caseName].casePath;
+    m_casePath = m_systemMgr.getData(m_caseName).casePath;
+    auto system = m_systemMgr.getSystem(m_caseName);
 
     // Declare variables
     QString fileName;
@@ -60,7 +59,7 @@ bool MeshWizard::loadParseFiles() {
 
         // Load data
         fileName = "system/blockMeshDict";
-        fileData = mainWin->targetSystems[m_targetId]->getFileContent(
+        fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
         if (!fileData.isEmpty()) {
             dict = std::make_shared<OpenFoamDictionary>(fileData);
@@ -71,8 +70,9 @@ bool MeshWizard::loadParseFiles() {
                 auto action = Utils::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case Utils::ParseErrorAction::EditFile:
-                    mainWin->createEditor(EditorType::TEXT,
-                        fileName.split('/').last(), m_caseName + "/system");
+                    emit createEditor(EditorType::TEXT,
+                        fileName.split('/').last(), m_caseName + "/system",
+                            false);
                     reject();
                     return false;
                 case Utils::ParseErrorAction::Overwrite:
@@ -86,10 +86,9 @@ bool MeshWizard::loadParseFiles() {
 
     // If surfaceFeatureExtract should be run
     if (m_runExtract) {
-
         // Load data
         fileName = "system/surfaceFeatureExtractDict";
-        fileData = mainWin->targetSystems[m_targetId]->getFileContent(
+        fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
         if (!fileData.isEmpty()) {
             dict = std::make_shared<OpenFoamDictionary>(fileData);
@@ -101,8 +100,9 @@ bool MeshWizard::loadParseFiles() {
                 auto action = Utils::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case Utils::ParseErrorAction::EditFile:
-                    mainWin->createEditor(EditorType::TEXT,
-                        fileName.split('/').last(), m_caseName + "/system");
+                    emit createEditor(EditorType::TEXT,
+                        fileName.split('/').last(), m_caseName + "/system",
+                            false);
                     reject();
                     return false;
                 case Utils::ParseErrorAction::Overwrite:
@@ -119,7 +119,7 @@ bool MeshWizard::loadParseFiles() {
 
         // Load data
         fileName = "system/snappyHexMeshDict";
-        fileData = mainWin->targetSystems[m_targetId]->getFileContent(
+        fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
         if (!fileData.isEmpty()) {
             dict = std::make_shared<OpenFoamDictionary>(fileData);
@@ -135,8 +135,9 @@ bool MeshWizard::loadParseFiles() {
                 auto action = Utils::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case Utils::ParseErrorAction::EditFile:
-                    mainWin->createEditor(EditorType::TEXT,
-                        fileName.split('/').last(), m_caseName + "/system");
+                    emit createEditor(EditorType::TEXT,
+                        fileName.split('/').last(), m_caseName + "/system",
+                            false);
                     reject();
                     return false;
                 case Utils::ParseErrorAction::Overwrite:
@@ -151,10 +152,10 @@ bool MeshWizard::loadParseFiles() {
 }
 
 void MeshWizard::accept() {
-
+    // Validate last page before continuing
     QWizard::accept();
-
-    QString openFoamPath = mainWin->m_caseMap[m_caseName].openFoamPath;
+    QString openFoamPath = m_systemMgr.getData(m_caseName).openFoamPath;
+    auto system = m_systemMgr.getSystem(m_caseName);
 
     // Update or create blockMeshDict
     if (m_runBlockMesh) {
@@ -170,8 +171,7 @@ void MeshWizard::accept() {
         }
 
         // Update file
-        mainWin->targetSystems[m_targetId]->writeData(
-            blockMeshDictText.toUtf8(),
+        system->writeData(blockMeshDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/blockMeshDict");
     }
 
@@ -179,28 +179,34 @@ void MeshWizard::accept() {
     if (m_runExtract) {
 
         /*
-        QString surfaceFeatureExtractDictText;
+        QString surfaceFeatureDictText;
         if (m_dictMap.contains("system/surfaceFeatureExtractDict")) {
-            surfaceFeatureExtractDictText =
+            surfaceFeatureDictText =
                 MeshIO::updateSurfaceFeatureExtractDict(
                     m_dictMap["system/surfaceFeatureExtractDict"],
                         m_surfaceFeatureMap);
         } else {
-            surfaceFeatureExtractDictText =
+            surfaceFeatureDictText =
                 MeshIO::createSurfaceFeatureExtractDict(m_surfaceFeatureMap,
                     openFoamPath);
         }
         */
 
-        QString surfaceFeatureExtractDictText =
-            MeshIO::createSurfaceFeatureExtractDict(m_surfaceFeatureMap,
+        // Determine which OpenFOAM release is used
+        QString dirName = QDir(openFoamPath).dirName();
+        const QRegularExpression foundationRegex("^openfoam\\d{2}$",
+            QRegularExpression::CaseInsensitiveOption);
+        bool isFoundation = foundationRegex.match(dirName).hasMatch();
+
+        QString surfaceFeatureDictText =
+            MeshIO::createSurfaceFeatureDict(m_surfaceFeatureMap,
                 openFoamPath);
 
         // Update file
-        mainWin->targetSystems[m_targetId]->writeData(
-            surfaceFeatureExtractDictText.toUtf8(),
-            m_casePath + "/" + m_caseName +
-                "/system/surfaceFeatureExtractDict");
+        QString fileName = (isFoundation) ? "/system/surfaceFeaturesDict" :
+                               "/system/surfaceFeatureExtractDict";
+        system->writeData(surfaceFeatureDictText.toUtf8(),
+            m_casePath + "/" + m_caseName + fileName);
     }
 
     // Update or create snappyHexMeshDict
@@ -228,10 +234,10 @@ void MeshWizard::accept() {
                 m_layerControlConfig, openFoamPath);
 
         // Update file
-        mainWin->targetSystems[m_targetId]->writeData(
-            snappyHexMeshDictText.toUtf8(),
+        system->writeData(snappyHexMeshDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/snappyHexMeshDict");
     }
 
-    mainWin->updatePath(m_caseName, "system", m_targetId);
+    // Refresh the system folder
+    emit updatePath(m_caseName, "system");
 }

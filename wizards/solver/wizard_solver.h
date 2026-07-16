@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef WIZARD_SOLVER
-#define WIZARD_SOLVER
+#ifndef WIZARDS_SOLVER_WIZARD_SOLVER_H_
+#define WIZARDS_SOLVER_WIZARD_SOLVER_H_
 
 #include <QFile>
 #include <QList>
@@ -26,6 +26,7 @@
 #include "parser/open_foam_dictionary.h"
 #include "core_types.h"
 #include "solver_structs.h"
+#include "systems/system_manager.h"
 
 #include "page_10_control.h"
 #include "page_20_transient.h"
@@ -38,46 +39,57 @@
 #include "page_90_parallel.h"
 #include "page_93_visualization.h"
 
-class MainWindow;
-
 class SolverWizard : public QWizard {
     Q_OBJECT
 
-public:
-    explicit SolverWizard(const QString& caseName, const QStringList& cases,
-                          const std::vector<FlowCompute::SolverFamily>& families,
-                          const FlowCompute::TurbulenceDatabase& turbModels,
-                          const std::map<QString, FlowCompute::TransportPropertyDef>& transportProperties,
-                          const QHash<QString, FlowCompute::FieldDef>& fieldData,
-                          const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
-                          QWidget *parent);
+ public:
+    SolverWizard(const QString& caseName, const SystemManager& systemMgr,
+    const std::vector<FlowCompute::SolverFamily>& families,
+    const FlowCompute::TurbulenceDatabase& turbModels,
+    const std::map<QString, FlowCompute::TransportPropertyDef>&
+        transportProperties,
+    const QHash<QString, FlowCompute::FieldDef>& fieldData,
+    const std::vector<FlowCompute::BoundaryConditionDef>&
+        boundaryConditions, QWidget *parent);
 
     bool parseFiles();
-    QString getOpenFoamPath();
     ControlConfig& getControlConfig() { return m_controlConfig; };
     PhysicsConfig& getPhysicsConfig() { return m_physicsConfig; };
-    QHash<QString, FlowCompute::FieldData>& getBoundaryConfig() { return m_boundaryConfig; };
+    QHash<QString, FlowCompute::FieldData>& getBoundaryConfig() {
+        return m_boundaryConfig;
+    };
     MathConfig& getMathConfig() { return m_mathConfig; };
     ParallelConfig& getParallelConfig() { return m_parallelConfig; };
-    VisualizationConfig& getVisualizationConfig() { return m_visualizationConfig; };
+    VisualizationConfig& getVisualizationConfig() {
+        return m_visualizationConfig;
+    };
 
     QStringList getSolverFields();
     QStringList getTurbulenceFields();
-    std::vector<FlowCompute::MeshPatch>& getBoundaries() { return m_boundaries; };
-    std::vector<FlowCompute::MeshPatch> parseBoundaryPatches(const QByteArray& fileData);
+    std::vector<FlowCompute::MeshPatch>& getBoundaries() {
+        return m_boundaries;
+    };
+    std::vector<FlowCompute::MeshPatch>
+        parseBoundaryPatches(const QByteArray& fileData);
 
     void setCaseName(const QString& text) { m_caseName = text; };
-    void setConfiguredFields(const QStringList& fields) { m_configuredFields = fields; }
+    void setConfiguredFields(const QStringList& fields) {
+        m_configuredFields = fields;
+    }
     QStringList getConfiguredFields() const { return m_configuredFields; }
 
     FlowCompute::Algorithm getSolverAlgorithm();
 
-protected:
+ signals:
+    void createEditor(EditorType type, QString& fileName, const QString& path,
+                      bool logMessage);
+    void updatePath(QString caseName, QString subDir);
+
+ protected:
     void accept() override;
 
-private:
-    MainWindow* mainWin;
-    int m_targetSystemId;
+ private:
+    const SystemManager& m_systemMgr;
     std::vector<FlowCompute::MeshPatch> m_boundaries;
 
     // Data from config files
@@ -104,4 +116,4 @@ private:
     QString createSelectionDialog(const QStringList& paths);
 };
 
-#endif // WIZARD_SOLVER
+#endif  // WIZARDS_SOLVER_WIZARD_SOLVER_H_

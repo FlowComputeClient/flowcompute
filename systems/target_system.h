@@ -34,7 +34,7 @@ enum class PathOperationType {
     LIST
 };
 
-#include "../geometry/graphic_data.h"
+#include "geometry/graphic_data.h"
 
 // Abstract class that represents a target running OpenFOAM
 class TargetSystem: public QObject {
@@ -42,7 +42,6 @@ class TargetSystem: public QObject {
 
  public:
     virtual ~TargetSystem() = default;
-
     virtual QStringList findOpenFoam() = 0;
     virtual QStringList getTutorials(QString path) = 0;
     virtual QStringList copyTutorialFolders(QString tutPath,
@@ -58,6 +57,17 @@ class TargetSystem: public QObject {
                                    UtilityType type) = 0;
     virtual QString getResultFolders(QString path) = 0;
     virtual QStringList processPaths(QString path, PathOperationType type) = 0;
+
+ signals:
+    // Emitted every time a chunk of console output arrives
+    void longUtilityOutputReceived(const QString& outputChunk);
+
+    // Emitted when the process finally completes or fails
+    void longUtilityFinished(const QString& status, const QString& caseName,
+                             UtilityType type);
+
+    // Emitted if there is a network or parsing failure
+    void longUtilityError(const QString& errorMessage);
 };
 
 #endif  // SYSTEMS_TARGET_SYSTEM_H_

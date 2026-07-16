@@ -15,48 +15,18 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef SYSTEMS_WSL_SYSTEM_H_
-#define SYSTEMS_WSL_SYSTEM_H_
+#ifndef SYSTEMS_REMOTE_SYSTEM_H_
+#define SYSTEMS_REMOTE_SYSTEM_H_
 
-#include <QAbstractButton>
-#include <QButtonGroup>
-#include <QDialog>
-#include <QDialogButtonBox>
-#include <QFile>
-#include <QFileInfo>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QLabel>
-#include <QMessageBox>
-#include <QProcess>
-#include <QRadioButton>
-#include <QRegularExpression>
-#include <QSettings>
-#include <QString>
-#include <QTcpSocket>
-#include <QVBoxLayout>
+#include "target_system.h"
 
-#include <string>
-#include <vector>
-
-#include "./target_system.h"
-
-struct ResultHeader {
-    uint32_t magicNumber;
-    uint32_t dataByteSize;
-    uint32_t indexByteSize;
-    std::array<float, 3> boundingBoxMin;
-    std::array<float, 3> boundingBoxMax;
-};
-
-class WslSystem : public TargetSystem {
+class RemoteSystem : public TargetSystem {
     Q_OBJECT
 
  public:
-    WslSystem() {}
-    ~WslSystem() {}
+    RemoteSystem() {}
+    ~RemoteSystem() {}
 
-    bool checkDistributions();
     QStringList findOpenFoam() override;
     QStringList getTutorials(QString path) override;
     QStringList copyTutorialFolders(QString tutPath,
@@ -72,11 +42,6 @@ class WslSystem : public TargetSystem {
                            UtilityType utilityType) override;
     QString getResultFolders(QString path) override;
     QStringList processPaths(QString path, PathOperationType type) override;
-
- private:
-    void terminateProcess();
-    QString createSelectionDialog(const std::vector<std::string>& paths);
-    QJsonObject contactServer(QString action, QString message, int opType = -1);
 };
 
-#endif  // SYSTEMS_WSL_SYSTEM_H_
+#endif  // SYSTEMS_REMOTE_SYSTEM_H_

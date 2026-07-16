@@ -17,6 +17,7 @@
 
 #include "editors/graphical/mesh/mesh_editor.h"
 
+#include <QMessageBox>
 #include <QMetaEnum>
 
 #include <algorithm>
@@ -25,24 +26,23 @@
 #include <vector>
 
 #include "wizards/solver/solver_io.h"
-#include "./main_window.h"
 #include "parser/open_foam_dictionary.h"
+#include "systems/target_system.h"
 
 MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
-       const QString& casePath, int targetId,
+       const QString& casePath, std::shared_ptr<TargetSystem> targetSystem,
        const std::vector<FlowCompute::SolverFamily>& families,
        const FlowCompute::TurbulenceDatabase& turbModels,
        const QHash<QString, FlowCompute::FieldDef>& fieldData,
        const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
        QVulkanInstance* instance, QWidget* parent):
     QWidget(parent), m_renderData(renderData), m_casePath(casePath),
-    m_targetId(targetId), m_families(families), m_turbModels(turbModels),
-    m_fieldData(fieldData), m_vulkanInstance(instance) {
+    m_targetSystem(targetSystem), m_families(families),
+    m_turbModels(turbModels), m_fieldData(fieldData),
+    m_vulkanInstance(instance) {
     // Get the current solver
     QString solver = "simpleFoam";
-    m_mainWin = qobject_cast<MainWindow*>(this->parent());
-    QByteArray fileData =
-        m_mainWin->targetSystems[targetId]->getFileContent(casePath +
+    QByteArray fileData = m_targetSystem->getFileContent(casePath +
             "/system/controlDict");
     if (!fileData.isEmpty()) {
         QRegularExpression regex("^[ \\t]*application\\s+([^;\\s]+)\\s*;",
@@ -57,7 +57,7 @@ MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
     // Get the turbulence model
     QString simulationType = "laminar";
     QString modelType = "none";
-    fileData = m_mainWin->targetSystems[targetId]->getFileContent(casePath +
+    fileData = m_targetSystem->getFileContent(casePath +
         "/constant/turbulenceProperties");
     if (!fileData.isEmpty()) {
         QRegularExpression simTypeRegex(
@@ -187,7 +187,7 @@ void MeshEditor::updateMesh(std::shared_ptr<RenderData> newMesh) {
 
 void MeshEditor::updatePatches() {
     // Filter empty boundaries and get boundary list
-    QByteArray fileData = m_mainWin->targetSystems[m_targetId]->getFileContent(
+    QByteArray fileData = m_targetSystem->getFileContent(
         m_casePath + "/constant/polyMesh/boundary");
     if (!fileData.isEmpty()) {
         m_boundaries = SolverIO::parseBoundaryPatches(fileData);
@@ -223,7 +223,7 @@ void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
     });
 
     // Update boundary file
-    QByteArray fileData = m_mainWin->targetSystems[m_targetId]->getFileContent(
+    QByteArray fileData = m_targetSystem->getFileContent(
         m_casePath + "/constant/polyMesh/boundary");
     SolverIO::BoundaryFileParts parts = SolverIO::splitBoundaryFile(fileData);
     auto dict = std::make_shared<OpenFoamDictionary>(parts.payload);
@@ -239,12 +239,12 @@ void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
         finalFileData.append("\n)\n");
 
         // Update data
-        m_mainWin->targetSystems[m_targetId]->writeData(finalFileData,
+        m_targetSystem->writeData(finalFileData,
             m_casePath + "/constant/polyMesh/boundary");
 
         // Refresh navigator
         QString caseName = m_casePath.split("/").last();
-        m_mainWin->updatePath(caseName, "constant/polyMesh", m_targetId);
+        emit updatePath(caseName, "constant/polyMesh");
 
         // Display message
         QMessageBox::information(nullptr, tr("Operation Report"),

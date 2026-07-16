@@ -31,7 +31,7 @@
 
 #include <vector>
 
-#include "../../../core_types.h"
+#include "core_types.h"
 
 class ResultLeftPane : public QWidget {
     Q_OBJECT

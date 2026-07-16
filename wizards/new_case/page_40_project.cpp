@@ -122,32 +122,29 @@ void ProjectPage::onTreeSelectionChanged() {
 void ProjectPage::populateDirectoryTree(QTreeWidget* treeWidget,
                                         const QStringList& paths) {
     // Safety check to ensure we have at least the home directory path
-    if (paths.isEmpty()) {
+    if (paths.isEmpty())
         return;
-    }
 
     treeWidget->clear();
     treeWidget->setHeaderLabel(tr("Available Directories"));
 
-    QIcon folderIcon(":/images/folder.png");
-
-    // 1. Index 0 is the full path of the home directory (e.g., "/home/mscarpin")
+    // Index 0 is the full path of the home directory
     QString rootPath = paths.at(0).trimmed();
 
-    // Extract the display name (the last part after the slash, e.g., "mscarpin")
+    // Extract the display name
     QString rootDisplayName = rootPath.section('/', -1);
     if (rootDisplayName.isEmpty()) {
-        rootDisplayName = "home"; // Fallback just in case
+        rootDisplayName = "home";
     }
 
-    // 2. Create the single top-level root node
+    // Create the single top-level root node
+    QIcon folderIcon(":/images/folder.png");
     QTreeWidgetItem* rootItem = new QTreeWidgetItem(treeWidget);
     rootItem->setText(0, rootDisplayName);
     rootItem->setData(0, Qt::UserRole, rootPath);
     rootItem->setIcon(0, folderIcon);
 
-    // 3. Populate the pre-known files/folders inside the home directory
-    // Start the loop at index 1 since index 0 is the root path itself
+    // Populate the pre-known files/folders inside the home directory
     for (int i = 1; i < paths.size(); ++i) {
         QString name = paths.at(i).trimmed();
 
@@ -190,9 +187,7 @@ void ProjectPage::onItemExpanded(QTreeWidgetItem* item) {
     NewCaseWizard* newWizard = qobject_cast<NewCaseWizard*>(this->wizard());
     QStringList contents = newWizard->processPaths(currentPath);
 
-    QIcon folderIcon(":/images/folder.png");
-
-    // 4. Populate the tree with the discovered subfolders
+    // Populate the tree with the discovered subfolders
     for (const QString& name : std::as_const(contents)) {
         // Skip regular files ending with '|'
         if (name.endsWith('|')) {
@@ -204,10 +199,11 @@ void ProjectPage::onItemExpanded(QTreeWidgetItem* item) {
             continue;
         }
 
-        // 5. Construct the full path for this subfolder
+        // Construct the full path for this subfolder
         QString childPath = currentPath + "/" + trimmedName;
 
-        // 6. Create the child node
+        // Create the child node
+        QIcon folderIcon(":/images/folder.png");
         QTreeWidgetItem* childItem = new QTreeWidgetItem(item);
         childItem->setText(0, trimmedName);
         childItem->setData(0, Qt::UserRole, childPath);

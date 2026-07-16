@@ -23,32 +23,27 @@
 #include <QWidget>
 
 #include "../vulkan/vulkan_window.h"
-#include "../../../geometry/graphic_data.h"
+#include "./geometry/graphic_data.h"
 #include "result_left_pane.h"
-
-class MainWindow;
 
 class ResultEditor : public QWidget {
     Q_OBJECT
 
  public:
-    explicit ResultEditor(const QStringList& timeFolders,
+    ResultEditor(const QStringList& timeFolders,
         QString timeFolder, std::shared_ptr<RenderData> renderData,
-        const QString& casePath, int targetId,
-        QVulkanInstance* instance, QWidget* parent = nullptr);
+        const QString& casePath, QVulkanInstance* instance,
+        QWidget* parent = nullptr);
     void updateResult(std::shared_ptr<RenderData> newData);
     void applyTheme(const QString& theme);
 
  signals:
     void dirtyStateChanged(bool isDirty);
-    void timeChanged(const QString& casePath, int targetId,
-                     const QString& timeFolder);
+    void timeChanged(const QString& casePath, const QString& timeFolder);
 
  private:
-    MainWindow* m_mainWin;
     ResultLeftPane* m_leftPane;
     bool m_isSurfaceChanged = false;
-    int m_targetId;
     QString m_casePath;
     std::vector<std::string> m_patchNames;
 

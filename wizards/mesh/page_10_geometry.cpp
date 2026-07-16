@@ -17,13 +17,14 @@
 
 #include "page_10_geometry.h"
 
+#include <QDir>
+
 #include "wizard_mesh.h"
-#include "main_window.h"
 
 // Introduction page asks for the case name and platform
-GeometryPage::GeometryPage(const QString& caseName, const QStringList& cases,
-                           QWidget *parent):
-    m_caseName(caseName), m_cases(cases), QWizardPage(parent) {
+GeometryPage::GeometryPage(const QString& caseName,
+    const SystemManager& systemMgr, QWidget *parent):
+    m_caseName(caseName), m_systemMgr(systemMgr), QWizardPage(parent) {
 
     // Set title and style
     setTitle(tr("Overall Mesh Configuration"));
@@ -35,7 +36,7 @@ GeometryPage::GeometryPage(const QString& caseName, const QStringList& cases,
     // Get selected case
     layout->addWidget(new QLabel(tr("Select the OpenFOAM case:")), 0, 0);
     m_caseCombo = new QComboBox(this);
-    m_caseCombo->addItems(m_cases);
+    m_caseCombo->addItems(m_systemMgr.getCases());
     m_caseCombo->setCurrentText(m_caseName);
     layout->addWidget(m_caseCombo, 0, 1);
     connect(m_caseCombo, &QComboBox::currentTextChanged, this,
@@ -88,7 +89,6 @@ void GeometryPage::initializePage() {
 
     // Get cases
     meshWizard = qobject_cast<MeshWizard*>(this->wizard());
-    mainWin = qobject_cast<MainWindow*>(this->wizard()->parentWidget());
 
     // Start event processing
     caseChanged(m_caseName);
@@ -102,13 +102,21 @@ void GeometryPage::caseChanged(const QString& caseName) {
 
     // Get case path
     m_caseName = caseName;
-    int targetSystemId = mainWin->m_caseMap[m_caseName].targetSystemId;
-    QString casePath = mainWin->m_caseMap[m_caseName].casePath;
+    QString casePath = m_systemMgr.getData(m_caseName).casePath;
+    QString openFoamPath = m_systemMgr.getData(m_caseName).openFoamPath;
+
+    // Determine which OpenFOAM release is used
+    QString dirName = QDir(openFoamPath).dirName();
+    const QRegularExpression foundationRegex("^openfoam\\d{2}$",
+        QRegularExpression::CaseInsensitiveOption);
+    bool isFoundation = foundationRegex.match(dirName).hasMatch();
 
     // Read geometry file
-    QString path = casePath + "/" + m_caseName + "/constant/triSurface";
+    QString subDir =
+        (isFoundation) ? "/constant/geometry" : "/constant/triSurface";
+    QString path = casePath + "/" + m_caseName + subDir;
     QStringList geometryFiles =
-        mainWin->targetSystems[targetSystemId]->processPaths(path,
+        m_systemMgr.getSystem(m_caseName)->processPaths(path,
             PathOperationType::LIST);
     QListWidgetItem *item;
     for (int i = geometryFiles.size() - 1; i >= 0; --i) {        

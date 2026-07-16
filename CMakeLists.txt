@@ -15,6 +15,7 @@ qt_add_executable(FlowCompute
     main.cpp
     main_window.cpp
     main_window.h
+	main_window_slots.cpp
     resources.qrc
     core_types.h
     utils.h utils.cpp
@@ -78,16 +79,21 @@ qt_add_executable(FlowCompute
     geometry/mesh/mesh_reader.cpp
     geometry/stl/stl_reader.h
     geometry/stl/stl_reader.cpp
+    geometry/obj/obj_reader.h
+    geometry/obj/obj_reader.cpp	
 
     parser/open_foam_dictionary.h
     parser/open_foam_dictionary.cpp
     parser/parser.c
     third_party/tree_sitter/src/lib.c
 
-    systems/target_system.h
-    systems/ssl_system.h
     systems/local_system.h
 	systems/local_system.cpp
+    systems/remote_system.h
+    systems/remote_system.cpp
+    systems/system_manager.h
+	systems/system_manager.cpp
+    systems/target_system.h
     systems/wsl_system.h
     systems/wsl_system.cpp
 
@@ -124,8 +130,8 @@ qt_add_executable(FlowCompute
     wizards/mesh/page_20_blockmesh.cpp
     wizards/mesh/page_30_blockmesh.h
     wizards/mesh/page_30_blockmesh.cpp
-    wizards/mesh/page_40_surface_extraction.h
-    wizards/mesh/page_40_surface_extraction.cpp
+    wizards/mesh/page_40_surface_feature.h
+    wizards/mesh/page_40_surface_feature.cpp
     wizards/mesh/page_50_castellation.h
     wizards/mesh/page_50_castellation.cpp
     wizards/mesh/page_60_snapcontrol.h

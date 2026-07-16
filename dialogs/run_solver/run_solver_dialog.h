@@ -21,26 +21,39 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialog>
+#include <QFormLayout>
 #include <QWidget>
 #include <QDialogButtonBox>
 
-class MainWindow;
+class SystemManager;
+class QStackedWidget;
 
 class RunSolverDialog : public QDialog {
     Q_OBJECT
 
  public:
-    RunSolverDialog(const QString& selectedCase, const QStringList& caseList,
-        QWidget* parent = nullptr);
+    RunSolverDialog(const QString& selectedCase, bool isFoundation,
+                    const SystemManager& systemMgr, QWidget* parent = nullptr);
+
+ signals:
+    void requestRunSolver(QString caseName, QString cmd);
 
  private:
-    MainWindow* m_mainWin;
+    QWidget* createFoundationWidget();
+    QWidget* createKeySightWidget();
+
+    const SystemManager& m_systemMgr;
     QString m_solverName;
+    bool m_isFoundation;
+    QStackedWidget* m_layoutStack;
 
     QCheckBox *m_potentialCheck, *m_updateVelocityCheck, *m_writePressureCheck;
-    QCheckBox *m_runSolverCheck, *m_deleteFilesCheck, *m_reconstructCheck,
-        *m_deleteProcessorCheck;
-    QComboBox *m_caseCombo, *m_numCoresCombo;
+    QCheckBox *m_runSolverCheck, *m_deleteFilesKeySightCheck, *m_functionCheck,
+        *m_reconstructKeySightCheck, *m_deleteProcessorKeySightCheck,
+        *m_deleteProcessorFoundationCheck, *m_reconstructFoundationCheck,
+        *m_deleteFilesFoundationCheck;
+    QComboBox *m_caseCombo, *m_numCoresFoundationCombo, *m_selectSolverCombo,
+         *m_numCoresKeySightCombo, *m_fileHandlingCombo;
 
  private slots:
     void onOkClicked();

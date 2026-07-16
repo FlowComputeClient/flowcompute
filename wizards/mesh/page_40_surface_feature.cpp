@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_40_surface_extraction.h"
+#include "page_40_surface_feature.h"
 #include "page_10_geometry.h"
 
 #include "wizard_mesh.h"
@@ -23,7 +23,7 @@
 QWidget* centerCheckBox(QCheckBox* box);
 
 // Introduction page asks for the case name and platform
-SurfaceExtractionPage::SurfaceExtractionPage(QWidget *parent):
+SurfaceFeaturePage::SurfaceFeaturePage(QWidget *parent):
     QWizardPage(parent) {
 
     // Inside your ExtractPage constructor
@@ -57,7 +57,7 @@ SurfaceExtractionPage::SurfaceExtractionPage(QWidget *parent):
     setLayout(mainLayout);
 }
 
-void SurfaceExtractionPage::initializePage() {
+void SurfaceFeaturePage::initializePage() {
     meshWizard = qobject_cast<MeshWizard*>(wizard());
     if (!meshWizard) {
         qWarning() << "Failed to cast to MeshWizard!";
@@ -76,7 +76,7 @@ void SurfaceExtractionPage::initializePage() {
     for (int i = 0; i < geometryFiles.size(); ++i) {
         QString fileName = geometryFiles[i];
 
-        SurfaceFeatureExtractEntry entry;
+        SurfaceFeatureEntry entry;
         auto it = meshWizard->getFeatureMap().find(fileName);
         if (it != meshWizard->getFeatureMap().end()) {
             entry = it->second;
@@ -94,8 +94,8 @@ void SurfaceExtractionPage::initializePage() {
         angleSpin->setSuffix(" °");
 
         // Ensure a safe fallback if entry is uninitialized
-        double safeAngle = (entry.includedAngle > 0.0) ?
-                               entry.includedAngle : 150.0;
+        double safeAngle = (entry.angle > 0.0) ?
+                               entry.angle : 150.0;
         angleSpin->setValue(safeAngle);
         featureTable->setCellWidget(i, 1, angleSpin);
 
@@ -133,7 +133,7 @@ QWidget* centerCheckBox(QCheckBox* box) {
     return widget;
 }
 
-bool SurfaceExtractionPage::validatePage() {
+bool SurfaceFeaturePage::validatePage() {
 
     // Clear the existing map to prevent stale data
     meshWizard->getFeatureMap().clear();
@@ -155,8 +155,8 @@ bool SurfaceExtractionPage::validatePage() {
         // Build the struct and push to the map
         if (angleSpin && openEdgesCheck && writeObjCheck && edgeLevelSpin) {
 
-            SurfaceFeatureExtractEntry newEntry;
-            newEntry.includedAngle = angleSpin->value();
+            SurfaceFeatureEntry newEntry;
+            newEntry.angle = angleSpin->value();
             newEntry.openEdges = openEdgesCheck->isChecked();
             newEntry.writeObj = writeObjCheck->isChecked();
             newEntry.edgeLevel = edgeLevelSpin->value();
@@ -166,7 +166,7 @@ bool SurfaceExtractionPage::validatePage() {
     return true;
 }
 
-int SurfaceExtractionPage::nextId() const {
+int SurfaceFeaturePage::nextId() const {
     if (meshWizard->m_runCastellated) {
         return Page_Castellation;
     } else if (meshWizard->m_runSnap) {

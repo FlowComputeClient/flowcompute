@@ -17,12 +17,11 @@
 
 #include "page_10_intro.h"
 
-#include "../../main_window.h"
 #include "wizard_new_case.h"
 
 // Introduction page asks for the case name and platform
-IntroPage::IntroPage(QWidget *parent): QWizardPage(parent) {
-
+IntroPage::IntroPage(bool isWindows, bool isWslAvailable, QWidget *parent):
+    QWizardPage(parent) {
     // Set title and style
     setTitle(tr("Case Configuration"));
 
@@ -56,8 +55,8 @@ IntroPage::IntroPage(QWidget *parent): QWizardPage(parent) {
     int row = 0;
     QRadioButton *remoteButton = new QRadioButton(tr("Remote:"), targetGroup);
     m_remoteIPAddrEdit = new QLineEdit(targetGroup);
-    if (MainWindow::isWindows()) {
-        if (MainWindow::isWslAvailable()) {
+    if (isWindows) {
+        if (isWslAvailable) {
             QRadioButton *localWinButton =
                 new QRadioButton(tr("Local (WSL)"), targetGroup);
             targetGroupLayout->addWidget(localWinButton, row++, 0);
@@ -134,7 +133,6 @@ IntroPage::IntroPage(QWidget *parent): QWizardPage(parent) {
 }
 
 int IntroPage::nextId() const {
-
     // Set next page according to radio button selection
     if (m_tutorialRadio->isChecked()) {
         return static_cast<int>(WizardPage::Page_Tutorial);
@@ -142,7 +140,6 @@ int IntroPage::nextId() const {
     else if (m_interactiveRadio->isChecked()) {
         return static_cast<int>(WizardPage::Page_Interactive);
     }
-
     return -1;
 }
 

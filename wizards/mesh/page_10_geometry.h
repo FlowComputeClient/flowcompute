@@ -34,15 +34,16 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-class MainWindow;
+#include "systems/system_manager.h"
+
 class MeshWizard;
 
 class GeometryPage : public QWizardPage {
     Q_OBJECT
 
  public:
-    explicit GeometryPage(const QString& caseName, const QStringList& cases,
-                          QWidget *parent);
+    explicit GeometryPage(const QString& caseName,
+        const SystemManager& systemMgr, QWidget *parent);
     QString getCaseName() { return m_caseName; };
     QStringList getGeometryFiles() { return m_geometryFiles; };
     int nextId() const override;
@@ -52,7 +53,7 @@ class GeometryPage : public QWizardPage {
     bool validatePage() override;
 
  private:
-    MainWindow* mainWin;
+    const SystemManager& m_systemMgr;
     MeshWizard* meshWizard;
 
     QCheckBox *m_blockMeshCheck, *m_extractCheck, *m_castellatedCheck,

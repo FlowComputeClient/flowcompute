@@ -15,69 +15,104 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "./case_navigator.h"
+#include "views/navigator/case_navigator.h"
+
+#include <QMenu>
 
 #include <algorithm>
 
-#include "../../main_window.h"
-
-CaseNavigator::CaseNavigator(QWidget *parent): QTreeView(parent) {
+CaseNavigator::CaseNavigator(QAction* deleteAction,
+    QAction* configureMeshAction, QAction* runMeshAction,
+    QAction* viewMeshAction, QAction* configureSolverAction,
+    QAction* runSolverAction, QAction* viewResultAction,
+    const SystemManager& systemMgr, QWidget *parent):
+    m_deleteAction(deleteAction), m_configureMeshAction(configureMeshAction),
+    m_runMeshAction(runMeshAction), m_viewMeshAction(viewMeshAction),
+    m_configureSolverAction(configureSolverAction),
+    m_runSolverAction(runSolverAction), m_viewResultAction(viewResultAction),
+    m_systemMgr(systemMgr), QTreeView(parent) {
     // Configure behavior
     setHeaderHidden(true);
     setExpandsOnDoubleClick(true);
     setSelectionMode(QAbstractItemView::SingleSelection);
 
-    // Access main window
-    mainWin = qobject_cast<MainWindow*>(this->parentWidget());
-
     // Create model
-    model = new NavigatorModel(this);
-    setModel(model);
-    root = model->invisibleRootItem();
+    m_model = new NavigatorModel(this);
+    setModel(m_model);
+    m_root = m_model->invisibleRootItem();
 
-    // Configure the context menu and actions
-    m_contextMenu = new QMenu(this);
+    // Configure the context menu
     setContextMenuPolicy(Qt::CustomContextMenu);
-    createActions();
 
-    // Connect signal
+    // Connect signals
     connect(this, &QWidget::customContextMenuRequested,
             this, &CaseNavigator::showContextMenu);
-
-    // Connect the expanded signal to our custom slot
     connect(this, &QTreeView::expanded, this, &CaseNavigator::onNodeExpanded);
+    connect(selectionModel(), &QItemSelectionModel::selectionChanged,
+            this, &CaseNavigator::onSelectionChanged);
 }
 
-// Create actions for the context menu
-void CaseNavigator::createActions() {
-    // View result
-    m_viewResultAction = new QAction(QIcon(":/images/view_result.png"),
-                                     tr("&View Result"), this);
-    m_viewResultAction->setStatusTip(tr("View Result"));
-    connect(m_viewResultAction, &QAction::triggered, this,
-            &CaseNavigator::viewResult);
+void CaseNavigator::checkCaseFiles(QString caseName) {
+    // Get case path
+    QString casePath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
 
-    // View mesh
-    m_viewMeshAction = new QAction(QIcon(":/images/view_mesh.png"),
-                                   tr("&View Mesh"), this);
-    m_viewMeshAction->setStatusTip(tr("View Mesh"));
-    connect(m_viewMeshAction, &QAction::triggered, this,
-            &CaseNavigator::viewMesh);
+    // Check if mesh/field files are present
+    bool meshFilesPresent = true, fieldFilesPresent = true;
+    QStringList meshFiles = {casePath + "/constant/polyMesh/points",
+                             casePath + "/constant/polyMesh/faces",
+                             casePath + "/constant/polyMesh/owner",
+                             casePath + "/constant/polyMesh/boundary" };
+    QString meshFileString = meshFiles.join("\n");
+    QStringList results = m_systemMgr.getSystem(caseName)->
+        processPaths(meshFileString, PathOperationType::CHECK);
 
-    // Delete action
-    m_deleteAction = new QAction(QIcon(":/images/delete.png"),
-                                 tr("&Delete"), this);
-    m_deleteAction->setShortcuts(QKeySequence::Delete);
-    m_deleteAction->setStatusTip(tr("Delete"));
-    connect(m_deleteAction, &QAction::triggered, this,
-            &CaseNavigator::deleteNode);
+    if (results.contains("-1"))
+        meshFilesPresent = false;
+
+    // Check if field files are in 0.orig
+    QString fieldFileString = casePath + "/0.orig";
+    results = m_systemMgr.getSystem(caseName)->processPaths(
+        fieldFileString, PathOperationType::LIST);
+    fieldFilesPresent = !results.empty();
+
+    // Check if field files are in 0
+    if (!fieldFilesPresent) {
+        fieldFileString = casePath + "/0";
+        results = m_systemMgr.getSystem(caseName)->processPaths(
+            fieldFileString, PathOperationType::LIST);
+        fieldFilesPresent = !results.empty();
+    }
+
+    // Update actions
+    m_viewMeshAction->setEnabled(meshFilesPresent);
+    m_configureSolverAction->setEnabled(meshFilesPresent);
+    m_runSolverAction->setEnabled(meshFilesPresent && fieldFilesPresent);
+    m_viewResultAction->setEnabled(meshFilesPresent && fieldFilesPresent);
+}
+
+void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
+                                       const QItemSelection &deselected) {
+    Q_UNUSED(deselected);
+    if (selected.indexes().isEmpty())
+        return;
+
+    // Access the selected node
+    QString caseName;
+    NodeData* node = m_model->nodeFromIndex(selected.indexes().first());
+    if (node->nodeType == NodeType::CaseFolder) {
+        caseName = node->text();
+    } else {
+        int pos = node->fullPath.indexOf('/');
+        caseName = (pos == -1) ? node->fullPath : node->fullPath.left(pos);
+    }
+    checkCaseFiles(caseName);
 }
 
 // Add a new case to the navigator
 void CaseNavigator::addCase(QString caseName, QStringList caseFiles) {
     // Create a node for the project
     NodeData* caseFolder = new NodeData(caseName, "", NodeType::CaseFolder);
-    root->appendRow(caseFolder);
+    m_root->appendRow(caseFolder);
 
     // Create a node for top-level files/folders
     NodeData* node;
@@ -135,19 +170,17 @@ NodeType CaseNavigator::checkType(QString name, QString fullPath) {
             }
         }
     }
-
     // Fallback
     return NodeType::DictionaryFile;
 }
 
 void CaseNavigator::expandCase(QString caseName) {
-    if (!root) return;
+    if (!m_root) return;
 
     // Iterate through top-level items
-    for (int i = 0; i < root->rowCount(); ++i) {
-
+    for (int i = 0; i < m_root->rowCount(); ++i) {
         // Cast the generic QStandardItem back to your NodeData
-        NodeData* node = static_cast<NodeData*>(root->child(i));
+        NodeData* node = static_cast<NodeData*>(m_root->child(i));
         if (node) {
             // Check if the node matches the criteria
             if (node->text() == caseName &&
@@ -163,29 +196,25 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
     // Get model index
     QModelIndex index = indexAt(event->pos());
     if (index.isValid()) {
-
         // Access the node
-        NodeData* node = model->nodeFromIndex(index);
+        NodeData* node = m_model->nodeFromIndex(index);
 
         if (node) {
-
             // Open dictionary file
             if ((node->nodeType == NodeType::DictionaryFile) ||
                 (node->nodeType == NodeType::ScriptFile) ||
                 (node->nodeType == NodeType::FieldFile) ||
                 (node->nodeType == NodeType::MeshFile)) {
-
                 // Create editor for file
-                mainWin->createEditor(EditorType::TEXT, node->name,
-                                      node->fullPath);
+                emit createEditor(EditorType::TEXT, node->name,
+                                  node->fullPath, true);
             }
 
             // Open geometry file
             if (node->nodeType == NodeType::GeometryFile) {
-
                 // Create editor for file
-                mainWin->createEditor(EditorType::SURFACE, node->name,
-                                      node->fullPath);
+                emit createEditor(EditorType::SURFACE, node->name,
+                                    node->fullPath, true);
             }
         }
     }
@@ -194,7 +223,7 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
 
 void CaseNavigator::onNodeExpanded(const QModelIndex &index) {
     // Get node
-    NodeData* node = model->nodeFromIndex(index);
+    NodeData* node = m_model->nodeFromIndex(index);
     if (!node) return;
 
     // Check if the node has a dummy child
@@ -213,19 +242,13 @@ void CaseNavigator::fetchChildren(NodeData* node) {
     // Construct the full path
     int pos = node->fullPath.indexOf('/');
     QString caseName = (pos == -1) ? node->fullPath : node->fullPath.left(pos);
-    QString casePath = mainWin->m_caseMap[caseName].casePath;
-    int targetSystemId = mainWin->m_caseMap[caseName].targetSystemId;
+    QString casePath = m_systemMgr.getData(caseName).casePath;
     QString nodePath = node->fullPath + "/" + node->name;
     QString fullPath = casePath + "/" + nodePath;
 
     // Access children at the given path
-    /*
-    QStringList items =
-        mainWin->targetSystems[targetSystemId]->getFiles(fullPath);
-    */
-    QStringList items =
-        mainWin->targetSystems[targetSystemId]->processPaths(fullPath,
-            PathOperationType::LIST);
+    QStringList items = m_systemMgr.getSystem(caseName)->processPaths(fullPath,
+        PathOperationType::LIST);
 
     // Create a node for each child
     QList<NodeData*> childFolders, childFiles;
@@ -261,15 +284,15 @@ void CaseNavigator::fetchChildren(NodeData* node) {
 }
 
 void CaseNavigator::updatePath(QString path, QStringList children) {
-    if (!root || path.isEmpty()) return;
+    if (!m_root || path.isEmpty()) return;
 
     // Traverse the tree to find the target node
     QStringList pathParts = path.split('/');
     NodeData* currentNode = nullptr;
 
     // Find the top-level case node
-    for (int i = 0; i < root->rowCount(); ++i) {
-        NodeData* node = static_cast<NodeData*>(root->child(i));
+    for (int i = 0; i < m_root->rowCount(); ++i) {
+        NodeData* node = static_cast<NodeData*>(m_root->child(i));
         if (node && node->text() == pathParts[0]) {
             currentNode = node;
             break;
@@ -375,8 +398,8 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
 
 QString CaseNavigator::getSelectedCase() {
     // If there's only one case, return the case
-    if (root->rowCount() == 1) {
-        NodeData* node = static_cast<NodeData*>(root->child(0));
+    if (m_root->rowCount() == 1) {
+        NodeData* node = static_cast<NodeData*>(m_root->child(0));
         return node->text();
     }
 
@@ -387,7 +410,7 @@ QString CaseNavigator::getSelectedCase() {
     }
 
     // Access the selected node
-    NodeData* node = model->nodeFromIndex(selectedIndexes.first());
+    NodeData* node = m_model->nodeFromIndex(selectedIndexes.first());
     if (!node)
         return QString();
     if (node->nodeType == NodeType::CaseFolder) {
@@ -402,12 +425,12 @@ QString CaseNavigator::getSelectedCase() {
 
 QStringList CaseNavigator::getCases() const {
     QStringList caseNames;
-    if (!root)
+    if (!m_root)
         return caseNames;
 
     // Get names of top-level items in tree
-    for (int i = 0; i < root->rowCount(); ++i) {
-        NodeData* node = static_cast<NodeData*>(root->child(i));
+    for (int i = 0; i < m_root->rowCount(); ++i) {
+        NodeData* node = static_cast<NodeData*>(m_root->child(i));
         if (node && node->nodeType == NodeType::CaseFolder) {
             caseNames.append(node->text());
         }
@@ -416,76 +439,76 @@ QStringList CaseNavigator::getCases() const {
 }
 
 void CaseNavigator::showContextMenu(const QPoint &pos) {
-    // Get the node under the mouse cursor
+
     QModelIndex index = indexAt(pos);
-    if (!index.isValid())
+    if (!index.isValid()) {
         return;
-    NodeData* node = model->nodeFromIndex(index);
+    }
+
+    NodeData* node = m_model->nodeFromIndex(index);
     if (!node)
         return;
 
-    // Add actions based on type
+    // Create a fresh, local context menu instance
+    QMenu contextMenu(this);
+
+    // Setup the ubiquitous Delete action
+    m_deleteAction->setData(QVariant::fromValue(node));
+    contextMenu.addAction(m_deleteAction);
+
+    // Conditionally add folder-specific actions
     switch (node->nodeType) {
-    case NodeType::CaseFolder:
+    case NodeType::CaseFolder: {
 
-        // Add view result action
-        m_viewResultAction->setData(QVariant::fromValue(node));
-        m_contextMenu->addAction(m_viewResultAction);
+        // Check files in case'
+        checkCaseFiles(node->name);
 
-        // Add view mesh action
+        contextMenu.addSeparator();
+
+        // Mesh Pipeline
+        m_configureMeshAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_configureMeshAction);
+
+        m_runMeshAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_runMeshAction);
+
         m_viewMeshAction->setData(QVariant::fromValue(node));
-        m_contextMenu->addAction(m_viewMeshAction);
+        contextMenu.addAction(m_viewMeshAction);
+
+        contextMenu.addSeparator();
+
+        // Solver Pipeline
+        m_configureSolverAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_configureSolverAction);
+
+        m_runSolverAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_runSolverAction);
+
+        m_viewResultAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_viewResultAction);
         break;
+    }
     default:
         break;
     }
 
-    // Add delete action
-    m_deleteAction->setData(QVariant::fromValue(node));
-    m_contextMenu->addAction(m_deleteAction);
-
-    // Execute the menu at the given location
-    m_contextMenu->exec(viewport()->mapToGlobal(pos));
+    // Execute blocking exec call safely on the stack-allocated menu
+    contextMenu.exec(viewport()->mapToGlobal(pos));
 }
 
-void CaseNavigator::deleteNode() {
-    // Access node
-    QVariant data = m_deleteAction->data();
-    NodeData* node = data.value<NodeData*>();
+void CaseNavigator::removeNode(NodeData* node) {
     if (!node)
         return;
 
-    // Create editor for mesh
-    mainWin->deleteFile(node->name, node->fullPath);
+    // Find the parent standard item
+    QStandardItem* parentItem = node->parent();
+    if (!parentItem) {
+        parentItem = m_root;
+    }
 
-    // Clear data
-    m_viewMeshAction->setData(QVariant());
-}
-
-void CaseNavigator::viewMesh() {
-    // Access node
-    QVariant data = m_viewMeshAction->data();
-    NodeData* node = data.value<NodeData*>();
-    if (!node)
-        return;
-
-    // Create editor for mesh
-    mainWin->createEditor(EditorType::MESH, node->name, node->fullPath);
-
-    // Clear data
-    m_viewMeshAction->setData(QVariant());
-}
-
-void CaseNavigator::viewResult() {
-    // Access node
-    QVariant data = m_viewResultAction->data();
-    NodeData* node = data.value<NodeData*>();
-    if (!node)
-        return;
-
-    // Create editor for mesh
-    mainWin->createEditor(EditorType::RESULT, node->name, node->fullPath);
-
-    // Clear data
-    m_viewResultAction->setData(QVariant());
+    // Identify and remove the row
+    int row = node->row();
+    if (row >= 0) {
+        parentItem->removeRow(row);
+    }
 }

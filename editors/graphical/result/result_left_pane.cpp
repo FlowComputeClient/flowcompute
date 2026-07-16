@@ -26,8 +26,8 @@
 #include "color_bar_widget.h"
 
 ResultLeftPane::ResultLeftPane(const QStringList& timeFolders,
-    QString timeFolder, QWidget* parent):
-    m_timeFolders(timeFolders), m_timeFolder(timeFolder), QWidget(parent) {
+    QString timeFolder, QWidget* parent): m_timeFolders(timeFolders),
+    m_timeFolder(timeFolder), QWidget(parent) {
     setProperty("widgetType", "pane");
 
     // Vertical layout
@@ -91,7 +91,7 @@ ResultLeftPane::ResultLeftPane(const QStringList& timeFolders,
         timeSlider->setValue(maxIndex);
     }
 
-    // A vertical slider usually looks best centered in its own layout
+    // Center the slider
     QGridLayout* innerGrid = new QGridLayout();
     innerGrid->setContentsMargins(0, 5, 0, 5);
     innerGrid->setHorizontalSpacing(4);

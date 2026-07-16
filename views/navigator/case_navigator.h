@@ -18,67 +18,62 @@
 #ifndef VIEWS_NAVIGATOR_CASE_NAVIGATOR_H_
 #define VIEWS_NAVIGATOR_CASE_NAVIGATOR_H_
 
-#include <QDebug>
 #include <QMouseEvent>
-#include <QStyleFactory>
 #include <QTreeView>
 
 #include "./navigator_model.h"
 #include "./node_data.h"
-
-class MainWindow;
-
-enum class EditorType : int {
-    TEXT = 0,
-    SURFACE,
-    MESH,
-    RESULT
-};
+#include "systems/system_manager.h"
 
 class CaseNavigator : public QTreeView {
     Q_OBJECT
 
  public:
-    explicit CaseNavigator(QWidget *parent = nullptr);
+    CaseNavigator(QAction* deleteAction, QAction* configureMeshAction,
+        QAction* runMeshAction, QAction* viewMeshAction,
+        QAction* configureSolverAction, QAction* runSolverAction,
+        QAction* viewResultAction, const SystemManager& systemMgr,
+        QWidget *parent = nullptr);
     void addCase(QString caseName, QStringList caseFiles);
     void expandCase(QString caseName);
     QStringList getCases() const;
     QString getSelectedCase();
     void updatePath(QString path, QStringList children);
+    void removeNode(NodeData* node);
+    void createChildren(NodeData* node, const QString& nodePath,
+                        const QStringList& children);
 
  protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
  signals:
-    void createEditor(EditorType type, QString& fileName,
-                       const QString& fullPath);
+    void createEditor(EditorType type, QString& fileName, const QString& path,
+        bool logMessage);
 
  private:
+    void fetchChildren(NodeData* parentNode);
+    NodeType checkType(QString name, QString fullPath);
+    void checkCaseFiles(QString caseName);
+
+    const SystemManager& m_systemMgr;
+    NavigatorModel* m_model;
+    QStandardItem* m_root;
+
     // Menu and actions
-    QMenu *m_contextMenu;
-    QAction *m_deleteAction, *m_viewMeshAction, *m_viewResultAction;
-    void createActions();
+    QAction *m_deleteAction;
+    QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
+    QAction *m_configureSolverAction, *m_runSolverAction, *m_viewResultAction;
 
  private slots:
     // Slot to catch when a user clicks the expand arrow
     void onNodeExpanded(const QModelIndex &index);
 
+    // Sets selection
+    void onSelectionChanged(const QItemSelection &selected,
+                            const QItemSelection &deselected);
+
     // Displays the context menu
     void showContextMenu(const QPoint &pos);
-
-    // Responds to actions
-    void deleteNode();
-    void viewMesh();
-    void viewResult();
-
- private:
-    NavigatorModel* model;
-    QStandardItem* root;
-    MainWindow* mainWin;
-
-    // Skeleton function to request children from the WSL server
-    void fetchChildren(NodeData* parentNode);
-    NodeType checkType(QString name, QString fullPath);
 };
 
 #endif  // VIEWS_NAVIGATOR_CASE_NAVIGATOR_H_

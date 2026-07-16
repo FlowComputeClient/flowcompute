@@ -17,42 +17,33 @@
 
 #include "wizard_new_case.h"
 
-#include "main_window.h"
+#include "template_strings.h"
 
-NewCaseWizard::NewCaseWizard(QWidget *parent): QWizard(parent) {
-
+NewCaseWizard::NewCaseWizard(bool isWindows, bool isWslAvailable,
+    SystemManager& systemMgr, QWidget *parent):
+    m_systemMgr(systemMgr), QWizard(parent) {
+    // Configure wizard appearance
     setWizardStyle(QWizard::ClassicStyle);
     setWindowTitle("New Case Wizard");
 
-    // Access the main window
-    mainWin = qobject_cast<MainWindow*>(this->parentWidget());
-
     // Add pages
     setPage(static_cast<int>(WizardPage::Page_Intro),
-            new IntroPage(this));
+            new IntroPage(isWindows, isWslAvailable, this));
     setPage(static_cast<int>(WizardPage::Page_Tutorial),
             new TutorialPage(this));
     setPage(static_cast<int>(WizardPage::Page_Interactive),
             new InteractivePage(this));
     setPage(static_cast<int>(WizardPage::Page_Project),
             new ProjectPage(this));
-
     setOption(QWizard::NoBackButtonOnStartPage);
 }
 
-// Set the target system
-void NewCaseWizard::setTargetSystemId(int id) {
-    m_targetId = static_cast<TargetType>(id);
-}
-
 QStringList NewCaseWizard::processPaths(QString path) {
-    return mainWin->targetSystems[m_targetId]->processPaths(path,
-                                                            PathOperationType::LIST);
+    return m_system->processPaths(path, PathOperationType::LIST);
 }
 
 QStringList NewCaseWizard::getTutorials() {
-    QStringList results =
-        mainWin->targetSystems[m_targetId]->getTutorials(m_openFoamPath);
+    QStringList results = m_system->getTutorials(m_openFoamPath);
     return results;
 }
 
@@ -64,15 +55,16 @@ bool NewCaseWizard::validateCurrentPage() {
         // Read registered fields
         m_caseName = field("caseName").toString();
         m_targetId = static_cast<TargetType>(field("targetSystemId").toInt());
+        m_system = m_systemMgr.getSystem(m_targetId);
 
         // Check if case name is in the case map
         int count = 0;
         QString newName;
-        if (mainWin->m_caseMap.contains(m_caseName)) {
+        if (m_systemMgr.contains(m_caseName)) {
             count = 1;
             while (true) {
                 newName = m_caseName + "_" + QString::number(count++);
-                if (!mainWin->m_caseMap.contains(newName)) {
+                if (!m_systemMgr.contains(newName)) {
                     break;
                 }
             }
@@ -80,7 +72,6 @@ bool NewCaseWizard::validateCurrentPage() {
 
         // If name is in case map, ask user
         if (count > 0) {
-
             QMessageBox::StandardButton reply;
             QString msg = tr("There is already a case named '%1'.\n"
                              "Create '%2' instead?").arg(m_caseName, newName);
@@ -96,7 +87,7 @@ bool NewCaseWizard::validateCurrentPage() {
         }
 
         // Determine OpenFOAM installation
-        QStringList ofList = mainWin->targetSystems[m_targetId]->findOpenFoam();
+        QStringList ofList = m_system->findOpenFoam();
         if(ofList.empty()) {
             QMessageBox::critical(this, tr("Missing OpenFOAM"),
                 tr("No OpenFOAM installations detected..."));
@@ -181,8 +172,8 @@ void NewCaseWizard::accept() {
 
     // Check if case folder already exists
     QString checkPath = casePath + "/" + m_caseName;
-    QStringList results = mainWin->targetSystems[m_targetId]->processPaths(
-        checkPath, PathOperationType::CHECK);
+    QStringList results = m_system->processPaths(checkPath,
+        PathOperationType::CHECK);
     QString result = results[0];
 
     // Handle existing case
@@ -201,8 +192,8 @@ void NewCaseWizard::accept() {
             QString testCase = testList.join('\n');
 
             // Check if any paths already exist
-            results = mainWin->targetSystems[m_targetId]->processPaths(
-                testCase, PathOperationType::CHECK);
+            results = m_system->processPaths(testCase,
+                PathOperationType::CHECK);
             for (int i=0; i<5; i++) {
                 if (results[i] == "-1") {
                     result = QString::number(count + i);
@@ -220,7 +211,7 @@ void NewCaseWizard::accept() {
                     m_caseName + "_" + result);
 
         reply = QMessageBox::question(this, tr("Existing Case Detected"), msg,
-                                      QMessageBox::Yes | QMessageBox::No);
+            QMessageBox::Yes | QMessageBox::No);
 
         // End wizard if the response is no
         if (reply == QMessageBox::No) {
@@ -238,8 +229,7 @@ void NewCaseWizard::accept() {
 
         // Copy files from tutorial to new case folder
         QString tutorialPath = field("tutorialPath").toString();
-        files = mainWin->targetSystems[m_targetId]->copyTutorialFolders(
-            tutorialPath, checkPath);
+        files = m_system->copyTutorialFolders(tutorialPath, checkPath);
     }
     else if (caseCreationType == CaseCreationType::INTERACTIVE) {
         if (createCase(checkPath)) {
@@ -254,12 +244,20 @@ void NewCaseWizard::accept() {
     // Copy geometry file if given
     if (!m_geometryFile.isEmpty()) {
 
+        // Determine which OpenFOAM release is used
+        QString dirName = QDir(m_openFoamPath).dirName();
+        const QRegularExpression foundationRegex("^openfoam\\d{2}$",
+            QRegularExpression::CaseInsensitiveOption);
+        bool isFoundation = foundationRegex.match(dirName).hasMatch();
+
+        // Write geometry file to new case
         QFileInfo info(m_geometryFile);
         if (info.exists() && info.isFile()) {
-            QString remotePath = checkPath + "/constant/triSurface/" +
-                                 info.fileName();
-            bool success = mainWin->targetSystems[m_targetId]->writeData(
-                m_geometryFile, remotePath);
+
+            QString subDir = (isFoundation) ? "/constant/geometry/" :
+                                 "/constant/triSurface/";
+            QString remotePath = checkPath + subDir + info.fileName();
+            bool success = m_system->writeData(m_geometryFile, remotePath);
             if (!success) {
                 qWarning() << "Failed to transfer geometry file:"
                            << info.fileName();
@@ -270,9 +268,9 @@ void NewCaseWizard::accept() {
         }
     }
 
-    // Create case
-    mainWin->createCase(m_caseName, casePath, files, m_targetId,
-                        m_openFoamPath);
+    // Request case creation
+    emit requestCaseCreation(m_caseName, casePath, files, m_targetId,
+                             m_openFoamPath);
 
     QWizard::accept();
 }
@@ -311,8 +309,8 @@ bool NewCaseWizard::createCase(QString newCasePath) {
     QStringList newDirs = { newCasePath, newCasePath + "/constant",
                            newCasePath + "/system", newCasePath + "/0.orig" };
     QString newDirStr = newDirs.join("\n");
-    QStringList results = mainWin->targetSystems[m_targetId]->
-                          processPaths(newDirStr, PathOperationType::CREATE);
+    QStringList results = m_system->processPaths(newDirStr,
+        PathOperationType::CREATE);
 
     if (!results.contains("-1")) {
         createCaseFiles(newCasePath, versionText, websiteText);
@@ -335,13 +333,12 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
     QString ddtScheme = "Euler",
         divUScheme = "bounded Gauss upwind", schemeText;
     QString orthoScheme, pText, alphaText, algoText, rhoText, eqText,
-        dimText, fileText, filePath;
+        fileText, filePath;
 
     // Flow type check
     switch(m_caseConfig.flowConfig) {
     case FlowConfig::Incompressible:
         pText = pTextIncompressible;
-        dimText = "[0 2 -2 0 0 0 0]";
         switch(m_caseConfig.timeConfig) {
         case TimeConfig::SteadyState:
             solverText = "simpleFoam";
@@ -353,7 +350,6 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
         break;
     case FlowConfig::Compressible:
         pText = pTextCompressible;
-        dimText = "[1 -1 -2 0 0 0 0]";
         rhoText = "        rho             0.1;";
         eqText = "        \"(e|h)\"         0.7;";
         switch(m_caseConfig.timeConfig) {
@@ -367,7 +363,6 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
         break;
     case FlowConfig::Multiphase:
         pText = pTextMultiphase;
-        dimText = "[1 -1 -2 0 0 0 0]";
         fieldsText = fieldsTextMultiphase;
         solverText = "interFoam";
         schemeText = schemeTextMultiphase;
@@ -426,22 +421,20 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
 
     // Initialize map of files
     QMap<QString, QStringList> configMap;
-    configMap["transportProperties"] = { "/constant/", versionPadded, websitePadded };
-    configMap["turbulenceProperties"] = { "/constant/", versionPadded, websitePadded, turbName, turbDict };
+    configMap["transportProperties"] = { "/constant/", versionPadded,
+                                        websitePadded };
+    configMap["turbulenceProperties"] = { "/constant/", versionPadded,
+                                         websitePadded, turbName, turbDict };
     configMap["Allclean"] = { "/", cleanCommand };
     configMap["Allrun"] = { "/", meshText, fieldsText, solverText };
-    configMap["controlDict"] = { "/system/", versionPadded, websitePadded, solverText, endTimeText,
-                                deltaText, writeControlText, writeIntervalText };
-    configMap["fvSchemes"] = { "/system/", versionPadded, websitePadded, ddtScheme, divUScheme,
-                              schemeText, orthoScheme };
-    configMap["fvSolution"] = { "/system/", versionPadded, websitePadded, pText, alphaText,
-                               algoText, rhoText, eqText };
+    configMap["controlDict"] = { "/system/", versionPadded, websitePadded,
+                                solverText, endTimeText, deltaText,
+                                writeControlText, writeIntervalText };
+    configMap["fvSchemes"] = { "/system/", versionPadded, websitePadded,
+                              ddtScheme, divUScheme, schemeText, orthoScheme };
+    configMap["fvSolution"] = { "/system/", versionPadded, websitePadded,
+                               pText, alphaText,algoText, rhoText, eqText };
     configMap["blockMeshDict"] = { "/system/", versionPadded, websitePadded };
-    configMap["p"] = { "/0.orig/", versionPadded, websitePadded, dimText };
-    configMap["U"] = { "/0.orig/", versionPadded, websitePadded };
-    if (m_caseConfig.flowConfig == FlowConfig::Multiphase) {
-        configMap["p_rgh"] = { "/0.orig/", versionPadded, websitePadded, dimText };
-    }
 
     // Update template files
     QFile templateFile;
@@ -468,7 +461,7 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
         if ((fileName == "Allclean") || (fileName == "Allrun")) {
             filePath += "|";
         }
-        if (!mainWin->targetSystems[m_targetId]->writeData(fileText.toUtf8(), filePath)) {
+        if (!m_system->writeData(fileText.toUtf8(), filePath)) {
             QMessageBox::critical(this, tr("File Write Error"),
                 tr("Failed to write %1 to target.").arg(fileName));
             return;

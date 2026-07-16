@@ -36,23 +36,24 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "../../geometry/graphic_data.h"
+#include "geometry/graphic_data.h"
 #include "mesh_structs.h"
+#include "systems/system_manager.h"
 
-class MainWindow;
 class MeshWizard;
 
 class BlockMeshPage1 : public QWizardPage {
     Q_OBJECT
 
 public:
-    explicit BlockMeshPage1(QWidget *parent);
+    BlockMeshPage1(const SystemManager& systemMgr, QWidget *parent);
 
 protected:
     void initializePage() override;
     bool validatePage() override;
 
 private:
+    const SystemManager& m_systemMgr;
     BlockMeshConfig* m_cfg;
     MeshWizard* meshWizard;
     BoundingBox m_rawGeomBox;

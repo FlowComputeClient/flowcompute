@@ -63,6 +63,7 @@ QJsonObject WslSystem::contactServer(QString action, QString message,
                 if (result["status"].toString() == "success") {
                     return result;
                 } else {
+                    qWarning() << "Status: " << result["status"].toString();
                     qWarning() << "Server returned error:"
                                << result["message"].toString();
                 }
@@ -80,7 +81,6 @@ QJsonObject WslSystem::contactServer(QString action, QString message,
 
 QStringList WslSystem::processPaths(QString path, PathOperationType opType) {
     QStringList results;
-
     QJsonObject result = contactServer("processPaths", path,
         static_cast<int>(opType));
     QJsonArray jsonArray = result["message"].toArray();
@@ -187,8 +187,22 @@ QStringList WslSystem::getTutorials(QString path) {
 
 QStringList WslSystem::copyTutorialFolders(QString tutPath, QString projPath) {
     QStringList results;
-    QJsonObject result = contactServer("copyTutorialFolders",
-                                       tutPath + "," + projPath);
+
+    // Copy tutorial files
+    emit longUtilityOutputReceived("Copying " + tutPath +
+                                   " tutorial to the new case" + projPath);
+    QJsonObject result = contactServer(
+        "copyTutorialFolders", tutPath + "," + projPath);
+
+    // Display status messages
+    QJsonArray msgArray = result["status_message"].toArray();
+    for (const QJsonValue& value : std::as_const(msgArray)) {
+        if (value.isString()) {
+            emit longUtilityOutputReceived(value.toString());
+        }
+    }
+
+    // Get names of top-level files/folders
     QJsonArray jsonArray = result["message"].toArray();
     for (const QJsonValue& value : std::as_const(jsonArray)) {
         if (value.isString()) {

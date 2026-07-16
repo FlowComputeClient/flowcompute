@@ -35,26 +35,16 @@
 #include <memory>
 #include <vector>
 
-#include "wizards/new_case/wizard_new_case.h"
 #include "editors/tab_widget.h"
 #include "editors/text/text_editor.h"
 #include "geometry/graphic_data.h"
-#include "systems/wsl_system.h"
-#include "systems/local_system.h"
+#include "systems/system_manager.h"
 #include "views/navigator/case_navigator.h"
 #include "views/console/console.h"
 
 #include "./core_types.h"
 
-// Store information about project in navigator
-struct CaseData {
-    QString casePath;
-    QStringList caseFiles;
-    int targetSystemId;
-    QString openFoamPath;
-};
-
-// Store information about tab in tabbar
+// Store information about each tab
 struct TabData {
     QString fullPath;
     EditorType type;
@@ -67,91 +57,75 @@ class MainWindow : public QMainWindow {
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
-    // Display text in the tabbar
-    void createEditor(EditorType type, QString& fileName,
-                      const QString& fullPath, bool logMessage = true);
-
-    // Create a new project
-    void createCase(QString, QString, QStringList, int, QString);
-
-    // Run mesh utilities
-    void runMesh(const QString& caseName, bool blockMesh,
-                 bool surfaceFeatureExtract, bool snappyHexMesh,
-                 const QString& snappyCmd, int numCores);
-
-    // Run solver utilities
-    void runSolver(const QString& caseName, const QString& command);
-
-    static bool isWindows() { return s_isWindows; }
-    static bool isWslAvailable() { return s_isWslAvailable; }
-    QMap<QString, CaseData> m_caseMap;
-    QMap<QString, TabData> m_tabMap;
-    TargetSystem* targetSystems[static_cast<int>(TargetType::COUNT)];
-    void updatePath(const QString& caseName, const QString& subDir,
-                    int targetId);
-
-    void deleteFile(const QString& fileName, const QString& fullPath);
-
- public slots:
-    void log(const QString& text);
-
  protected:
     void closeEvent(QCloseEvent *event) override;
 
  private:
+    // Create user interface
+    void createActions();
+    void createMenus();
+    void createToolBar();
+    void applyTheme(const QString &themeFile);
+
+    // Load data
+    std::shared_ptr<RenderData> getMeshData(QString caseName, QString casePath,
+        QString openFoamPath);
+    std::shared_ptr<RenderData> getResultData(QString caseName,
+        QString resultPath);
+    void loadSolverFamilies();
+    void loadMaterialProperties();
+    void loadTurbulenceModels();
+    void loadFieldData();
+    void loadBoundaryConditions();
+
+    // Check if utilities are available
+    QMap<QString, bool> checkUtilities(const QString& fullPath,
+        const QStringList& utilities);
+
+    // Determine the selected case
+    QString getSelectedCase();
+
+    // User interface members
     CaseNavigator* m_navigator;
     Console* m_console;
     TabWidget* m_tabWidget;
+    QDockWidget *m_navigatorWidget, *m_consoleWidget;
+    QMenu *fileMenu, *editMenu, *viewMenu, *meshMenu, *solveMenu,
+        *postProcessMenu, *helpMenu;
+    QToolBar *toolBar;
+
+    // Actions
+    QAction *m_newCaseAction, *m_saveFileAction, *m_preferencesAction;
+    QAction *m_deleteAction, *m_undoAction, *m_redoAction;
+    QAction *m_zoomInAction, *m_zoomOutAction;
+    QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
+    QAction *m_configureSolverAction, *m_runSolverAction, *m_stopSolverAction;
+    QAction *m_viewResultAction, *m_postProcessAction;
+    QAction *m_aboutAction;
+
+    // Configuration data containers
+    QMap<QString, TabData> m_tabMap;
+    QMap<QString, QMap<QString, bool>> m_utilMap;
+    std::vector<FlowCompute::SolverFamily> m_solverFamilies;
+    std::map<QString, FlowCompute::TransportPropertyDef> m_transportProperties;
+    FlowCompute::TurbulenceDatabase m_turbulenceModels;
+    QHash<QString, FlowCompute::FieldDef> m_fieldData;
+    std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
+
+    // Other
+    bool m_isWindows = false, m_isWslAvailable = false;
     QFont m_font;
     QDir m_configDir;
     QString m_themeFile;
     TextEditorConfig m_textTheme;
     QString m_graphicalTheme;
-
-    std::shared_ptr<RenderData> getMeshData(
-        QString caseName, QString casePath,
-        QString openFoamPath, int targetId);
-
-    std::shared_ptr<RenderData> getResultData(
-        QString resultPath, int targetId);
-
-    // Check utilities
-    QMap<QString, QMap<QString, bool>> m_utilMap;
+    SystemManager m_systemMgr;
     QStringList m_utilities = { "surfaceCheck", "surfacePatch",
         "surfaceAutoPatch", "blockMesh", "surfaceFeatureExtract",
-        "snappyHexMesh", "autoPatch", "renumberMesh", "checkMesh", "simpleFoam",
-        "pimpleFoam", "decomposePar", "reconstructPar", "topoSet" };
-    QMap<QString, bool> checkUtilities(const QString& fullPath, int targetId,
-                                       const QStringList& utilities);
-
-    QString getSelectedCase();
-
-    // Access solvers and families
-    std::vector<FlowCompute::SolverFamily> m_solverFamilies;
-    void loadSolverFamilies();
-
-    // Access material properties
-    std::map<QString, FlowCompute::TransportPropertyDef> m_transportProperties;
-    void loadMaterialProperties();
-
-    // Access turbulence models
-    FlowCompute::TurbulenceDatabase m_turbulenceModels;
-    void loadTurbulenceModels();
-
-    // Access fields
-    QHash<QString, FlowCompute::FieldDef> m_fieldData;
-    void loadFieldData();
-
-    // Access boundary conditions
-    std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
-    void loadBoundaryConditions();
-
-    QDockWidget *navigatorWidget, *consoleWidget;
-
-    // Create actions
-    void createActions();
-    QAction *newCaseAction;
-    QAction *saveFileAction;
+        "surfaceFeatures", "snappyHexMesh", "autoPatch", "renumberMesh",
+        "checkMesh", "simpleFoam", "pimpleFoam", "decomposePar",
+        "reconstructPar", "topoSet" };
+    QVulkanInstance m_vulkanInstance;
 
     /*
     QAction *newFileAction;
@@ -161,70 +135,54 @@ class MainWindow : public QMainWindow {
     QAction *exitAction;
     */
 
-    QAction *preferencesAction;
-    QAction *undoAction, *redoAction;
-    QAction *zoomInAction, *zoomOutAction;
-    QAction *meshAction, *runMeshAction;
-    QAction *postProcessAction;
-    QAction *solverAction, *runSolverAction, *stopSolverAction;
-    QAction *aboutAction;
-
-    // Menus
-    void createMenus();
-    QMenu *fileMenu, *editMenu, *viewMenu, *meshMenu, *solveMenu,
-        *postProcessMenu, *helpMenu;
-
-    // Toolbars
-    void createToolBar();
-    QToolBar *toolBar;
-
-    // Check the OS and WSL
-    static bool s_isWindows, s_isWslAvailable;
-
-    WslSystem wslSystem;
-    LocalSystem localSystem;
-    QVulkanInstance m_vulkanInstance;
-
  private slots:
 
-    void applyTheme(const QString &themeFile);
+    // Create new case
+    void launchNewCaseWizard();
+    void createCase(QString caseName, QString casePath, QStringList caseFiles,
+                     int systemId, QString openFoamPath);
 
-    // File actions
+    // Editor/file actions
+    void createEditor(EditorType type, QString& fileName,
+                      const QString& fullPath, bool logMessage);
     void saveFile();
-
-    // Set preferences
-    void setPreferences();
-
-    // Redo actions
+    void deleteFile();
     void undo();
     void redo();
-
-    // Dirty state changed
     void onDirtyStateChanged(bool isDirty, QWidget* widget);
 
-    // Time folder changed
-    void updateResultEditor(const QString& casePath, int targetId,
-                            const QString& timeFolder);
-
-    // Check if utilities are available
-    void runMeshConfiguration();
-    void runMeshExecution();
-    void runNewCaseWizard();
-    void runSolverConfiguration();
-    void runSolverExecution();
-    void runSurfaceCheck(const QString& fullPath, int targetId, bool isBinary);
+    // Surface editor slots
+    void runSurfaceCheck(const QString& fullPath, bool isBinary);
     void runSurfacePatch(double featureAngle, const QString& fullPath,
-                         int targetId, bool isBinary);
-    void runSurfaceScale(double scaleFactor, const QString& fullPath,
-                         int targetId);
-    void runMeshCheck(const QString& fullPath, int targetId);
-    void runMeshPatch(double featureAngle, const QString& fullPath,
-                      int targetId);
-    void runMeshRenumber(const QString& casePath, int targetId);
-    void stopSolverExecution();
+                         bool isBinary);
+    void runSurfaceScale(double scaleFactor, const QString& fullPath);
 
-    // Utility finished
+    // Mesh editor slots
+    void runMeshCheck(const QString& fullPath);
+    void runMeshPatch(double featureAngle, const QString& fullPath);
+    void runMeshRenumber(const QString& casePath);
+
+    // Mesh-related
+    void launchMeshConfigurationWizard();
+    void launchMeshExecutionDialog();
+    void runMesh(const QString& caseName, bool blockMesh,
+                 bool runSurfaceFeature, bool snappyHexMesh,
+                 const QString& snappyCmd, int numCores);
+    void viewMesh();
+
+    // Solver-related
+    void launchSolverConfigurationWizard();
+    void launchSolverExecutionDialog();
+    void runSolver(const QString& caseName, const QString& command);
+    void stopSolver();
+    void viewResult();
+    void updateResult(const QString& casePath, const QString& timeFolder);
+
+    // Other
+    void log(const QString& text);
+    void launchPreferencesDialog();
     void longUtilityFinished(const QString& status, const QString& caseName,
                              UtilityType utilityType);
+    void updatePath(const QString& caseName, const QString& subDir);
 };
 #endif  // MAIN_WINDOW_H_

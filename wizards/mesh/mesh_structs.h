@@ -50,8 +50,8 @@ struct BlockMeshConfig {
     std::vector<Patch> patches;
 };
 
-struct SurfaceFeatureExtractEntry {
-    double includedAngle = 150.0;
+struct SurfaceFeatureEntry {
+    double angle = 150.0;
     int edgeLevel = 3;
     bool openEdges = true;
     bool writeObj = true;

@@ -25,15 +25,14 @@
 #include "page_10_geometry.h"
 #include "page_20_blockmesh.h"
 #include "page_30_blockmesh.h"
-#include "page_40_surface_extraction.h"
+#include "page_40_surface_feature.h"
 #include "page_50_castellation.h"
 #include "page_60_snapcontrol.h"
 #include "page_70_layercontrol.h"
 
-#include "../../parser/open_foam_dictionary.h"
+#include "parser/open_foam_dictionary.h"
 #include "mesh_structs.h"
-
-class MainWindow;
+#include "systems/system_manager.h"
 
 // IDs for wizard pages
 enum {
@@ -50,8 +49,8 @@ class MeshWizard : public QWizard {
     Q_OBJECT
 
  public:
-    explicit MeshWizard(const QString& caseName, const QStringList& cases,
-                        QWidget *parent);
+    MeshWizard(const QString& caseName, const SystemManager& systemMgr,
+        QWidget *parent);
 
     // Load and parse mesh files
     bool loadParseFiles();
@@ -59,7 +58,7 @@ class MeshWizard : public QWizard {
     // Get mesh data
     QMap<QString, GeometryMetrics>& getGeometryMap() { return m_geometryMap; };
     BlockMeshConfig& getBlockMeshConfig() { return m_blockMeshConfig; };
-    std::map<QString, SurfaceFeatureExtractEntry>& getFeatureMap() {
+    std::map<QString, SurfaceFeatureEntry>& getFeatureMap() {
         return m_surfaceFeatureMap; };
     CastellatedMeshConfig& getCastellatedMeshConfig() {
         return m_castellatedMeshConfig; };
@@ -72,20 +71,24 @@ class MeshWizard : public QWizard {
     bool m_runBlockMesh, m_runExtract, m_runCastellated;
     bool m_runSnap, m_runLayers;
 
+ signals:
+    void createEditor(EditorType type, QString& fileName, const QString& path,
+        bool logMessage);
+    void updatePath(QString caseName, QString subDir);
+
  protected:
     void accept() override;
 
  private:
-    MainWindow* mainWin;
+    const SystemManager& m_systemMgr;
     QString m_caseName, m_casePath;
-    int m_targetId = 0;
 
     QMap<QString, GeometryMetrics> m_geometryMap;
     QMap<QString, std::shared_ptr<OpenFoamDictionary>> m_dictMap;
 
     // Mesh file structures
     BlockMeshConfig m_blockMeshConfig;
-    std::map<QString, SurfaceFeatureExtractEntry> m_surfaceFeatureMap;
+    std::map<QString, SurfaceFeatureEntry> m_surfaceFeatureMap;
     CastellatedMeshConfig m_castellatedMeshConfig;
     SnapControlConfig m_snapControlConfig;
     LayerControlConfig m_layerControlConfig;
