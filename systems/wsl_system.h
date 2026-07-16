@@ -58,9 +58,9 @@ class WslSystem : public TargetSystem {
 
     bool checkDistributions();
     QStringList findOpenFoam() override;
-    QStringList getTutorials(QString path) override;
-    QStringList copyTutorialFolders(QString tutPath,
-                                    QString projPath) override;
+    QStringList getTutorials(const QString& path) override;
+    QStringList copyTutorialFolders(const QString& tutPath,
+                                    const QString& projPath) override;
     QByteArray getFileContent(const QString& path) override;
     RenderData getResultData(const QString& path) override;
     bool writeData(const QByteArray& payload,
@@ -71,7 +71,8 @@ class WslSystem : public TargetSystem {
     void launchLongUtility(const QString& cmd, const QString& caseName,
                            UtilityType utilityType) override;
     QString getResultFolders(QString path) override;
-    QStringList processPaths(QString path, PathOperationType type) override;
+    QStringList processPaths(const QString& path,
+                             PathOperationType type) override;
 
  private:
     void terminateProcess();

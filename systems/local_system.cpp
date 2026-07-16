@@ -21,19 +21,117 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
+#include <QRegularExpression>
 
 #include <algorithm>
-#include <filesystem>
+#include <fstream>
 #include <limits>
+#include <regex>
 #include <string>
 #include <utility>
 #include <vector>
+#include <zlib.h>
 
-namespace fs = std::filesystem;
+QStringList LocalSystem::processPaths(const QString& pathString,
+                                      PathOperationType opType) {
+    QStringList result;
 
-QStringList LocalSystem::processPaths(QString path, PathOperationType opType) {
-    QStringList results;
-    return results;
+    auto ends_with = [](const std::string& str, const std::string& suffix) {
+        return str.size() >= suffix.size() &&
+               str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+    };
+
+    // Handle LIST with an empty input string
+    if (opType == PathOperationType::LIST && pathString.isEmpty()) {
+        const char* home_env = std::getenv("HOME");
+        std::string home_dir = home_env ? home_env : "/";
+
+        result.append(QString::fromStdString(home_dir));
+        auto options = fs::directory_options::skip_permission_denied;
+        for (const auto& entry : fs::directory_iterator(home_dir, options)) {
+            std::string item_name = entry.path().filename().string();
+            if (!item_name.empty() && item_name.front() == '.') continue;
+
+            if (ends_with(item_name, "_patched.stl") ||
+                ends_with(item_name, "_tmp.stl")) continue;
+
+            if (entry.is_regular_file()) item_name += "|";
+            result.append(QString::fromStdString(item_name));
+        }
+
+        return result;
+    }
+
+    // Error handling if input is empty for other operations
+    if (pathString.isEmpty()) {
+        return QStringList{"Input paths string was empty."};
+    }
+
+    // Process the delimited string using Qt string splitting
+    QStringList targetPaths = pathString.split('\n', Qt::SkipEmptyParts);
+
+    for (const QString& q_path : std::as_const(targetPaths)) {
+        std::string target_path = q_path.toStdString();
+        std::error_code ec;
+        fs::path p(target_path);
+        bool exists = fs::exists(p, ec);
+
+        switch (opType) {
+        case PathOperationType::CREATE: {
+            if (exists && fs::is_regular_file(p))
+                continue;
+            if (fs::create_directories(p, ec) || fs::exists(p)) {
+                result.append("0");
+            } else {
+                result.append("-1");
+            }
+            break;
+        }
+
+        case PathOperationType::DELETE: {
+            if (!exists) {
+                result.append("-1");
+            } else {
+                fs::remove_all(p, ec);
+                if (!ec) {
+                    result.append("0");
+                } else {
+                    result.append("-1");
+                }
+            }
+            break;
+        }
+
+        case PathOperationType::CHECK: {
+            if (exists) {
+                result.append("0");
+            } else {
+                result.append("-1");
+            }
+            break;
+        }
+
+        case PathOperationType::LIST: {
+            if (exists && fs::is_regular_file(p)) {
+                continue;
+            }
+            if (exists && fs::is_directory(p)) {
+                auto options = fs::directory_options::skip_permission_denied;
+                for (const auto& entry : fs::directory_iterator(p, options)) {
+                    std::string item_name = entry.path().filename().string();
+                    if (!item_name.empty() && item_name.front() == '.') continue;
+
+                    if (ends_with(item_name, "_patched.stl") ||
+                        ends_with(item_name, "_tmp.stl")) continue;
+
+                    if (entry.is_regular_file()) item_name += "|";
+                    result.append(QString::fromStdString(item_name));
+                }
+            }
+            break;
+        }}
+    }
+    return result;
 }
 
 // Launch a utility in the server
@@ -80,12 +178,12 @@ void LocalSystem::launchLongUtility(const QString& cmd, const QString& caseName,
         [this, process]() {
         while (process->canReadLine()) {
             QByteArray line = process->readLine();
-            emit longUtilityOutputReceived(QString::fromUtf8(line).trimmed());
+            emit logMessage(QString::fromUtf8(line).trimmed());
         }
     });
 
     // Handle process completion (success or failure)
-    connect(process, &QProcess::finished, this, [this, caseName, utilityType](
+    connect(process, &QProcess::finished, this, [this, caseName, utilityType] (
             int exitCode, QProcess::ExitStatus exitStatus) {
         // Set status
         QString status = "error";
@@ -130,19 +228,246 @@ QStringList LocalSystem::findOpenFoam() {
     return ofList;
 }
 
-QStringList LocalSystem::getTutorials(QString path) {
-    return {};
+QStringList LocalSystem::getTutorials(const QString& base_path) {
+    QStringList result;
+    fs::path target_path = fs::path(base_path.toStdString()) / "tutorials";
+
+    // Return the error message as the first element
+    if (!fs::exists(target_path) || !fs::is_directory(target_path)) {
+        result.append("Tutorials path does not exist.");
+        return result;
+    }
+
+    try {
+        auto options = fs::directory_options::skip_permission_denied;
+        for (const auto& entry :
+             fs::recursive_directory_iterator(target_path, options)) {
+            if (entry.is_directory() && entry.path().filename() == "system") {
+                result.append(QString::fromStdString(
+                    entry.path().parent_path().string()));
+            }
+        }
+    } catch (const std::exception& e) {
+        // Return the exception message as the first element
+        result.clear();
+        result.append(QString("Filesystem error: ") + e.what());
+    }
+    return result;
 }
 
-QStringList LocalSystem::copyTutorialFolders(QString tutPath,
-                                             QString casePath) {
-    return {};
+// ZLIB extraction using standard C++ I/O and zlib
+bool extractGzGeometry(const std::string& gzFilePath,
+                       const std::string& outFilePath) {
+    gzFile inFile = gzopen(gzFilePath.c_str(), "rb");
+    if (!inFile) return false;
+
+    std::ofstream outFile(outFilePath, std::ios::binary);
+    if (!outFile.is_open()) {
+        gzclose(inFile);
+        return false;
+    }
+
+    const int bufferSize = 128 * 1024;
+    std::vector<char> buffer(bufferSize);
+    int bytesRead = 0;
+
+    while ((bytesRead = gzread(inFile, buffer.data(), bufferSize)) > 0) {
+        outFile.write(buffer.data(), bytesRead);
+    }
+
+    gzclose(inFile);
+    outFile.close();
+    return (bytesRead >= 0);
+}
+
+// Evaluate wildcards (*, ?) natively via Qt
+bool matchGlob(const std::string& pattern, const std::string& text) {
+    QRegularExpression re =
+        QRegularExpression::fromWildcard(QString::fromStdString(pattern));
+    return re.match(QString::fromStdString(text)).hasMatch();
+}
+
+void LocalSystem::processAllrunScript(const fs::path& scriptPath,
+    const fs::path& projectPath, const fs::path& originalTutorialPath) {
+
+    if (!fs::exists(scriptPath)) return;
+    std::ifstream file(scriptPath);
+    if (!file.is_open()) return;
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string content = buffer.str();
+
+    // Line continuation removal
+    std::regex continuationRegex(R"(\\[ \t]*\r?\n\s*)");
+    content = std::regex_replace(content, continuationRegex, " ");
+
+    // Find the base "tutorials" folder
+    fs::path tutorialsBase;
+    fs::path current = originalTutorialPath;
+    while (current.has_parent_path()) {
+        if (current.filename() == "tutorials") {
+            tutorialsBase = current;
+            break;
+        }
+        current = current.parent_path();
+    }
+
+    if (tutorialsBase.empty()) {
+        emit logMessage(QString::fromStdString("Could not deduce base "
+            "'tutorials' directory from: " + originalTutorialPath.string()));
+        return;
+    }
+
+    // Regex to find 'cp' commands targeting resources/geometry
+    std::regex cpRegex(
+        R"regex(cp\s+(?:-[^\s]+\s+)*)regex"
+        R"regex("?\$(?:FOAM_TUTORIALS|[{]FOAM_TUTORIALS[}])"?)regex"
+        R"regex(/resources/geometry/([^\s"]+)"?\s+([^\s"]+)"?)regex");
+    std::smatch match;
+
+    std::string::const_iterator searchStart(content.cbegin());
+    while (std::regex_search(searchStart, content.cend(), match, cpRegex)) {
+        std::string geomPattern = match[1].str();
+        std::string destDirStr = match[2].str();
+
+        fs::path sourceDir = tutorialsBase / "resources" / "geometry";
+        fs::path destDir = projectPath / destDirStr;
+
+        if (!fs::exists(destDir)) {
+            fs::create_directories(destDir);
+        }
+
+        // Make sure the resources/geometry directory exists
+        if (!fs::exists(sourceDir) || !fs::is_directory(sourceDir)) {
+            emit logMessage(QString::fromStdString("Geometry resources "
+                "directory not found: " + sourceDir.string()));
+            searchStart = match.suffix().first;
+            continue;
+        }
+
+        bool fileMatched = false;
+
+        // Iterate through the resources/geometry directory
+        for (const auto& entry : fs::directory_iterator(sourceDir)) {
+            std::string filename = entry.path().filename().string();
+
+            // Check if the file matches the script's pattern
+            if (matchGlob(geomPattern, filename)) {
+                fileMatched = true;
+                fs::path sourcePath = entry.path();
+
+                // Handle Directory, GZ file, or Standard File
+                if (fs::is_directory(sourcePath)) {
+                    fs::copy(sourcePath, destDir / filename,
+                        fs::copy_options::recursive |
+                            fs::copy_options::overwrite_existing);
+                    emit logMessage(QString::fromStdString(
+                        "Copied geometry dir: " + filename));
+                } else if (sourcePath.extension() == ".gz") {
+                    fs::path outPath = destDir / sourcePath.stem();
+                    if (extractGzGeometry(sourcePath.string(),
+                                          outPath.string())) {
+                        emit logMessage(QString::fromStdString(
+                            "Decompressed: " + outPath.filename().string()));
+                    } else {
+                        emit logMessage(QString::fromStdString(
+                            "Failed to decompress: " + filename));
+                    }
+                } else {
+                    fs::copy_file(sourcePath, destDir / filename,
+                                  fs::copy_options::overwrite_existing);
+                    emit logMessage(QString::fromStdString(
+                        "Copied geometry file: " + filename));
+                }
+            }
+        }
+
+        if (!fileMatched) {
+            emit logMessage(QString::fromStdString(
+                "No geometry files matched pattern: " + geomPattern));
+        }
+        searchStart = match.suffix().first;
+    }
+}
+
+// Copy tutorials locally
+QStringList LocalSystem::copyTutorialFolders(const QString& tutPath,
+                                            const QString& projPath) {
+    QStringList result;
+
+    fs::path tutorial_path = fs::path(tutPath.toStdString());
+    fs::path project_path = fs::path(projPath.toStdString());
+
+    if (!fs::exists(tutorial_path) || !fs::is_directory(tutorial_path)) {
+        emit logMessage("Tutorial path does not exist or is not a directory.");
+        return result;
+    }
+
+    try {
+        if (!fs::exists(project_path)) {
+            fs::create_directories(project_path);
+        } else if (fs::is_directory(project_path)) {
+            for (const auto& entry : fs::directory_iterator(project_path)) {
+                fs::remove_all(entry.path());
+            }
+        } else {
+            emit logMessage("Project path exists but is not a directory.");
+            return result;
+        }
+    } catch (const fs::filesystem_error& e) {
+        emit logMessage(
+            QString("Failed to prepare project directory. Error: ") + e.what());
+        return result;
+    }
+
+    // Essential files to copy
+    std::vector<std::string> items = { "0", "0.orig", "constant", "system",
+                                      "Allrun", "Allrun.pre", "Allclean" };
+
+    const auto copyOptions = fs::copy_options::recursive |
+                             fs::copy_options::overwrite_existing;
+    for (const auto& item_name : items) {
+        fs::path source_item = tutorial_path / item_name;
+        fs::path dest_item   = project_path / item_name;
+
+        if (fs::exists(source_item)) {
+            try {
+                fs::copy(source_item, dest_item, copyOptions);
+                std::string formatted_name = item_name;
+                if (fs::is_regular_file(source_item)) {
+                    formatted_name += "|";
+                }
+                result.append(QString::fromStdString(formatted_name));
+            } catch (const fs::filesystem_error& e) {
+                emit logMessage(QString::fromStdString("Failed to copy " +
+                    item_name + ". Error: " + std::string(e.what())));
+                return result;
+            }
+        }
+    }
+
+    // Parse both scripts to auto-resolve geometry dependencies
+    processAllrunScript(project_path/"Allrun", project_path, tutorial_path);
+    processAllrunScript(project_path/"Allrun.pre", project_path, tutorial_path);
+
+    if (!fs::exists(project_path / "system")) {
+        emit logMessage("Warning: No 'system' directory was found in "
+                        "the tutorial folder.");
+    }
+
+    // Use Qt containers to check and prepend "constant" if necessary
+    if (fs::exists(project_path/"constant") && !result.contains("constant")) {
+        result.prepend("constant");
+    }
+
+    return result;
 }
 
 bool LocalSystem::writeData(const QByteArray& data, const QString& filePath) {
     // Create and open the file
     QFile file(filePath);
-        if (!file.open(QIODevice::WriteOnly)) {
+    if (!file.open(QIODevice::WriteOnly)) {
         qWarning() << "Failed to open file for writing: " << file.errorString();
         return false;
     }

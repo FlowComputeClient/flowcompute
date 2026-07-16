@@ -24,7 +24,8 @@
 
 namespace fs = std::filesystem;
 
-QStringList RemoteSystem::processPaths(QString path, PathOperationType opType) {
+QStringList RemoteSystem::processPaths(const QString& path,
+                                       PathOperationType opType) {
     QStringList results;
     return results;
 }
@@ -44,12 +45,12 @@ QStringList RemoteSystem::findOpenFoam() {
     return ofList;
 }
 
-QStringList RemoteSystem::getTutorials(QString path) {
+QStringList RemoteSystem::getTutorials(const QString& path) {
     return {};
 }
 
-QStringList RemoteSystem::copyTutorialFolders(QString tutPath,
-                                              QString casePath) {
+QStringList RemoteSystem::copyTutorialFolders(const QString& tutPath,
+                                              const QString& casePath) {
     return {};
 }
 

@@ -177,7 +177,10 @@ set_source_files_properties(
 target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tree_sitter/include)
 target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/parser)
-target_link_libraries(FlowCompute PRIVATE Qt::Core Qt::Widgets Qt::Network Qt6::Concurrent)
+
+find_package(ZLIB REQUIRED)
+target_link_libraries(FlowCompute PRIVATE
+    Qt::Core Qt::Widgets Qt::Network Qt6::Concurrent ZLIB::ZLIB)
 
 install(TARGETS FlowCompute
     BUNDLE  DESTINATION .

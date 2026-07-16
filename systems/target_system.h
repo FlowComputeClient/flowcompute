@@ -43,9 +43,9 @@ class TargetSystem: public QObject {
  public:
     virtual ~TargetSystem() = default;
     virtual QStringList findOpenFoam() = 0;
-    virtual QStringList getTutorials(QString path) = 0;
-    virtual QStringList copyTutorialFolders(QString tutPath,
-                                            QString projPath) = 0;
+    virtual QStringList getTutorials(const QString& path) = 0;
+    virtual QStringList copyTutorialFolders(const QString& tutPath,
+                                            const QString& projPath) = 0;
     virtual QByteArray getFileContent(const QString& path) = 0;
     virtual RenderData getResultData(const QString& path) = 0;
     virtual bool writeData(const QByteArray& payload,
@@ -56,11 +56,12 @@ class TargetSystem: public QObject {
     virtual void launchLongUtility(const QString& cmd, const QString& caseName,
                                    UtilityType type) = 0;
     virtual QString getResultFolders(QString path) = 0;
-    virtual QStringList processPaths(QString path, PathOperationType type) = 0;
+    virtual QStringList processPaths(const QString& path,
+                                     PathOperationType type) = 0;
 
  signals:
-    // Emitted every time a chunk of console output arrives
-    void longUtilityOutputReceived(const QString& outputChunk);
+    // Updates the console
+    void logMessage(const QString& outputChunk);
 
     // Emitted when the process finally completes or fails
     void longUtilityFinished(const QString& status, const QString& caseName,

@@ -79,7 +79,8 @@ QJsonObject WslSystem::contactServer(QString action, QString message,
     return result;
 }
 
-QStringList WslSystem::processPaths(QString path, PathOperationType opType) {
+QStringList WslSystem::processPaths(const QString& path,
+                                    PathOperationType opType) {
     QStringList results;
     QJsonObject result = contactServer("processPaths", path,
         static_cast<int>(opType));
@@ -138,7 +139,7 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName,
 
             // Handle the streaming state
             if (status == "running") {
-                emit longUtilityOutputReceived(
+                emit logMessage(
                     result["output"].toString().trimmed());
             } else if (status == "success" || status == "error") {
                 emit longUtilityFinished(status, caseName, utilityType);
@@ -173,7 +174,7 @@ QStringList WslSystem::findOpenFoam() {
     return results;
 }
 
-QStringList WslSystem::getTutorials(QString path) {
+QStringList WslSystem::getTutorials(const QString& path) {
     QStringList results;
     QJsonObject result = contactServer("findTutorials", path);
     QJsonArray jsonArray = result["message"].toArray();
@@ -185,11 +186,12 @@ QStringList WslSystem::getTutorials(QString path) {
     return results;
 }
 
-QStringList WslSystem::copyTutorialFolders(QString tutPath, QString projPath) {
+QStringList WslSystem::copyTutorialFolders(const QString& tutPath,
+                                           const QString& projPath) {
     QStringList results;
 
     // Copy tutorial files
-    emit longUtilityOutputReceived("Copying " + tutPath +
+    emit logMessage("Copying " + tutPath +
                                    " tutorial to the new case" + projPath);
     QJsonObject result = contactServer(
         "copyTutorialFolders", tutPath + "," + projPath);
@@ -198,7 +200,7 @@ QStringList WslSystem::copyTutorialFolders(QString tutPath, QString projPath) {
     QJsonArray msgArray = result["status_message"].toArray();
     for (const QJsonValue& value : std::as_const(msgArray)) {
         if (value.isString()) {
-            emit longUtilityOutputReceived(value.toString());
+            emit logMessage(value.toString());
         }
     }
 

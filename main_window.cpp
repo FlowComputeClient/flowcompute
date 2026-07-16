@@ -75,7 +75,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Communication event handling
     for (const auto& system : systems) {
-        connect(system.get(), &TargetSystem::longUtilityOutputReceived,
+        connect(system.get(), &TargetSystem::logMessage,
                 this, &MainWindow::log);
         connect(system.get(), &TargetSystem::longUtilityFinished,
                 this, &MainWindow::longUtilityFinished);
