@@ -1,6 +1,6 @@
 #include "./language.h"
 // #include "./wasm_store.h"
-#include "tree_sitter/api.h"
+#include "../include/tree_sitter/api.h"
 #include <string.h>
 
 const TSLanguage *ts_language_copy(const TSLanguage *self) {

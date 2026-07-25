@@ -22,6 +22,7 @@
 #include <QProgressDialog>
 #include <QStatusBar>
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -38,21 +39,23 @@
 // Create the main window
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 #ifdef Q_OS_WIN
-    m_isWindows = true;
-
-    // Check for wsl.exe
-    QString wslPath = QStandardPaths::findExecutable("wsl.exe");
-    m_isWslAvailable = !wslPath.isEmpty();
     setWindowIcon(QIcon(":/images/flowcompute.ico"));
 #else
-    m_isWindows = false;
-    m_isWslAvailable = false;
     setWindowIcon(QIcon(":/images/flowcompute.png"));
 #endif
-
     setWindowTitle("FlowCompute 0.8.0 - Visual CFD Made Simple");
 
-    // Configure font
+    /*
+    m_isWindows = true;
+    m_isWslAvailable = checkWsl();
+    */
+
+    /*
+    m_isWindows = false;
+    m_isWslAvailable = false;
+    */
+
+    // Set font
     int regularId =
         QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Regular.ttf");
     QFontDatabase::addApplicationFont(":/fonts/JetBrainsMono-Bold.ttf");
@@ -159,11 +162,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Read theme from settings
     QSettings settings;
+    bool noAccess = false;
     applyTheme(settings.value("Theme/file", "dark.json").toString());
 
     // Populate caseMap and navigator from settings
     m_systemMgr.clear();
     int caseCount = settings.beginReadArray("Cases");
+    bool wslServerCheck = false, wslServerAvailable = false;
+    bool remoteServerCheck = false, remoteServerAvailable = false;
     for (int i = 0; i < caseCount; ++i) {
         settings.setArrayIndex(i);
 
@@ -176,15 +182,37 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         data.openFoamPath = settings.value("openFoamPath").toString();
         m_systemMgr.addCase(caseName, data);
 
-        // Update utility availability
+        // Check server
+        if ((data.targetId == 0) && (!wslServerCheck)) {
+            wslServerAvailable = m_systemMgr.checkWslServer();
+            wslServerCheck = true;
+        } else if ((data.targetId == 2) && (!remoteServerCheck)) {
+            remoteServerAvailable = m_systemMgr.checkRemoteServer();
+            remoteServerCheck = true;
+        }
+
+        // Check utilities
         if (!m_utilMap.contains(data.openFoamPath)) {
-            QString path = data.casePath + "/" + caseName + "/";
-            m_utilMap[data.openFoamPath] =
-                checkUtilities(path, m_utilities);
+            if (((data.targetId == 0) && (!wslServerAvailable)) ||
+                ((data.targetId == 2) && (!remoteServerAvailable))) {
+                m_utilMap[data.openFoamPath] = QMap<QString, bool>();
+            } else {
+                QString path = data.casePath + "/" + caseName + "/";
+                m_utilMap[data.openFoamPath] =
+                    checkUtilities(path, m_utilities);
+            }
+        }
+
+        // Log message if no utilities can be accessed
+        if (m_utilMap[data.openFoamPath].empty()) {
+            log(QString(
+                tr("Failed to open case %1. Cannot access OpenFOAM at %2. ")
+                    .arg(caseName, data.openFoamPath)));
         }
 
         // Update navigator
-        m_navigator->addCase(caseName, data.caseFiles);
+        m_navigator->addCase(caseName, data.caseFiles,
+                             m_utilMap[data.openFoamPath].empty());
         m_navigator->expandCase(caseName);
     }
     settings.endArray();
@@ -200,9 +228,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         TabData data;
         data.type = static_cast<EditorType>(settings.value("type").toInt());
         data.fullPath = settings.value("fullPath").toString();
-        m_tabMap.insert(tabName, data);
 
-        // Create editor
+        // Check if the tab's case can be accessed
+        QString caseName = data.fullPath.split("/")[0];
+        CaseData caseData = m_systemMgr.getData(caseName);
+        if (m_utilMap[caseData.openFoamPath].empty()) {
+            continue;
+        }
+
+        // Create tab and editor
+        m_tabMap.insert(tabName, data);
         createEditor(data.type, tabName, data.fullPath, false);
     }
     settings.endArray();
@@ -609,11 +644,20 @@ QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath,
             res = util.split(":");
             utilMap[res[0]] = (res[1] == "true");
         }
-    } else {
+    }
+
+    // Clear map if no utilities are detected
+    bool allFalse = std::none_of(utilMap.cbegin(), utilMap.cend(),
+        [](bool value) { return value; });
+    if (allFalse)
+        utilMap.clear();
+    /*
+    else {
         for (const auto& util : utilities) {
             utilMap[util] = false;
         }
     }
+    */
     return utilMap;
 }
 

@@ -19,16 +19,18 @@
 
 #include "template_strings.h"
 
-NewCaseWizard::NewCaseWizard(bool isWindows, bool isWslAvailable,
-    SystemManager& systemMgr, QWidget *parent):
+NewCaseWizard::NewCaseWizard(SystemManager& systemMgr, QWidget *parent):
     m_systemMgr(systemMgr), QWizard(parent) {
     // Configure wizard appearance
     setWizardStyle(QWizard::ClassicStyle);
     setWindowTitle("New Case Wizard");
 
+    // Check if WSL is running
+    bool isWslAvailable = systemMgr.checkWsl();
+
     // Add pages
     setPage(static_cast<int>(WizardPage::Page_Intro),
-            new IntroPage(isWindows, isWslAvailable, this));
+            new IntroPage(isWslAvailable, this));
     setPage(static_cast<int>(WizardPage::Page_Tutorial),
             new TutorialPage(this));
     setPage(static_cast<int>(WizardPage::Page_Interactive),
@@ -55,7 +57,18 @@ bool NewCaseWizard::validateCurrentPage() {
         // Read registered fields
         m_caseName = field("caseName").toString();
         m_targetId = static_cast<TargetType>(field("targetSystemId").toInt());
-        m_system = m_systemMgr.getSystem(m_targetId);
+
+        // For WSL access, check if server is installed
+        if (m_targetId == 0) {
+            if(!m_systemMgr.checkWslServer()) {
+                QString title = tr("Server Installation Failure");
+                QString msg = tr("Failed to install the WSL server in "
+                    "~/config/flowcompute.\n"
+                    "Please make sure this directory is accessible.");
+                QMessageBox::critical(nullptr, title, msg);
+                return false;
+            }
+        }
 
         // Check if case name is in the case map
         int count = 0;
@@ -87,7 +100,7 @@ bool NewCaseWizard::validateCurrentPage() {
         }
 
         // Determine OpenFOAM installation
-        QStringList ofList = m_system->findOpenFoam();
+        QStringList ofList = m_systemMgr.getSystem(m_targetId)->findOpenFoam();
         if(ofList.empty()) {
             QMessageBox::critical(this, tr("Missing OpenFOAM"),
                 tr("No OpenFOAM installations detected..."));

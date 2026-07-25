@@ -119,8 +119,8 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName,
         std::strncpy(patch.name, resolvedName.c_str(), sizeof(patch.name) - 1);
         patch.name[sizeof(patch.name) - 1] = '\0';  // Null-termination
 
-        patch.first = 0;
-        patch.count = 0;
+        patch.firstIndex = 0;
+        patch.indexCount = 0;
 
         const char* ptr = fileData.constData();
         uint32_t numTriangles = *reinterpret_cast<const uint32_t*>(ptr + 80);
@@ -137,12 +137,12 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName,
 
                 uint32_t index = addVertex(x, y, z);
                 mesh.indices.push_back(index);
-                patch.count++;
+                patch.indexCount++;
             }
             ptr += 2;
         }
 
-        if (patch.count > 0) {
+        if (patch.indexCount > 0) {
             mesh.patches.push_back(patch);
         }
 
@@ -203,8 +203,8 @@ std::pair<RenderData, bool> StlReader::readStlFile(const QString& fileName,
                 std::strncpy(patch.name, name.c_str(), sizeof(patch.name) - 1);
                 patch.name[sizeof(patch.name) - 1] = '\0';
 
-                patch.first = static_cast<uint32_t>(mesh.indices.size());
-                patch.count = static_cast<uint32_t>(bucketIndices.size());
+                patch.firstIndex = static_cast<uint32_t>(mesh.indices.size());
+                patch.indexCount = static_cast<uint32_t>(bucketIndices.size());
 
                 // Append the entire bucket to the final indices vector
                 mesh.indices.insert(mesh.indices.end(), bucketIndices.begin(),

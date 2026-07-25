@@ -48,6 +48,11 @@ class SystemManager {
 public:
     SystemManager() {}
 
+    // Access server
+    bool checkWsl();
+    bool checkWslServer();
+    bool checkRemoteServer();
+
     // Assign systems for communication
     void setSystems(
         const std::array<std::shared_ptr<TargetSystem>, 3>& systems);
@@ -74,9 +79,12 @@ public:
     std::shared_ptr<TargetSystem> getSystem(int systemId) const;
 
 private:
+    QString m_serverVersion = "1.0.0";
     QMap<QString, CaseData> m_caseMap;
     std::array<std::shared_ptr<TargetSystem>,
         static_cast<int>(TargetType::COUNT)> m_systems;
+    bool m_isWslAvailable = false;
+    bool m_wslServerPresent = false;
 };
 
 #endif  // SYSTEMS_SYSTEM_MANAGER_H_

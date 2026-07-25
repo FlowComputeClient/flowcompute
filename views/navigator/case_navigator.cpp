@@ -18,6 +18,7 @@
 #include "views/navigator/case_navigator.h"
 
 #include <QMenu>
+#include <QMessageBox>
 
 #include <algorithm>
 
@@ -99,6 +100,16 @@ void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
     // Access the selected node
     QString caseName;
     NodeData* node = m_model->nodeFromIndex(selected.indexes().first());
+    if (!node) {
+        return;
+    }
+
+    if (!node->isEnabled()) {
+        QMessageBox::critical(this, tr("Cannot access OpenFOAM"),
+            tr("FlowCompute can't find the installation of OpenFOAM."));
+        return;
+    }
+
     if (node->nodeType == NodeType::CaseFolder) {
         caseName = node->text();
     } else {
@@ -109,9 +120,16 @@ void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
 }
 
 // Add a new case to the navigator
-void CaseNavigator::addCase(QString caseName, QStringList caseFiles) {
+void CaseNavigator::addCase(QString caseName, QStringList caseFiles,
+                            bool isDisabled) {
     // Create a node for the project
-    NodeData* caseFolder = new NodeData(caseName, "", NodeType::CaseFolder);
+    NodeData* caseFolder =
+        new NodeData(caseName, "", NodeType::CaseFolder, isDisabled);
+
+    // Disable the main folder if the server is unreachable
+    if (isDisabled) {
+        caseFolder->setEnabled(false);
+    }
     m_root->appendRow(caseFolder);
 
     // Create a node for top-level files/folders
@@ -119,11 +137,16 @@ void CaseNavigator::addCase(QString caseName, QStringList caseFiles) {
     NodeType type;
     for (QString item : caseFiles) {
         if (!item.endsWith('|')) {
-            node = new NodeData(item, caseName, NodeType::Folder);
+            node = new NodeData(item, caseName, NodeType::Folder, isDisabled);
         } else {
             item.chop(1);
             type = checkType(item, caseName);
-            node = new NodeData(item, caseName, type);
+            node = new NodeData(item, caseName, type, isDisabled);
+        }
+
+        // Explicitly disable the child files and folders as well
+        if (isDisabled) {
+            node->setEnabled(false);
         }
         caseFolder->appendRow(node);
     }
@@ -199,7 +222,7 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
         // Access the node
         NodeData* node = m_model->nodeFromIndex(index);
 
-        if (node) {
+        if (node && node->isEnabled()) {
             // Open dictionary file
             if ((node->nodeType == NodeType::DictionaryFile) ||
                 (node->nodeType == NodeType::ScriptFile) ||
@@ -217,6 +240,10 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
                                     node->fullPath, true);
             }
         }
+        if (!node->isEnabled()) {
+            QMessageBox::critical(this, tr("Cannot access OpenFOAM"),
+                tr("FlowCompute can't find the installation of OpenFOAM."));
+        }
     }
     QTreeView::mouseDoubleClickEvent(event);
 }
@@ -224,7 +251,7 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
 void CaseNavigator::onNodeExpanded(const QModelIndex &index) {
     // Get node
     NodeData* node = m_model->nodeFromIndex(index);
-    if (!node) return;
+    if (!node || !node->isEnabled()) return;
 
     // Check if the node has a dummy child
     if (node->rowCount() == 1) {
@@ -299,7 +326,8 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
         }
     }
 
-    if (!currentNode) return;
+    if (!currentNode)
+        return;
 
     // Traverse down the rest of the path components, creating them if missing
     for (int i = 1; i < pathParts.size(); ++i) {
@@ -439,7 +467,6 @@ QStringList CaseNavigator::getCases() const {
 }
 
 void CaseNavigator::showContextMenu(const QPoint &pos) {
-
     QModelIndex index = indexAt(pos);
     if (!index.isValid()) {
         return;
@@ -448,6 +475,12 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
     NodeData* node = m_model->nodeFromIndex(index);
     if (!node)
         return;
+
+    if (!node->isEnabled()) {
+        QMessageBox::critical(this, tr("Cannot access OpenFOAM"),
+            tr("FlowCompute can't find the installation of OpenFOAM."));
+        return;
+    }
 
     // Create a fresh, local context menu instance
     QMenu contextMenu(this);
@@ -460,12 +493,11 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
     switch (node->nodeType) {
     case NodeType::CaseFolder: {
 
-        // Check files in case'
+        // Check files in case
         checkCaseFiles(node->name);
-
         contextMenu.addSeparator();
 
-        // Mesh Pipeline
+        // Mesh actions
         m_configureMeshAction->setData(QVariant::fromValue(node));
         contextMenu.addAction(m_configureMeshAction);
 
@@ -477,7 +509,7 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
 
         contextMenu.addSeparator();
 
-        // Solver Pipeline
+        // Solver actions
         m_configureSolverAction->setData(QVariant::fromValue(node));
         contextMenu.addAction(m_configureSolverAction);
 
@@ -491,8 +523,6 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
     default:
         break;
     }
-
-    // Execute blocking exec call safely on the stack-allocated menu
     contextMenu.exec(viewport()->mapToGlobal(pos));
 }
 

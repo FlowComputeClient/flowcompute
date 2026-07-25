@@ -32,7 +32,6 @@ class RemoteSystem : public TargetSystem {
     QStringList copyTutorialFolders(const QString& tutPath,
                                     const QString& projPath) override;
     QByteArray getFileContent(const QString& path) override;
-    RenderData getResultData(const QString& path) override;
     bool writeData(const QByteArray& payload,
                    const QString& remoteFilePath) override;
     bool writeData(const QString& localPath,
@@ -43,6 +42,8 @@ class RemoteSystem : public TargetSystem {
     QString getResultFolders(QString path) override;
     QStringList processPaths(const QString& path,
                              PathOperationType type) override;
+    RenderData getMeshData(const QString& path) override;
+    RenderData getResultData(const QString& path) override;
 };
 
 #endif  // SYSTEMS_REMOTE_SYSTEM_H_

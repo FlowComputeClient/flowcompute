@@ -1,15 +1,31 @@
 cmake_minimum_required(VERSION 3.19)
 project(FlowCompute VERSION 1.0 LANGUAGES CXX C)
 
+include(GNUInstallDirs)
+
 set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Concurrent)
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 qt_standard_project_setup()
+
+# Third party libraries
+add_library(miniz OBJECT third_party/miniz/miniz.c)
+target_include_directories(miniz PUBLIC third_party/miniz)
+
+add_library(tree_sitter OBJECT third_party/tree_sitter/src/lib.c)
+target_include_directories(tree_sitter PUBLIC third_party/tree_sitter/include)
+
+# Suppress warnings cross-platform for third-party C code
+set(C_WARNING_SUPPRESSION $<$<CXX_COMPILER_ID:MSVC>:/w> $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>)
+target_compile_options(tree_sitter PRIVATE ${C_WARNING_SUPPRESSION})
 
 qt_add_executable(FlowCompute
     main.cpp
@@ -48,6 +64,8 @@ qt_add_executable(FlowCompute
     editors/text/tree_sitter_highlighter.h
     editors/text/tree_sitter_highlighter.cpp
 
+    editors/graphical/patch_palette.h
+    editors/graphical/patch_palette.cpp
     editors/graphical/table_delegate.h
     editors/graphical/table_delegate.cpp
 
@@ -85,7 +103,7 @@ qt_add_executable(FlowCompute
     parser/open_foam_dictionary.h
     parser/open_foam_dictionary.cpp
     parser/parser.c
-    third_party/tree_sitter/src/lib.c
+    # third_party/tree_sitter/src/lib.c
 
     systems/local_system.h
 	systems/local_system.cpp
@@ -168,24 +186,18 @@ qt_add_executable(FlowCompute
     wizards/solver/page_93_visualization.cpp
 )
 
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/parser/parser.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tree_sitter/src/lib.c
-    PROPERTIES COMPILE_FLAGS "-w"
+target_compile_options(FlowCompute PRIVATE
+    $<$<COMPILE_LANGUAGE:C>:${C_WARNING_SUPPRESSION}>
 )
 
-target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/tree_sitter/include)
-target_include_directories(FlowCompute PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/parser)
+target_include_directories(FlowCompute PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/parser
+)
 
-find_package(ZLIB REQUIRED)
 target_link_libraries(FlowCompute PRIVATE
-    Qt::Core Qt::Widgets Qt::Network Qt6::Concurrent ZLIB::ZLIB)
-
-install(TARGETS FlowCompute
-    BUNDLE  DESTINATION .
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    Qt::Core Qt::Widgets Qt::Network Qt::Concurrent
+    miniz tree_sitter
 )
 
 # Find the Vulkan shader compiler
@@ -200,7 +212,7 @@ if(NOT GLSL_VALIDATOR)
     message(FATAL_ERROR "glslangValidator not found! Make sure the Vulkan SDK is in your system PATH.")
 endif()
 
-# List the relative paths to all your shader source files
+# Shader source files
 set(SHADER_SOURCES
     "shaders/axis/axis.vert"
     "shaders/axis/axis.frag"
@@ -210,6 +222,8 @@ set(SHADER_SOURCES
     "shaders/mesh/mesh.frag"
     "shaders/color/color.vert"
     "shaders/color/color.frag"
+    "shaders/lines/lines.vert"
+    "shaders/lines/lines.frag"
 )
 
 set(SPIRV_FILES "")
@@ -231,6 +245,13 @@ endforeach()
 
 # Group all shader commands into a single target
 set_property(TARGET FlowCompute APPEND PROPERTY AUTORCC_DEPENDS ${SPIRV_FILES})
+
+# Installation and deployment
+install(TARGETS FlowCompute
+    BUNDLE  DESTINATION .
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 
 qt_generate_deploy_app_script(
     TARGET FlowCompute

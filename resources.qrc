@@ -44,6 +44,8 @@
         <file>shaders/color/frag.spv</file>
         <file>shaders/axis/vert.spv</file>
         <file>shaders/axis/frag.spv</file>
+        <file>shaders/lines/vert.spv</file>
+        <file>shaders/lines/frag.spv</file>		
         <file>template/Allclean</file>
         <file>template/Allrun</file>
         <file>template/blockMeshDict</file>

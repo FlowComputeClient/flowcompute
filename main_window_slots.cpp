@@ -34,7 +34,6 @@
 #include "editors/graphical/surface/surface_editor.h"
 #include "editors/graphical/mesh/mesh_editor.h"
 #include "editors/graphical/result/result_editor.h"
-#include "geometry/mesh/mesh_reader.h"
 #include "geometry/stl/stl_reader.h"
 #include "geometry/obj/obj_reader.h"
 #include "./utils.h"
@@ -44,12 +43,10 @@
 
 // Launch new case wizard
 void MainWindow::launchNewCaseWizard() {
-    // Create the wizard
-    auto* wizard = new NewCaseWizard(m_isWindows, m_isWslAvailable,
-                                     m_systemMgr, this);
+    auto* wizard = new NewCaseWizard(m_systemMgr, this);
     wizard->setAttribute(Qt::WA_DeleteOnClose);
 
-    // Connect the signal to your slot
+    // Connect the wizard's signal to create a new case
     connect(wizard, &NewCaseWizard::requestCaseCreation,
             this, &MainWindow::createCase);
 
@@ -227,6 +224,14 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
             if (!renderData)
                 return;
 
+            /*
+            qDebug() << "renderData->indices.size() = " << renderData->indices.size();
+            qDebug() << "renderData->data.size() = " << renderData->data.size();
+            qDebug() << "renderData->patches.size() = " << renderData->patches.size();
+            qDebug() << "renderData->patches[0].first = " << renderData->patches[0].firstIndex;
+            qDebug() << "renderData->patches[0].count = " << renderData->patches[0].count;
+            */
+
             // Create mesh editor
             auto* meshEditor = new MeshEditor(
                 renderData, casePath, m_systemMgr.getSystem(caseName),
@@ -321,6 +326,9 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
 
 std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName,
         QString casePath, QString openFoamPath) {
+    return std::make_shared<RenderData>(
+        m_systemMgr.getSystem(caseName)->getMeshData(casePath));
+    /*
     // Convert mesh to STL file
     QByteArray data;
     QString meshFile = caseName + "_tmp.stl";
@@ -336,6 +344,7 @@ std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName,
 
     // Convert data to RenderData structure
     return std::make_shared<RenderData>(MeshReader::readMesh(caseName, data));
+    */
 }
 
 // Access result data

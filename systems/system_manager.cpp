@@ -17,7 +17,115 @@
 
 #include "system_manager.h"
 
-#include "QDebug"
+#include <QCoreApplication>
+#include <QProcess>
+#include <QStandardPaths>
+#include <QVersionNumber>
+
+#include "./wsl_system.h"
+
+// Check if WSL can be accessed
+bool SystemManager::checkWsl() {
+    // Check if wsl.exe exists in the system PATH
+    QString wslPath = QStandardPaths::findExecutable("wsl.exe");
+    if (wslPath.isEmpty()) {
+        return false;
+    }
+
+    // List installed distributions
+    QProcess process;
+    process.start(wslPath, QStringList() << "-l" << "-q");
+
+    // Wait for the process to finish
+    if (!process.waitForFinished(3000)) {
+        process.kill();
+        return false;
+    }
+
+    // If WSL exited with error, no Linux distributions
+    if (process.exitStatus() != QProcess::NormalExit ||
+        process.exitCode() != 0) {
+        return false;
+    }
+
+    // Check for one distribution
+    QString output =
+        QString::fromUtf8(process.readAllStandardOutput()).trimmed();
+    return !output.isEmpty();
+}
+
+// Check WSL server, update if needed
+bool SystemManager::checkWslServer() {
+    if (m_wslServerPresent)
+        return true;
+
+    // Access WSL target system
+    std::shared_ptr<WslSystem> wslSystem =
+        std::static_pointer_cast<WslSystem>(m_systems[0]);
+
+    // Check server version
+    QString installVersion = wslSystem->getVersion();
+    bool serverInstalled = !installVersion.isEmpty();
+    if (serverInstalled) {
+        QVersionNumber v1 = QVersionNumber::fromString(installVersion);
+        QVersionNumber v2 = QVersionNumber::fromString(m_serverVersion);
+        if (v1 < v2) {
+            wslSystem->shutdown();
+        } else {
+            m_wslServerPresent = true;
+            return true;
+        }
+    }
+
+    // Install latest server
+    if (!m_wslServerPresent) {
+        QString appDir = QCoreApplication::applicationDirPath();
+        QString wslPath = appDir + "/wsl_server";
+
+        // Make sure the wsl_server binary is present
+        if (!QFile::exists(wslPath)) {
+            /*
+            QString title = QCoreApplication::translate("SystemManager",
+                                                        "Update Failed");
+            QString msg = QCoreApplication::translate("SystemManager",
+                "The wsl_server binary is missing.\n"
+                "Please reinstall the application.");
+            QMessageBox::critical(nullptr, title, msg);
+            */
+            return false;
+        }
+
+        // Install wsl_server
+        QString cmd = QString("mkdir -p ~/.config/flowcompute && "
+              "rm -f ~/.config/flowcompute/wsl_server && "
+              "cp $(wslpath '%1') ~/.config/flowcompute/wsl_server && "
+              "chmod +x ~/.config/flowcompute/wsl_server").arg(wslPath);
+        QString output;
+        int result = wslSystem->launchShortUtility(cmd, output);
+
+        // Check output
+        if (result == 0) {
+            m_wslServerPresent = true;
+            return true;
+        }
+        /*
+        else {
+            QString title = QCoreApplication::translate("SystemManager",
+                                            "Server Installation Failed");
+            QString msg = QCoreApplication::translate("SystemManager",
+            "Failed to install the WSL server in ~/config/flowcompute.\n"
+            "Please make sure this directory is accessible.");
+            QMessageBox::critical(nullptr, title, msg);
+        }
+        */
+    }
+    return false;
+}
+
+// Check remote server
+bool SystemManager::checkRemoteServer() {
+    return false;
+}
 
 void SystemManager::setSystems(
     const std::array<std::shared_ptr<TargetSystem>,

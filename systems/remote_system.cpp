@@ -71,6 +71,11 @@ QByteArray RemoteSystem::getFileContent(const QString& path) {
     return fileData;
 }
 
+RenderData RemoteSystem::getMeshData(const QString& path) {
+    RenderData renderData;
+    return renderData;
+}
+
 RenderData RemoteSystem::getResultData(const QString& path) {
 
     // Populate the render data structure

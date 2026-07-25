@@ -38,7 +38,7 @@ class IntroPage : public QWizardPage {
                    WRITE setCaseCreationType NOTIFY caseCreationTypeChanged)
 
  public:
-    IntroPage(bool isWindows, bool isWslAvailable, QWidget *parent);
+    IntroPage(bool isWslAvailable, QWidget *parent);
     int nextId() const override;
     QString& getOpenFoamPath() { return m_openFoamPath; };
 

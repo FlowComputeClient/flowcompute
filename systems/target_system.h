@@ -47,7 +47,6 @@ class TargetSystem: public QObject {
     virtual QStringList copyTutorialFolders(const QString& tutPath,
                                             const QString& projPath) = 0;
     virtual QByteArray getFileContent(const QString& path) = 0;
-    virtual RenderData getResultData(const QString& path) = 0;
     virtual bool writeData(const QByteArray& payload,
                            const QString& remoteFilePath) = 0;
     virtual bool writeData(const QString& localPath,
@@ -55,9 +54,11 @@ class TargetSystem: public QObject {
     virtual int launchShortUtility(const QString& cmd, QString& output) = 0;
     virtual void launchLongUtility(const QString& cmd, const QString& caseName,
                                    UtilityType type) = 0;
-    virtual QString getResultFolders(QString path) = 0;
     virtual QStringList processPaths(const QString& path,
                                      PathOperationType type) = 0;
+    virtual RenderData getMeshData(const QString& path) = 0;
+    virtual QString getResultFolders(QString path) = 0;
+    virtual RenderData getResultData(const QString& path) = 0;
 
  signals:
     // Updates the console

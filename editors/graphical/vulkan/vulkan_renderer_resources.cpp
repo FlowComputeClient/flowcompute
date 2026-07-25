@@ -133,6 +133,61 @@ void VulkanRenderer::createIndexBuffer() {
     m_devFuncs->vkUnmapMemory(m_device, m_indexBufferMemory);
 }
 
+void VulkanRenderer::createLineIndexBuffer() {
+    // Delete buffer if it already exists
+    if (m_lineIndexBuffer != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyBuffer(m_device, m_lineIndexBuffer, nullptr);
+        m_lineIndexBuffer = VK_NULL_HANDLE;
+    }
+    if (m_lineIndexBufferMemory != VK_NULL_HANDLE) {
+        m_devFuncs->vkFreeMemory(m_device, m_lineIndexBufferMemory, nullptr);
+        m_lineIndexBufferMemory = VK_NULL_HANDLE;
+    }
+
+    // Create index buffer
+    VkDeviceSize lineIndexBufferSize = m_renderData->lineIndices.size() *
+                                   sizeof(m_renderData->lineIndices[0]);
+    VkBufferCreateInfo lineIndexBufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = lineIndexBufferSize,
+        .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+    VkResult err = m_devFuncs->vkCreateBuffer(m_device, &lineIndexBufferInfo,
+                                              nullptr, &m_lineIndexBuffer);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to create line index buffer: %d", err);
+
+    VkMemoryRequirements lineIndexMemReqs;
+    m_devFuncs->vkGetBufferMemoryRequirements(m_device, m_lineIndexBuffer,
+                                              &lineIndexMemReqs);
+
+    VkMemoryAllocateInfo lineIndexAllocInfo = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = lineIndexMemReqs.size,
+        .memoryTypeIndex = findMemoryType(lineIndexMemReqs.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+    };
+
+    err = m_devFuncs->vkAllocateMemory(m_device, &lineIndexAllocInfo, nullptr,
+                                       &m_lineIndexBufferMemory);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to allocate line index memory: %d", err);
+    m_devFuncs->vkBindBufferMemory(m_device, m_lineIndexBuffer,
+                                   m_lineIndexBufferMemory, 0);
+
+    // Copy index data
+    void* lineIndexData;
+    err = m_devFuncs->vkMapMemory(m_device, m_lineIndexBufferMemory, 0,
+                                  lineIndexBufferSize, 0, &lineIndexData);
+    if (err != VK_SUCCESS)
+        qFatal("Failed to map line index memory: %d", err);
+    memcpy(lineIndexData, m_renderData->lineIndices.data(),
+           static_cast<size_t>(lineIndexBufferSize));
+    m_devFuncs->vkUnmapMemory(m_device, m_lineIndexBufferMemory);
+}
+
 void VulkanRenderer::createAxisBuffer() {
     // Create axis buffer
     float xDiff = m_renderData->boundingBoxMax[0] -

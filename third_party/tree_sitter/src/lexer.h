@@ -7,7 +7,7 @@ extern "C" {
 
 #include "./length.h"
 #include "./subtree.h"
-#include "tree_sitter/api.h"
+#include "../include/tree_sitter/api.h"
 #include "./parser.h"
 
 typedef struct {

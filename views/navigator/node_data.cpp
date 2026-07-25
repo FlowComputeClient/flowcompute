@@ -18,8 +18,8 @@
 #include "node_data.h"
 
 NodeData::NodeData(const QString& name, const QString& fullPath,
-        NodeType type) : QStandardItem(name), name(name), fullPath(fullPath),
-    nodeType(type) {
+        NodeType type, bool isDisabled) : QStandardItem(name), name(name),
+        fullPath(fullPath), nodeType(type) {
 
     setForeground(QBrush(Qt::black));
     setIcon(getIconForType(type));
@@ -27,9 +27,11 @@ NodeData::NodeData(const QString& name, const QString& fullPath,
 
     // Force the expand arrow to appear
     if (type == NodeType::Folder) {
-        QStandardItem* dummy = new QStandardItem("Loading...");
-        dummy->setData(true, Qt::UserRole + 1);
-        appendRow(dummy);
+        if (!isDisabled) {
+            QStandardItem* dummy = new QStandardItem(tr("Loading..."));
+            dummy->setData(true, Qt::UserRole + 1);
+            appendRow(dummy);
+        }
     }
 }
 

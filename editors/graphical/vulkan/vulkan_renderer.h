@@ -31,6 +31,12 @@
 
 class VulkanWindow;
 
+enum PipelineType {
+    BaseModel = 0,
+    Axes,
+    MeshLines
+};
+
 struct Vertex {
     float position[3];
     float normal[3];
@@ -75,6 +81,7 @@ class VulkanRenderer : public QVulkanWindowRenderer {
     // Called by initResources
     void createVertexBuffer();
     void createIndexBuffer();
+    void createLineIndexBuffer();
     void createAxisBuffer();
     void createUniformBuffer();
     void createTexture();
@@ -91,6 +98,8 @@ class VulkanRenderer : public QVulkanWindowRenderer {
     VkBuffer m_vertexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_indexBufferMemory = VK_NULL_HANDLE;
     VkBuffer m_indexBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_lineIndexBufferMemory = VK_NULL_HANDLE;
+    VkBuffer m_lineIndexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory m_axisBufferMemory = VK_NULL_HANDLE;
     VkBuffer m_axisBuffer = VK_NULL_HANDLE;
 
@@ -118,7 +127,7 @@ class VulkanRenderer : public QVulkanWindowRenderer {
     // Pipeline structs
     VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
-    std::array<VkPipeline, 2> m_pipelines = { VK_NULL_HANDLE, VK_NULL_HANDLE };
+    std::vector<VkPipeline> m_pipelines;
 
  private:
     std::array<float, 3> m_clearColor;

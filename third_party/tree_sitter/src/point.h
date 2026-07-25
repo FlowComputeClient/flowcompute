@@ -1,7 +1,7 @@
 #ifndef TREE_SITTER_POINT_H_
 #define TREE_SITTER_POINT_H_
 
-#include "tree_sitter/api.h"
+#include "../include/tree_sitter/api.h"
 
 #define POINT_ZERO ((TSPoint) {0, 0})
 #define POINT_MAX ((TSPoint) {UINT32_MAX, UINT32_MAX})

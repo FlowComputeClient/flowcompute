@@ -153,8 +153,8 @@ RenderData ObjReader::readObjFile(const QString& fileName,
             std::strncpy(patch.name, name.c_str(), sizeof(patch.name) - 1);
             patch.name[sizeof(patch.name) - 1] = '\0';
 
-            patch.first = static_cast<uint32_t>(mesh.indices.size());
-            patch.count = static_cast<uint32_t>(bucketIndices.size());
+            patch.firstIndex = static_cast<uint32_t>(mesh.indices.size());
+            patch.indexCount = static_cast<uint32_t>(bucketIndices.size());
 
             // Append the entire bucket to the final indices vector
             mesh.indices.insert(mesh.indices.end(), bucketIndices.begin(),

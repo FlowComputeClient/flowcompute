@@ -2,7 +2,7 @@
 #include "./lexer.h"
 #include "./unicode.h"
 
-#include "tree_sitter/api.h"
+#include "../include/tree_sitter/api.h"
 
 #include <stdarg.h>
 #include <stdio.h>

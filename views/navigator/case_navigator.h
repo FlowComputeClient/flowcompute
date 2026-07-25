@@ -34,7 +34,7 @@ class CaseNavigator : public QTreeView {
         QAction* configureSolverAction, QAction* runSolverAction,
         QAction* viewResultAction, const SystemManager& systemMgr,
         QWidget *parent = nullptr);
-    void addCase(QString caseName, QStringList caseFiles);
+    void addCase(QString caseName, QStringList caseFiles, bool disable=false);
     void expandCase(QString caseName);
     QStringList getCases() const;
     QString getSelectedCase();

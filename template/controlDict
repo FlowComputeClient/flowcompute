@@ -30,7 +30,7 @@ writeInterval   %7;
 purgeWrite      0;
 
 // Output format
-writeFormat     ascii;
+writeFormat     binary;
 writePrecision  6;
 writeCompression off;
 timeFormat      general;

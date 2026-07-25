@@ -115,8 +115,8 @@ RenderData MeshReader::readMesh(const QString& fileName,
             patch.name[sizeof(patch.name) - 1] = '\0';  // Null-termination
 
             // Calculate vertex counts based on 6 floats per vertex
-            patch.first = static_cast<uint32_t>(mesh.data.size() / 6);
-            patch.count = static_cast<uint32_t>(bucketData.size() / 6);
+            patch.firstIndex = static_cast<uint32_t>(mesh.data.size() / 6);
+            patch.indexCount = static_cast<uint32_t>(bucketData.size() / 6);
 
             // Append the entire bucket to the final data vector
             mesh.data.insert(mesh.data.end(), bucketData.begin(),

@@ -1,4 +1,4 @@
-#include "tree_sitter/api.h"
+#include "../include/tree_sitter/api.h"
 #include "./tree_cursor.h"
 #include "./language.h"
 #include "./tree.h"

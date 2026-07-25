@@ -71,8 +71,7 @@ class NewCaseWizard : public QWizard {
     Q_OBJECT
 
  public:
-    NewCaseWizard(bool m_isWindows, bool m_isWslAvailable,
-                  SystemManager& systemMgr, QWidget *parent);
+    NewCaseWizard(SystemManager& systemMgr, QWidget *parent);
     QStringList processPaths(QString path);
     QStringList getTutorials();
     QStringList findOpenFoam();
@@ -87,7 +86,7 @@ class NewCaseWizard : public QWizard {
     bool validateCurrentPage() override;
 
  private:
-    const SystemManager& m_systemMgr;
+    SystemManager& m_systemMgr;
     TargetType m_targetId;
     std::shared_ptr<TargetSystem> m_system;
     QString m_openFoamPath, m_caseName;

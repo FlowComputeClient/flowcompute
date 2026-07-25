@@ -22,7 +22,7 @@
 
 #include <vector>
 
-#include "geometry/graphic_data.h"
+#include "editors/graphical/patch_palette.h"
 #include "editors/graphical/table_delegate.h"
 
 MeshLeftPane::MeshLeftPane(QStringList fields,
@@ -161,27 +161,24 @@ void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>&
     m_patchTable->blockSignals(true);
 
     // Add rows to the table
+    PatchPalette::ensureCapacity(patches.size());
     for (int i = 0; i < static_cast<int>(patches.size()); i++) {
         // Get the patch color
-        QColor color(
-            static_cast<int>(patchColors[i][0] * 255.0f),
-            static_cast<int>(patchColors[i][1] * 255.0f),
-            static_cast<int>(patchColors[i][2] * 255.0f),
-            static_cast<int>(patchColors[i][3] * 255.0f));
+        QColor color(PatchPalette::getColor(i));
 
-        // Column 1: Patch color
+        // Patch color
         QTableWidgetItem *colorItem = new QTableWidgetItem();
         colorItem->setFlags(Qt::ItemIsEnabled);
         colorItem->setBackground(color);
         m_patchTable->setItem(i, 0, colorItem);
 
-        // Column 2: Patch name
+        // Patch name
         QTableWidgetItem *nameItem = new QTableWidgetItem(patches[i].name);
         nameItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
                            Qt::ItemIsEditable);
         m_patchTable->setItem(i, 1, nameItem);
 
-        // Column 3: Patch type
+        // Patch type
         QComboBox* patchBox = new QComboBox(m_patchTable);
         patchBox->addItems(FlowCompute::patchTypes);
         if (FlowCompute::patchTypes.contains(patches[i].type)) {

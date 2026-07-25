@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include "./array.h"
-#include "tree_sitter/api.h"
+#include "../include/tree_sitter/api.h"
 
 typedef struct {
   uint32_t count;

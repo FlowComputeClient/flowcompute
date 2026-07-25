@@ -20,11 +20,17 @@
 #include <memory>
 #include <vector>
 
+#include "editors/graphical/patch_palette.h"
 #include "editors/graphical/vulkan/vulkan_window.h"
 
 VulkanRenderer::VulkanRenderer(VulkanWindow *w,
     std::shared_ptr<RenderData> renderData):
-    m_window(w), m_renderData(renderData) {}
+    m_window(w), m_renderData(renderData) {
+
+    // Populate pipeline vector
+    int numPipelines = (renderData->format == RenderType::Mesh) ? 3 : 2;
+    m_pipelines.assign(numPipelines, VK_NULL_HANDLE);
+}
 
 uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter,
                                         VkMemoryPropertyFlags props) {
@@ -60,9 +66,12 @@ void VulkanRenderer::initResources() {
     if (!m_renderData->indices.empty()) {
         createIndexBuffer();
     }
+    if (!m_renderData->lineIndices.empty()) {
+        createLineIndexBuffer();
+    }
     createAxisBuffer();
     createUniformBuffer();
-    if (m_renderData->format == RenderType::Color) {
+    if (m_renderData->format == RenderType::Result) {
         createTexture();
     }
 
@@ -70,6 +79,9 @@ void VulkanRenderer::initResources() {
     createPipelineStorage();
     createDescriptorSets();
     createPipelines();
+
+    // Allocate patch colors
+    PatchPalette::ensureCapacity(m_renderData->patches.size());
 }
 
 void VulkanRenderer::startNextFrame() {
@@ -98,6 +110,9 @@ void VulkanRenderer::startNextFrame() {
             createVertexBuffer();
             if (!m_renderData->indices.empty()) {
                 createIndexBuffer();
+            }
+            if (!m_renderData->lineIndices.empty()) {
+                createLineIndexBuffer();
             }
         }
     }
@@ -184,7 +199,14 @@ void VulkanRenderer::startNextFrame() {
         m_pipelineLayout, 0, 1, &m_descriptorSets[m_window->currentFrame()], 0,
         nullptr);
     m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
-        m_pipelines[0]);
+        m_pipelines[BaseModel]);
+
+    // End rendering if there's no data
+    if (!m_renderData) {
+        m_devFuncs->vkCmdEndRenderPass(cmdBuf);
+        m_window->frameReady();
+        return;
+    }
 
     // Render the data
     switch (m_renderData->format) {
@@ -193,12 +215,12 @@ void VulkanRenderer::startNextFrame() {
             // Set push constants
             m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
                 VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4 * sizeof(float),
-                &(patchColors[i]));
+                &PatchPalette::getColorVec(i));
 
             // Execute draw
             const auto& patch = m_renderData->patches[i];
-            m_devFuncs->vkCmdDrawIndexed(cmdBuf, patch.count, 1,
-                                         patch.first, 0, 0);
+            m_devFuncs->vkCmdDrawIndexed(cmdBuf, patch.indexCount, 1,
+                                         patch.firstIndex, 0, 0);
         }
         break;
     case RenderType::Mesh:
@@ -206,14 +228,39 @@ void VulkanRenderer::startNextFrame() {
             // Set push constants
             m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
                 VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4 * sizeof(float),
-                &(patchColors[i]));
+                &PatchPalette::getColorVec(i));
 
             // Execute draw
             const auto& patch = m_renderData->patches[i];
-            m_devFuncs->vkCmdDraw(cmdBuf, patch.count, 1, patch.first, 0);
+            m_devFuncs->vkCmdDrawIndexed(cmdBuf, patch.indexCount, 1,
+                                         patch.firstIndex, 0, 0);
         }
+
+        // Bind line index buffer
+        if (!m_renderData->lineIndices.empty()) {
+            // Bind line index buffer
+            m_devFuncs->vkCmdBindIndexBuffer(cmdBuf, m_lineIndexBuffer,
+                                             0, VK_INDEX_TYPE_UINT32);
+
+            // Bind pipeline for mesh lines
+            m_devFuncs->vkCmdBindPipeline(cmdBuf,
+                VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelines[MeshLines]);
+
+            for (int i=0; i < m_renderData->patches.size(); i++) {
+                // Set push constants
+                m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
+                   VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4 * sizeof(float),
+                   &PatchPalette::getColorVec(i));
+
+                // Execute draw
+                const auto& patch = m_renderData->patches[i];
+                m_devFuncs->vkCmdDrawIndexed(cmdBuf, patch.lineIndexCount, 1,
+                                             patch.firstLineIndex, 0, 0);
+            }
+        }
+
         break;
-    case RenderType::Color:
+    case RenderType::Result:
         m_devFuncs->vkCmdDrawIndexed(cmdBuf, m_renderData->indices.size(),
                                      1, 0, 0, 0);
         break;
@@ -229,7 +276,7 @@ void VulkanRenderer::startNextFrame() {
 
     // Bind pipeline
     m_devFuncs->vkCmdBindPipeline(cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                  m_pipelines[1]);
+                                  m_pipelines[Axes]);
 
     // Set push constants -
     m_devFuncs->vkCmdPushConstants(cmdBuf, m_pipelineLayout,
@@ -255,7 +302,7 @@ void VulkanRenderer::createPipelineStorage() {
     std::vector<VkDescriptorPoolSize> poolSizes;
     poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                          m_concurrentFrameCount });
-    if (m_renderData->format == RenderType::Color) {
+    if (m_renderData->format == RenderType::Result) {
         poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                              m_concurrentFrameCount });
     }
@@ -286,7 +333,7 @@ void VulkanRenderer::createDescriptorSets() {
     });
 
     // Bind the color sampler if necessary
-    if (m_renderData->format == RenderType::Color) {
+    if (m_renderData->format == RenderType::Result) {
         bindings.push_back({
             .binding = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -337,7 +384,7 @@ void VulkanRenderer::createDescriptorSets() {
         });
 
         // Write sampler if necessary
-        if (m_renderData->format == RenderType::Color) {
+        if (m_renderData->format == RenderType::Result) {
             descriptorWrites.push_back({
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = m_descriptorSets[i],
@@ -420,7 +467,8 @@ void VulkanRenderer::createPipelines() {
     std::vector<VkVertexInputAttributeDescription> vertexAttrDescs;
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     VkShaderModule shaderModules[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
-    if (m_renderData->format == RenderType::Surface) {
+    if ((m_renderData->format == RenderType::Surface) ||
+         (m_renderData->format == RenderType::Mesh)) {
         vertexBindingDesc = {
             .binding = 0,
             .stride = 3 * sizeof(float),
@@ -441,7 +489,9 @@ void VulkanRenderer::createPipelines() {
             createShader(QStringLiteral(":/shaders/model/vert.spv"));
         shaderModules[1] =
             createShader(QStringLiteral(":/shaders/model/frag.spv"));
-    } else if (m_renderData->format == RenderType::Mesh) {
+    }
+    /*
+    else if (m_renderData->format == RenderType::Mesh) {
         vertexBindingDesc = {
             .binding = 0,
             .stride = 6 * sizeof(float),
@@ -461,7 +511,10 @@ void VulkanRenderer::createPipelines() {
             createShader(QStringLiteral(":/shaders/mesh/vert.spv"));
         shaderModules[1] =
             createShader(QStringLiteral(":/shaders/mesh/frag.spv"));
-    } else if (m_renderData->format == RenderType::Color) {
+    }
+    */
+    // Display the result drawing
+    else if (m_renderData->format == RenderType::Result) {
         vertexBindingDesc = {
             .binding = 0,
             .stride = 4 * sizeof(float),
@@ -510,8 +563,17 @@ void VulkanRenderer::createPipelines() {
         .lineWidth = 1.0f
     };
 
-    VkGraphicsPipelineCreateInfo pipelineCreateInfos[2];
-    pipelineCreateInfos[0] = {
+    // Add depth if mesh lines will be drawn
+    if (m_renderData->format == RenderType::Mesh) {
+        rasterizer.depthBiasEnable = VK_TRUE;
+        rasterizer.depthBiasConstantFactor = 1.25f;
+        rasterizer.depthBiasSlopeFactor = 1.75f;
+    }
+
+    // Create the pipeline info structures
+    std::vector<VkGraphicsPipelineCreateInfo>
+        pipelineCreateInfos(m_pipelines.size());
+    pipelineCreateInfos[BaseModel] = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = 2,
         .pStages = shaderStages,
@@ -610,7 +672,8 @@ void VulkanRenderer::createPipelines() {
         .lineWidth = 1.0f
     };
 
-    pipelineCreateInfos[1] = {
+    // Pipeline info structure for displaying axes
+    pipelineCreateInfos[Axes] = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = 2,
         .pStages = axisShaderStages,
@@ -626,11 +689,72 @@ void VulkanRenderer::createPipelines() {
         .renderPass = m_window->defaultRenderPass()
     };
 
+    // Create pipeline info for mesh lines
+    VkPipelineShaderStageCreateInfo meshShaderStages[2] = {};
+    VkPipelineInputAssemblyStateCreateInfo meshAssemblyState = {};
+    VkPipelineRasterizationStateCreateInfo meshRasterizer = {};
+    VkShaderModule meshShaderModules[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+    if (m_renderData->format == RenderType::Mesh) {
+        // Define shaders for mesh lines
+        meshShaderModules[0] =
+            createShader(QStringLiteral(":/shaders/lines/vert.spv"));
+        meshShaderModules[1] =
+            createShader(QStringLiteral(":/shaders/lines/frag.spv"));
+
+        // Shader stages
+        meshShaderStages[0] = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = meshShaderModules[0],
+            .pName = "main"
+        };
+        meshShaderStages[1] = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = meshShaderModules[1],
+            .pName = "main"
+        };
+
+        // Assembly state and rasterizer
+        meshAssemblyState = {
+            .sType =
+                VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST
+        };
+        meshRasterizer = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .polygonMode = VK_POLYGON_MODE_FILL,
+            .cullMode = VK_CULL_MODE_NONE,
+            .depthBiasEnable = VK_FALSE,
+            .depthBiasConstantFactor = 0.0f,
+            .depthBiasSlopeFactor = 0.0f,
+            .lineWidth = 1.0f
+        };
+
+        // Pipeline info structure for mesh lines
+        pipelineCreateInfos[MeshLines] = {
+            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .stageCount = 2,
+            .pStages = meshShaderStages,
+            .pVertexInputState = &vertexInputInfo,
+            .pInputAssemblyState = &meshAssemblyState,
+            .pViewportState = &viewportState,
+            .pRasterizationState = &meshRasterizer,
+            .pMultisampleState = &multisampling,
+            .pDepthStencilState = &depthStencil,
+            .pColorBlendState = &colorBlending,
+            .pDynamicState = &dynamicState,
+            .layout = m_pipelineLayout,
+            .renderPass = m_window->defaultRenderPass()
+        };
+    }
+
     // Create pipeline
     err = m_devFuncs->vkCreateGraphicsPipelines(
-        m_device, m_pipelineCache, 2, pipelineCreateInfos, nullptr,
-        m_pipelines.data());
-    if (err != VK_SUCCESS) qFatal("Failed to create pipelines: %d", err);
+        m_device, m_pipelineCache, m_pipelines.size(),
+        pipelineCreateInfos.data(), nullptr, m_pipelines.data());
+    if (err != VK_SUCCESS)
+        qFatal("Failed to create pipelines: %d", err);
 
     // Destroy shader modules
     if (shaderModules[0] != VK_NULL_HANDLE) {
@@ -642,17 +766,28 @@ void VulkanRenderer::createPipelines() {
         shaderModules[1] = VK_NULL_HANDLE;
     }
     if (axisShaderModules[0] != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyShaderModule(m_device, axisShaderModules[0],
-                                          nullptr);
+        m_devFuncs->vkDestroyShaderModule(
+            m_device, axisShaderModules[0], nullptr);
         axisShaderModules[0] = VK_NULL_HANDLE;
     }
     if (axisShaderModules[1] != VK_NULL_HANDLE) {
-        m_devFuncs->vkDestroyShaderModule(m_device, axisShaderModules[1],
-                                          nullptr);
+        m_devFuncs->vkDestroyShaderModule(
+            m_device, axisShaderModules[1], nullptr);
         axisShaderModules[1] = VK_NULL_HANDLE;
+    }
+    if (meshShaderModules[0] != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyShaderModule(
+            m_device, meshShaderModules[0], nullptr);
+        meshShaderModules[0] = VK_NULL_HANDLE;
+    }
+    if (meshShaderModules[1] != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyShaderModule(
+            m_device, meshShaderModules[1], nullptr);
+        meshShaderModules[1] = VK_NULL_HANDLE;
     }
 }
 
+// Create the shader module from a shader file resource
 VkShaderModule VulkanRenderer::createShader(const QString &name) {
     QFile file(name);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -677,6 +812,7 @@ VkShaderModule VulkanRenderer::createShader(const QString &name) {
     return shaderModule;
 }
 
+// Free resources required for Vulkan rendering
 void VulkanRenderer::releaseResources() {
     m_devFuncs->vkDeviceWaitIdle(m_device);
 
@@ -728,6 +864,16 @@ void VulkanRenderer::releaseResources() {
     if (m_indexBufferMemory != VK_NULL_HANDLE) {
         m_devFuncs->vkFreeMemory(m_device, m_indexBufferMemory, nullptr);
         m_indexBufferMemory = VK_NULL_HANDLE;
+    }
+
+    // Destroy line index buffer
+    if (m_lineIndexBuffer != VK_NULL_HANDLE) {
+        m_devFuncs->vkDestroyBuffer(m_device, m_lineIndexBuffer, nullptr);
+        m_lineIndexBuffer = VK_NULL_HANDLE;
+    }
+    if (m_lineIndexBufferMemory != VK_NULL_HANDLE) {
+        m_devFuncs->vkFreeMemory(m_device, m_lineIndexBufferMemory, nullptr);
+        m_lineIndexBufferMemory = VK_NULL_HANDLE;
     }
 
     // Destroy vertex buffer

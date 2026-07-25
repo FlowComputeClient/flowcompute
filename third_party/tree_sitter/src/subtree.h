@@ -12,7 +12,7 @@ extern "C" {
 #include "./array.h"
 #include "./error_costs.h"
 #include "./host.h"
-#include "tree_sitter/api.h"
+#include "../include/tree_sitter/api.h"
 #include "./parser.h"
 
 #define TS_TREE_STATE_NONE USHRT_MAX

@@ -41,10 +41,12 @@
 
 #include "./target_system.h"
 
-struct ResultHeader {
+struct RenderHeader {
     uint32_t magicNumber;
     uint32_t dataByteSize;
     uint32_t indexByteSize;
+    uint32_t lineIndexByteSize;
+    uint32_t patchesByteSize;
     std::array<float, 3> boundingBoxMin;
     std::array<float, 3> boundingBoxMax;
 };
@@ -57,12 +59,13 @@ class WslSystem : public TargetSystem {
     ~WslSystem() {}
 
     bool checkDistributions();
+    QString getVersion();
+    QString shutdown();
     QStringList findOpenFoam() override;
     QStringList getTutorials(const QString& path) override;
     QStringList copyTutorialFolders(const QString& tutPath,
                                     const QString& projPath) override;
     QByteArray getFileContent(const QString& path) override;
-    RenderData getResultData(const QString& path) override;
     bool writeData(const QByteArray& payload,
                    const QString& remoteFilePath) override;
     bool writeData(const QString& localPath,
@@ -73,6 +76,8 @@ class WslSystem : public TargetSystem {
     QString getResultFolders(QString path) override;
     QStringList processPaths(const QString& path,
                              PathOperationType type) override;
+    RenderData getMeshData(const QString& path) override;
+    RenderData getResultData(const QString& path) override;
 
  private:
     void terminateProcess();

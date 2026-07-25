@@ -15,12 +15,13 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef NODE_DATA_H_
-#define NODE_DATA_H_
+#ifndef VIEWS_NAVIGATOR_NODE_DATA_H_
+#define VIEWS_NAVIGATOR_NODE_DATA_H_
 
+#include <QCoreApplication>
+#include <QIcon>
 #include <QStandardItem>
 #include <QString>
-#include <QIcon>
 
 // Keep this exactly as it is!
 enum class NodeType {
@@ -35,8 +36,10 @@ enum class NodeType {
 };
 
 class NodeData : public QStandardItem {
+    Q_DECLARE_TR_FUNCTIONS(NodeData)
  public:
-    NodeData(const QString& name, const QString& fullPath, NodeType type);
+    NodeData(const QString& name, const QString& fullPath, NodeType type,
+            bool isDisabled=false);
     ~NodeData() override = default;
 
     QString name, fullPath;
@@ -49,4 +52,4 @@ class NodeData : public QStandardItem {
     QIcon getIconForType(NodeType type) const;
 };
 
-#endif // NODE_DATA_H_
+#endif  // VIEWS_NAVIGATOR_NODE_DATA_H_

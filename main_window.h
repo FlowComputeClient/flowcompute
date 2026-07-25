@@ -50,6 +50,8 @@ struct TabData {
     EditorType type;
 };
 
+class WslSystem;
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -113,7 +115,6 @@ class MainWindow : public QMainWindow {
     std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
 
     // Other
-    bool m_isWindows = false, m_isWslAvailable = false;
     QFont m_font;
     QDir m_configDir;
     QString m_themeFile;

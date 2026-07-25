@@ -17,10 +17,12 @@
 
 #include "page_10_intro.h"
 
+#include <QOperatingSystemVersion>
+
 #include "wizard_new_case.h"
 
 // Introduction page asks for the case name and platform
-IntroPage::IntroPage(bool isWindows, bool isWslAvailable, QWidget *parent):
+IntroPage::IntroPage(bool isWslAvailable, QWidget *parent):
     QWizardPage(parent) {
     // Set title and style
     setTitle(tr("Case Configuration"));
@@ -55,18 +57,32 @@ IntroPage::IntroPage(bool isWindows, bool isWslAvailable, QWidget *parent):
     int row = 0;
     QRadioButton *remoteButton = new QRadioButton(tr("Remote:"), targetGroup);
     m_remoteIPAddrEdit = new QLineEdit(targetGroup);
-    if (isWindows) {
-        if (isWslAvailable) {
-            QRadioButton *localWinButton =
-                new QRadioButton(tr("Local (WSL)"), targetGroup);
-            targetGroupLayout->addWidget(localWinButton, row++, 0);
-            m_targetButtonGroup->addButton(localWinButton,
-                static_cast<int>(TargetType::LOCAL_WINDOWS));
-        }
+    if (QOperatingSystemVersion::currentType() ==
+        QOperatingSystemVersion::Windows) {
+
+        // WSL radio button
+        QRadioButton *localWinButton =
+            new QRadioButton(tr("Local (WSL)"), targetGroup);
+        targetGroupLayout->addWidget(localWinButton, row++, 0);
+        m_targetButtonGroup->addButton(localWinButton,
+            static_cast<int>(TargetType::LOCAL_WINDOWS));
+
+        // Remote Linux button
         targetGroupLayout->addWidget(remoteButton, row, 0);
         m_targetButtonGroup->addButton(remoteButton,
             static_cast<int>(TargetType::REMOTE_LINUX));
         targetGroupLayout->addWidget(m_remoteIPAddrEdit, row++, 1);
+
+        // Disable WSL option if not available
+        if (!isWslAvailable) {
+            localWinButton->setText("Local (WSL) - WSL not available");
+            localWinButton->setDisabled(true);
+            localWinButton->setChecked(false);
+            remoteButton->setChecked(true);
+        } else {
+            localWinButton->setChecked(true);
+            remoteButton->setChecked(false);
+        }
 
     } else {
         QRadioButton *localLinuxButton =
@@ -78,6 +94,7 @@ IntroPage::IntroPage(bool isWindows, bool isWslAvailable, QWidget *parent):
         m_targetButtonGroup->addButton(remoteButton,
             static_cast<int>(TargetType::REMOTE_LINUX));
         targetGroupLayout->addWidget(m_remoteIPAddrEdit, row++, 1);
+        localLinuxButton->setChecked(true);
     }
 
     // Register target system ID
@@ -86,10 +103,10 @@ IntroPage::IntroPage(bool isWindows, bool isWslAvailable, QWidget *parent):
     registerField("targetSystemId", this, "targetSystemId");
 
     // Set the first button to checked
-    QList<QAbstractButton*> buttons = m_targetButtonGroup->buttons();
-    buttons.first()->setChecked(true);
+    // QList<QAbstractButton*> buttons = m_targetButtonGroup->buttons();
+    // buttons.first()->setChecked(true);
 
-    // Disable IP box for local target
+    // Enable IP box if remote target is chosen
     m_remoteIPAddrEdit->setEnabled(remoteButton->isChecked());
     connect(remoteButton, &QRadioButton::toggled,
             m_remoteIPAddrEdit, &QLineEdit::setEnabled);

@@ -30,7 +30,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <zlib.h>
+#include "miniz.h"
 
 QStringList LocalSystem::processPaths(const QString& pathString,
                                       PathOperationType opType) {
@@ -38,7 +38,7 @@ QStringList LocalSystem::processPaths(const QString& pathString,
 
     auto ends_with = [](const std::string& str, const std::string& suffix) {
         return str.size() >= suffix.size() &&
-               str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+            str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
     };
 
     // Handle LIST with an empty input string
@@ -255,29 +255,109 @@ QStringList LocalSystem::getTutorials(const QString& base_path) {
     return result;
 }
 
-// ZLIB extraction using standard C++ I/O and zlib
+// ZLIB extraction
 bool extractGzGeometry(const std::string& gzFilePath,
                        const std::string& outFilePath) {
-    gzFile inFile = gzopen(gzFilePath.c_str(), "rb");
-    if (!inFile) return false;
+    std::ifstream inFile(gzFilePath, std::ios::binary);
+    if (!inFile.is_open()) return false;
 
-    std::ofstream outFile(outFilePath, std::ios::binary);
-    if (!outFile.is_open()) {
-        gzclose(inFile);
+    // Validate
+    unsigned char header[10];
+    if (!inFile.read(reinterpret_cast<char*>(header), 10)) {
         return false;
     }
 
-    const int bufferSize = 128 * 1024;
-    std::vector<char> buffer(bufferSize);
-    int bytesRead = 0;
-
-    while ((bytesRead = gzread(inFile, buffer.data(), bufferSize)) > 0) {
-        outFile.write(buffer.data(), bytesRead);
+    // Verify Magic Bytes (0x1F, 0x8B) and Deflate compression method (0x08)
+    if (header[0] != 0x1F || header[1] != 0x8B || header[2] != 0x08) {
+        return false;
     }
 
-    gzclose(inFile);
-    outFile.close();
-    return (bytesRead >= 0);
+    unsigned char flags = header[3];
+
+    // Skip optional extra field (FLG bit 2)
+    if (flags & 0x04) {
+        unsigned char xlen[2];
+        if (!inFile.read(reinterpret_cast<char*>(xlen), 2)) return false;
+        uint16_t extraLen = static_cast<uint16_t>(xlen[0]) |
+                            (static_cast<uint16_t>(xlen[1]) << 8);
+        inFile.seekg(extraLen, std::ios::cur);
+    }
+
+    // Skip optional original filename (FLG bit 3)
+    if (flags & 0x08) {
+        char c;
+        while (inFile.get(c) && c != '\0');
+    }
+
+    // Skip optional file comment (FLG bit 4)
+    if (flags & 0x10) {
+        char c;
+        while (inFile.get(c) && c != '\0');
+    }
+
+    // Skip optional header CRC16 (FLG bit 1)
+    if (flags & 0x02) {
+        inFile.seekg(2, std::ios::cur);
+    }
+
+    if (!inFile.good()) return false;
+
+    // Open output file
+    std::ofstream outFile(outFilePath, std::ios::binary);
+    if (!outFile.is_open()) return false;
+
+    // Initialize miniz stream for Raw Deflate decompression
+    mz_stream stream;
+    std::memset(&stream, 0, sizeof(stream));
+
+    // Passing negative window bits tells miniz to bypass zlib header parsing
+    if (mz_inflateInit2(&stream, -MZ_DEFAULT_WINDOW_BITS) != MZ_OK) {
+        return false;
+    }
+
+    // Streaming decompression loop
+    const size_t bufferSize = 128 * 1024;
+    std::vector<unsigned char> inBuffer(bufferSize);
+    std::vector<unsigned char> outBuffer(bufferSize);
+
+    bool success = false;
+    int status = MZ_OK;
+
+    while (inFile.good() || stream.avail_in > 0) {
+        // Read next chunk from file
+        if (stream.avail_in == 0 && inFile.good()) {
+            inFile.read(reinterpret_cast<char*>(inBuffer.data()), bufferSize);
+            stream.avail_in = static_cast<mz_uint32>(inFile.gcount());
+            stream.next_in = inBuffer.data();
+            if (stream.avail_in == 0) break;
+        }
+
+        // Set up output buffer pointer and available space
+        stream.avail_out = static_cast<mz_uint32>(bufferSize);
+        stream.next_out = outBuffer.data();
+
+        // Perform inflation
+        status = mz_inflate(&stream, MZ_NO_FLUSH);
+
+        // Write decompressed bytes to disk
+        size_t bytesDecompressed = bufferSize - stream.avail_out;
+        if (bytesDecompressed > 0) {
+            outFile.write(reinterpret_cast<const char*>(outBuffer.data()),
+                          bytesDecompressed);
+            if (!outFile.good()) break;
+        }
+
+        // Check completion or error states
+        if (status == MZ_STREAM_END) {
+            success = true;
+            break;
+        } else if (status != MZ_OK && status != MZ_BUF_ERROR) {
+            break;
+        }
+    }
+
+    mz_inflateEnd(&stream);
+    return success;
 }
 
 // Evaluate wildcards (*, ?) natively via Qt
@@ -290,9 +370,11 @@ bool matchGlob(const std::string& pattern, const std::string& text) {
 void LocalSystem::processAllrunScript(const fs::path& scriptPath,
     const fs::path& projectPath, const fs::path& originalTutorialPath) {
 
-    if (!fs::exists(scriptPath)) return;
+    if (!fs::exists(scriptPath))
+        return;
     std::ifstream file(scriptPath);
-    if (!file.is_open()) return;
+    if (!file.is_open())
+        return;
 
     std::stringstream buffer;
     buffer << file.rdbuf();
@@ -396,9 +478,9 @@ QStringList LocalSystem::copyTutorialFolders(const QString& tutPath,
                                             const QString& projPath) {
     QStringList result;
 
+    // Check the tutorial path and project path
     fs::path tutorial_path = fs::path(tutPath.toStdString());
     fs::path project_path = fs::path(projPath.toStdString());
-
     if (!fs::exists(tutorial_path) || !fs::is_directory(tutorial_path)) {
         emit logMessage("Tutorial path does not exist or is not a directory.");
         return result;
@@ -539,8 +621,6 @@ QString LocalSystem::getResultFolders(QString casePath) {
 }
 
 QByteArray LocalSystem::getFileContent(const QString& path) {
-    QByteArray fileData;
-
     // Make sure the path exists
     QFileInfo fileInfo(path);
     if (!fileInfo.exists()) {
@@ -549,6 +629,7 @@ QByteArray LocalSystem::getFileContent(const QString& path) {
 
     // Read data if it's a file
     QFile file(path);
+    QByteArray fileData;
     if (fileInfo.isFile()) {
         if (file.open(QIODevice::ReadOnly)) {
             fileData = file.readAll();
@@ -628,6 +709,11 @@ std::pair<float, float> get_pressure_range(const QByteArray& pData) {
     return {minVal, maxVal};
 }
 
+RenderData LocalSystem::getMeshData(const QString& path) {
+    RenderData renderData;
+    return renderData;
+}
+
 RenderData LocalSystem::getResultData(const QString& path) {
     bool pointsFound = false, connectivityFound = false,
         offsetsFound = false, pFound = false;
@@ -643,7 +729,8 @@ RenderData LocalSystem::getResultData(const QString& path) {
     QString line;
 
     while (stream.readLineInto(&line)) {
-        if (!line.contains("<DataArray")) continue;
+        if (!line.contains("<DataArray"))
+            continue;
 
         if (!pointsFound && (line.contains("'Points'") ||
                              line.contains("\"Points\""))) {
@@ -720,8 +807,6 @@ RenderData LocalSystem::getResultData(const QString& path) {
         // Extract and normalize pressure
         float p_raw = rawPressures[i];
         destPtr[3] = (p_raw - minP) * invRange;
-
-        // Advance the destination pointer by 4 floats
         destPtr += 4;
     }
 
@@ -732,11 +817,9 @@ RenderData LocalSystem::getResultData(const QString& path) {
         reinterpret_cast<const uint32_t*>(offsetsData.constData());
     size_t numOffsets = offsetsData.size() / sizeof(uint32_t);
 
-    // Create index buffer
+    // Populate index buffer
     std::vector<uint32_t> indexBuffer;
     indexBuffer.reserve(connectivityData.size() / sizeof(uint32_t) * 1.5);
-
-    // Populate index buffer using std::vector's push_back
     size_t current_conn_idx = 0;
     for (size_t i = 0; i < numOffsets; ++i) {
         size_t offset = offsetsVals[i];
@@ -760,7 +843,7 @@ RenderData LocalSystem::getResultData(const QString& path) {
 
     // Populate the render data structure
     RenderData renderData;
-    renderData.format = RenderType::Color;
+    renderData.format = RenderType::Result;
     renderData.data = std::move(vertexBuffer);
     renderData.indices = std::move(indexBuffer);
     renderData.boundingBoxMin = bbMin;

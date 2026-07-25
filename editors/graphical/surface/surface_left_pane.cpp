@@ -23,14 +23,13 @@
 #include <string>
 #include <vector>
 
-#include "geometry/graphic_data.h"
+#include "editors/graphical/patch_palette.h"
 #include "editors/graphical/table_delegate.h"
 
 SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     // Vertical layout
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setSpacing(15);
-    setLayout(layout);
     setProperty("widgetType", "pane");
 
     // Set dimensions
@@ -156,8 +155,10 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     m_patchTable->setTabKeyNavigation(true);
     m_patchTable->setItemDelegateForColumn(1, new TableDelegate(m_patchTable));
     m_patchTable->setStyleSheet("QTableView::item { padding-left: 10px; }");
-    layout->addWidget(m_patchTable, 0, Qt::AlignHCenter);
-    m_patchTable->setShowGrid(false);
+    // layout->addWidget(m_patchTable, 0, Qt::AlignHCenter);
+    m_patchTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    layout->addWidget(m_patchTable);
+    // m_patchTable->setShowGrid(false);
 
     // Emit signal when a patch name changes
     connect(m_patchTable, &QTableWidget::itemChanged, this,
@@ -190,28 +191,19 @@ void SurfaceLeftPane::changeBounds(double scaleFactor) {
     m_boundsLabel->setText(boundsStr);
 }
 
-void SurfaceLeftPane::setPatchNames(
-    const std::vector<std::string>& patchNames) {
-    // Configure the table
-    m_patchTable->setRowCount(0);
+void SurfaceLeftPane::setPatchNames(const std::vector<std::string>& patchNames) {
+    // Block signals
+    QSignalBlocker blocker(m_patchTable);
     m_patchTable->setRowCount(static_cast<int>(patchNames.size()));
-
-    // Add rows to the table
+    PatchPalette::ensureCapacity(patchNames.size());
     for (int i = 0; i < static_cast<int>(patchNames.size()); i++) {
-        // Get the patch color
-        QColor color(
-            static_cast<int>(patchColors[i][0] * 255.0f),
-            static_cast<int>(patchColors[i][1] * 255.0f),
-            static_cast<int>(patchColors[i][2] * 255.0f),
-            static_cast<int>(patchColors[i][3] * 255.0f));
+        QColor color(PatchPalette::getColor(i));
 
-        // Create item for patch color
         QTableWidgetItem *colorItem = new QTableWidgetItem();
         colorItem->setFlags(Qt::ItemIsEnabled);
         colorItem->setBackground(color);
         m_patchTable->setItem(i, 0, colorItem);
 
-        // Create item for patch name
         QTableWidgetItem *nameItem =
             new QTableWidgetItem(QString::fromStdString(patchNames[i]));
         nameItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
@@ -219,13 +211,14 @@ void SurfaceLeftPane::setPatchNames(
         m_patchTable->setItem(i, 1, nameItem);
     }
 
+    /*
     // Set the table height
     int height = m_patchTable->frameWidth() * 2;
     for (int row = 0; row < m_patchTable->rowCount(); ++row) {
         height += m_patchTable->rowHeight(row);
     }
     m_patchTable->setFixedHeight(height);
-
+    */
     update();
 }
 
