@@ -22,7 +22,6 @@
 
 // Introduction page asks for the case name and platform
 CastellationPage::CastellationPage(QWidget *parent): QWizardPage(parent) {
-
     // Set title and style
     setTitle(tr("Castellation Mesh Configuration"));
 
@@ -127,7 +126,6 @@ CastellationPage::CastellationPage(QWidget *parent): QWizardPage(parent) {
 }
 
 void CastellationPage::initializePage() {
-
     // Access the mesh wizard
     meshWizard = qobject_cast<MeshWizard*>(wizard());
     if (!meshWizard) {
@@ -144,7 +142,6 @@ void CastellationPage::initializePage() {
 
 // Update widgets in the Global Constraints group
 void CastellationPage::updateGlobalSettings() {
-
     const auto& geometryMap = meshWizard->getGeometryMap();
 
     // Update the combo box
@@ -182,7 +179,6 @@ void CastellationPage::updateGlobalSettings() {
 
 // Update widgets in the Mesh Transition group
 void CastellationPage::updateMeshTransition() {
-
     // Update layer thickness between refinement levels
     cellLevelBox->setValue(m_cfg->nCellsBetweenLevels);
 
@@ -191,7 +187,6 @@ void CastellationPage::updateMeshTransition() {
 }
 
 void CastellationPage::updateSurfaceRefinement() {
-
     // Get data from Geometry Page
     QStringList geometryFiles = meshWizard->getGeometryMap().keys();
 
@@ -251,7 +246,6 @@ void CastellationPage::updateSurfaceRefinement() {
 }
 
 void CastellationPage::onMeshRegionChanged() {
-
     int index = meshRegionBox->currentIndex();
     QString regionText = meshRegionBox->itemText(index);
 
@@ -285,7 +279,6 @@ void CastellationPage::onMeshRegionChanged() {
 }
 
 void CastellationPage::onMeshLocationChanged() {
-
     // Find the exact index of the custom option (safely handles translation)
     int customIdx = meshRegionBox->findText(tr("Custom coordinates"));
 
@@ -336,7 +329,6 @@ QVector3D CastellationPage::computeExternalPoint() {
 }
 
 bool CastellationPage::validatePage() {
-
     if (!m_cfg) return false;
 
     // Global Settings
@@ -370,7 +362,7 @@ bool CastellationPage::validatePage() {
     m_cfg->refinementSurfaces.clear();
 
     // Initialize a map to hold data for each geometry file
-    std::map<QString, RefinementSurface> surfaceMap;
+    std::map<QString, CaseIO::RefinementSurface> surfaceMap;
     for (const QString& file : m_cfg->geometryFiles) {
         surfaceMap[file].name = file;
     }
@@ -394,7 +386,7 @@ bool CastellationPage::validatePage() {
             for (auto& pair : surfaceMap) {
                 const QString& file = pair.first;
 
-                RefinementRegion region;
+                CaseIO::RefinementRegion region;
                 region.name = rowName;
                 region.min = minBox->value();
                 region.max = maxBox->value();
@@ -414,9 +406,9 @@ bool CastellationPage::validatePage() {
 
 int CastellationPage::nextId() const {
     if (meshWizard->m_runSnap) {
-        return Page_SnapControl;
+        return MeshWizard::Page_SnapControl;
     } else if (meshWizard->m_runLayers) {
-        return Page_LayerControl;
+        return MeshWizard::Page_LayerControl;
     }
     return -1;
 }

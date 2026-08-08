@@ -37,8 +37,8 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "../../core_types.h"
-#include "solver_structs.h"
+#include "core_types.h"
+#include "parser/fv_solution.h"
 
 class SolverWizard;
 
@@ -55,9 +55,9 @@ class AlgorithmPage : public QWizardPage {
 
  private:
     SolverWizard* m_solverWizard;
-    MathConfig* m_cfg;
+    CaseIO::MathConfig* m_cfg;
     QString m_currentField;
-    FieldMathConfig* m_currentMathConfig;
+    CaseIO::FieldMathConfig* m_currentMathConfig;
 
     QButtonGroup *m_relaxGroup;
     QCheckBox *m_finalIterationCheck;

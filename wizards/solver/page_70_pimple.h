@@ -24,7 +24,7 @@
 #include <QSpinBox>
 #include <QTableWidget>
 
-#include "solver_structs.h"
+#include "parser/fv_solution.h"
 
 class SolverWizard;
 
@@ -41,7 +41,7 @@ class PimplePage : public QWizardPage {
 
  private:
     SolverWizard* m_solverWizard;
-    MathConfig* m_cfg;
+    CaseIO::MathConfig* m_cfg;
 
     QSpinBox *m_nOuterCorrectorsSpin, *m_nCorrectorsSpin,
         *m_nNonOrthogonalCorrectorsSpin, *m_pRefCellSpin;

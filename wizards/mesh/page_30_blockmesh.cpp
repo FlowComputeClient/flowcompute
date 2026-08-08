@@ -233,7 +233,7 @@ bool BlockMeshPage2::validatePage() {
     m_cfg->patches.clear();
 
     // Create map to aggregate identical patch names
-    std::map<QString, Patch> patchAggregator;
+    std::map<QString, CaseIO::Patch> patchAggregator;
 
     // Iterate through the table rows
     for (int i = 0; i < 6; ++i) {
@@ -254,17 +254,17 @@ bool BlockMeshPage2::validatePage() {
         }
 
         // Map the string to your C++ Enum
-        PatchType patchType = PatchType::patch; // Fallback default
-        if (typeStr == "wall") patchType = PatchType::wall;
-        else if (typeStr == "symmetryPlane") patchType = PatchType::symmetryPlane;
-        else if (typeStr == "empty") patchType = PatchType::empty;
-        else if (typeStr == "wedge") patchType = PatchType::wedge;
-        else if (typeStr == "cyclic") patchType = PatchType::cyclic;
+        CaseIO::PatchType patchType = CaseIO::PatchType::patch; // Fallback default
+        if (typeStr == "wall") patchType = CaseIO::PatchType::wall;
+        else if (typeStr == "symmetryPlane") patchType = CaseIO::PatchType::symmetryPlane;
+        else if (typeStr == "empty") patchType = CaseIO::PatchType::empty;
+        else if (typeStr == "wedge") patchType = CaseIO::PatchType::wedge;
+        else if (typeStr == "cyclic") patchType = CaseIO::PatchType::cyclic;
 
         // 5. Aggregate logic
         if (patchAggregator.find(patchName) == patchAggregator.end()) {
             // This is a brand new patch name; create it and add the face
-            Patch newPatch;
+            CaseIO::Patch newPatch;
             newPatch.name = patchName;
             newPatch.type = patchType;
             newPatch.faces.push_back(CANONICAL_FACES[i]);
@@ -273,8 +273,8 @@ bool BlockMeshPage2::validatePage() {
             // Validation: Ensure the user didn't select conflicting types for the same patch
             if (patchAggregator[patchName].type != patchType) {
                 QMessageBox::warning(this, tr("Boundary Type Conflict"),
-                                     tr("Faces sharing the same name ('%1') must have the same boundary type.")
-                                         .arg(patchName));
+                    tr("Faces sharing the same name ('%1') must have "
+                        "the same boundary type.").arg(patchName));
                 return false;
             }
 
@@ -303,13 +303,13 @@ bool BlockMeshPage2::validatePage() {
 
 int BlockMeshPage2::nextId() const {
     if (meshWizard->m_runExtract) {
-        return Page_SurfaceExtraction;
+        return MeshWizard::Page_SurfaceExtraction;
     } else if (meshWizard->m_runCastellated) {
-        return Page_Castellation;
+        return MeshWizard::Page_Castellation;
     } else if (meshWizard->m_runSnap) {
-        return Page_SnapControl;
+        return MeshWizard::Page_SnapControl;
     } else if (meshWizard->m_runLayers) {
-        return Page_LayerControl;
+        return MeshWizard::Page_LayerControl;
     }
     return -1;
 }

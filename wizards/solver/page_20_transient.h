@@ -35,8 +35,8 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "../../core_types.h"
-#include "solver_structs.h"
+#include "core_types.h"
+#include "parser/control_dict.h"
 
 class SolverWizard;
 
@@ -53,7 +53,7 @@ class TransientPage : public QWizardPage {
 
  private:
     SolverWizard* solverWizard;
-    ControlConfig* m_cfg;
+    CaseIO::ControlConfig* m_cfg;
 
     std::vector<FlowCompute::SolverFamily> m_families;
 

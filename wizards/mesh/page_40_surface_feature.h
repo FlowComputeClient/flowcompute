@@ -53,7 +53,7 @@ class SurfaceFeaturePage : public QWizardPage {
 
  private:
     MeshWizard* meshWizard;
-    QTableWidget* featureTable;
+    QTableWidget* m_featureTable;
 };
 
 #endif  // PAGE_40_SURFACE_FEATURE_H_

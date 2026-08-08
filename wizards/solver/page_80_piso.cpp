@@ -62,7 +62,8 @@ void PisoPage::initializePage() {
 
     // Access field data and boundaries
     m_cfg = &(m_solverWizard->getMathConfig());
-    PisoConfig& cfg = std::get<PisoConfig>(m_cfg->algorithmConfig);
+    CaseIO::PisoConfig& cfg =
+        std::get<CaseIO::PisoConfig>(m_cfg->algorithmConfig);
 
     m_nCorrectorsSpin->setValue(cfg.nCorrectors);
     m_nNonOrthogonalCorrectorsSpin->setValue(cfg.nNonOrthogonalCorrectors);
@@ -74,7 +75,8 @@ bool PisoPage::validatePage() {
     if (!m_cfg) return false;
 
     // Update state data
-    PisoConfig& cfg = std::get<PisoConfig>(m_cfg->algorithmConfig);
+    CaseIO::PisoConfig& cfg =
+        std::get<CaseIO::PisoConfig>(m_cfg->algorithmConfig);
     cfg.nCorrectors = m_nCorrectorsSpin->value();
     cfg.nNonOrthogonalCorrectors = m_nNonOrthogonalCorrectorsSpin->value();
     cfg.pRefCell = m_pRefCellSpin->value();
@@ -85,5 +87,5 @@ bool PisoPage::validatePage() {
 
 // Set next page of the wizard
 int PisoPage::nextId() const {
-    return Page_Parallel;
+    return SolverWizard::Page_Parallel;
 }

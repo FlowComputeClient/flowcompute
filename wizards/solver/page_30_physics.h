@@ -37,8 +37,8 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "../../core_types.h"
-#include "solver_structs.h"
+#include "core_types.h"
+#include "parser/common.h"
 
 class SolverWizard;
 
@@ -65,7 +65,7 @@ class PhysicsPage : public QWizardPage {
 
  private:
     SolverWizard* solverWizard;
-    PhysicsConfig* m_cfg;
+    CaseIO::PhysicsConfig* m_cfg;
     std::vector<FlowCompute::SolverFamily> m_families;
     FlowCompute::TurbulenceDatabase m_turbModels;
     std::map<QString, FlowCompute::TransportPropertyDef> m_transportProperties;

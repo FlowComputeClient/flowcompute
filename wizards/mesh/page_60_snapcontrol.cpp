@@ -49,7 +49,8 @@ SnapControlPage::SnapControlPage(QWidget *parent): QWizardPage(parent) {
     // Number of relaxation iterations after snapping
     relaxationBox = new QSpinBox(snapBox);
     relaxationBox->setRange(3, 20);
-    snapLayout->addRow(tr("Maximum number of relaxation iterations:"), relaxationBox);
+    snapLayout->addRow(tr("Maximum number of relaxation iterations:"),
+                       relaxationBox);
 
     // Create spin box for snapping tolerance
     toleranceBox = new QDoubleSpinBox(this);
@@ -82,7 +83,6 @@ SnapControlPage::SnapControlPage(QWidget *parent): QWizardPage(parent) {
 }
 
 void SnapControlPage::initializePage() {
-
     // Access the mesh wizard
     meshWizard = qobject_cast<MeshWizard*>(wizard());
     if (!meshWizard) {
@@ -102,7 +102,6 @@ void SnapControlPage::initializePage() {
 }
 
 bool SnapControlPage::validatePage() {
-
     // Update configuration object with widget values
     m_cfg->nSmoothPatch = smoothingBox->value();
     m_cfg->nSolveIter = maxSnappingBox->value();
@@ -111,13 +110,12 @@ bool SnapControlPage::validatePage() {
     m_cfg->explicitFeatureSnap = explicitSnapBox->isChecked();
     m_cfg->implicitFeatureSnap = implicitSnapBox->isChecked();
     m_cfg->nFeatureSnapIter = snapIterationBox->value();
-
     return true;
 }
 
 int SnapControlPage::nextId() const {
     if (meshWizard->m_runLayers) {
-        return Page_LayerControl;
+        return MeshWizard::Page_LayerControl;
     }
     return -1;
 }

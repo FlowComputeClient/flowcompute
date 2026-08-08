@@ -88,7 +88,7 @@ QStringList LocalSystem::processPaths(const QString& pathString,
             break;
         }
 
-        case PathOperationType::DELETE: {
+        case PathOperationType::REMOVE: {
             if (!exists) {
                 result.append("-1");
             } else {
@@ -579,45 +579,47 @@ bool LocalSystem::writeData(const QString& srcPath, const QString& dstPath) {
     return QFile::copy(srcPath, dstPath);
 }
 
-QString LocalSystem::getResultFolders(QString casePath) {
-    // Verify the path exists and is a directory
-    QFileInfo targetInfo(casePath);
-    if (!targetInfo.exists() || !targetInfo.isDir()) {
-        return "Directory does not exist.";
+std::pair<QStringList, QStringList>
+    LocalSystem::getTimesAndFields(const QString& projPath) {
+    QStringList timeFolders, fieldFiles;
+
+    // Verify the path exists
+    QDir projDir(projPath);
+    if (!projDir.exists()) {
+        qWarning() << "Directory does not exist:" << projPath;
+        return std::make_pair(timeFolders, fieldFiles);
     }
 
-    // Sort folders numerically (e.g., 0.5, 1, 2, 10)
-    QMap<double, QString> sorted_folders;
+    // Configure QDir to only look at directories and exclude "." and ".."
+    projDir.setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
+    QStringList allDirs = projDir.entryList();
 
-    // Iterate through directories except "." and ".."
-    QDir targetDir(casePath);
-    QFileInfoList entries = targetDir.entryInfoList(QDir::Dirs |
-                                                    QDir::NoDotAndDotDot);
-    for (const QFileInfo& entry : std::as_const(entries)) {
-        QString dir_name = entry.fileName();
-
-        // Check for a valid OpenFOAM numeric time step
-        bool ok = false;
-        double time_val = dir_name.toDouble(&ok);
-
-        // Check if string is a valid number
-        if (ok) {
-            QDir subDir(entry.filePath());
-
-            // Second pass: Check if this time directory contains any .vtp file
-            subDir.setNameFilters(QStringList() << "*.vtp");
-            subDir.setFilter(QDir::Files);
-
-            // Check if the filtered list is empty
-            if (!subDir.entryList().isEmpty()) {
-                sorted_folders.insert(time_val, dir_name);
-            }
+    // Use std::map to automatically sort the time folders numerically
+    std::map<double, QString> sortedFolders;
+    for (const QString& dirName : std::as_const(allDirs)) {
+        bool isNumeric = false;
+        double timeVal = dirName.toDouble(&isNumeric);
+        if (isNumeric) {
+            sortedFolders[timeVal] = dirName;
         }
     }
 
-    // Extract the sorted string values into a list
-    QStringList folder_names = sorted_folders.values();
-    return folder_names.join(",");
+    // Populate the time folders list in sorted order
+    for (const auto& [timeVal, dirName] : sortedFolders) {
+        timeFolders.append(dirName);
+    }
+
+    // Access latest time directory
+    if (!sortedFolders.empty()) {
+        QString latestTimeDir = sortedFolders.rbegin()->second;
+        QDir latestDir(projDir.filePath(latestTimeDir));
+        if (latestDir.exists()) {
+            latestDir.setFilter(QDir::Files |
+                QDir::NoDotAndDotDot | QDir::NoSymLinks);
+            fieldFiles = latestDir.entryList();
+        }
+    }
+    return std::make_pair(timeFolders, fieldFiles);
 }
 
 QByteArray LocalSystem::getFileContent(const QString& path) {
@@ -709,10 +711,12 @@ std::pair<float, float> get_pressure_range(const QByteArray& pData) {
     return {minVal, maxVal};
 }
 
+/*
 RenderData LocalSystem::getMeshData(const QString& path) {
     RenderData renderData;
     return renderData;
 }
+*/
 
 RenderData LocalSystem::getResultData(const QString& path) {
     bool pointsFound = false, connectivityFound = false,

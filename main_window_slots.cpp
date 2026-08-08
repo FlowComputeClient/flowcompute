@@ -21,6 +21,7 @@
 #include <QtConcurrent>
 #include <QFuture>
 #include <QFutureWatcher>
+#include <QMessageBox>
 #include <QProgressDialog>
 
 #include <memory>
@@ -31,14 +32,17 @@
 #include "dialogs/preferences/preferences_dialog.h"
 #include "dialogs/run_mesh/run_mesh_dialog.h"
 #include "dialogs/run_solver/run_solver_dialog.h"
+#include "dialogs/selection/selection_dialog.h"
 #include "editors/graphical/surface/surface_editor.h"
 #include "editors/graphical/mesh/mesh_editor.h"
 #include "editors/graphical/result/result_editor.h"
 #include "geometry/stl/stl_reader.h"
 #include "geometry/obj/obj_reader.h"
-#include "./utils.h"
+#include "parser/boundary.h"
+#include "parser/decompose_par_dict.h"
 #include "wizards/mesh/wizard_mesh.h"
 #include "wizards/new_case/wizard_new_case.h"
+#include "wizards/post_processing/wizard_postprocessing.h"
 #include "wizards/solver/wizard_solver.h"
 
 // Launch new case wizard
@@ -110,16 +114,25 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
     CaseData caseData = m_systemMgr.getData(caseName);
     int targetId = caseData.targetId;
     QString casePath = caseData.casePath + "/" + caseName;
-    QString path = caseData.casePath + "/" + fullPath + "/" + fileName;
-    QString openFoamPath = caseData.openFoamPath;
+    QString path;
+    if (fullPath.isEmpty()) {
+        path = caseData.casePath + "/" + fileName;
+    } else {
+        path = caseData.casePath + "/" + fullPath + "/" + fileName;
+    }
 
+    QString openFoamPath = caseData.openFoamPath;
     TabData tabData;
     tabData.fullPath = fullPath;
     tabData.type = type;
 
     // Update log
+    QString append;
+    if (type == EditorType::MESH) {
+        append = "(mesh)";
+    }
     if (logMessage)
-        m_console->appendPlainText(tr("Reading %1\n").arg(path));
+        m_console->appendPlainText(tr("Reading %1 %2\n").arg(path, append));
 
     // Text editor
     if (type == EditorType::TEXT) {
@@ -260,15 +273,22 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
             m_tabMap.insert(tabTitle, tabData);
         });
 
-        watcher->setFuture(QtConcurrent::run(&MainWindow::getMeshData,
-            this, caseName, casePath, openFoamPath));
+        // Set future to get mesh data
+        QFuture<std::shared_ptr<RenderData>> future =
+            QtConcurrent::run([this, caseName, casePath]() {
+            return std::make_shared<RenderData>(
+                m_systemMgr.getSystem(caseName)->getMeshData(casePath)
+            );
+        });
+        watcher->setFuture(future);
     }
 
     // Result editor
     if (type == EditorType::RESULT) {
         QString resultPath = casePath + "/postProcessing/surfaces";
+        /*
         QString res =
-            m_systemMgr.getSystem(caseName)->getResultFolders(resultPath);
+            m_systemMgr.getSystem(caseName)->getTimesAndFields(resultPath);
         if (res.isEmpty()) {
             qWarning() << "Couldn't find result folders";
             progress->deleteLater();
@@ -317,41 +337,19 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
 
             m_tabMap.insert(tabTitle, tabData);
         });
-
+        */
+        /*
         resultPath = resultPath + "/" + timeFolder;
         watcher->setFuture(QtConcurrent::run(
-            &MainWindow::getResultData, this, caseName, resultPath));
+            &MainWindow::loadResultData, this, caseName, resultPath));
+        */
     }
 }
 
 std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName,
-        QString casePath, QString openFoamPath) {
+        QString casePath) {
     return std::make_shared<RenderData>(
         m_systemMgr.getSystem(caseName)->getMeshData(casePath));
-    /*
-    // Convert mesh to STL file
-    QByteArray data;
-    QString meshFile = caseName + "_tmp.stl";
-    QString cmd = QString("cd %1; source %2/etc/bashrc && foamToSurface %3")
-                      .arg(casePath, openFoamPath, meshFile);
-
-    // Read new STL file
-    QString output;
-    if (m_systemMgr.getSystem(caseName)->launchShortUtility(cmd, output) == 0) {
-        data = m_systemMgr.getSystem(caseName)->getFileContent(
-            casePath + "/" + meshFile);
-    }
-
-    // Convert data to RenderData structure
-    return std::make_shared<RenderData>(MeshReader::readMesh(caseName, data));
-    */
-}
-
-// Access result data
-std::shared_ptr<RenderData> MainWindow::getResultData(QString caseName,
-                                                      QString resultPath) {
-    return std::make_shared<RenderData>(
-        m_systemMgr.getSystem(caseName)->getResultData(resultPath));
 }
 
 // Save file content to server
@@ -453,7 +451,7 @@ void MainWindow::deleteFile() {
 
     // Delete file
     QStringList result = m_systemMgr.getSystem(caseName)->processPaths(filePath,
-        PathOperationType::DELETE);
+        PathOperationType::REMOVE);
     m_deleteAction->setData(QVariant());
     m_navigator->removeNode(node);
 }
@@ -614,8 +612,17 @@ void MainWindow::applyTheme(const QString& themeFile) {
 
 // Launch mesh configuration wizard
 void MainWindow::launchMeshConfigurationWizard() {
+    // Check server connection
+    QString caseName = getSelectedCase();
+    auto system = m_systemMgr.getSystem(caseName);
+    if (system == nullptr) {
+        QMessageBox::critical(this, tr("Server access failure"),
+                              tr("Couldn't reach server."));
+        return;
+    }
+
     // Create the wizard
-    auto* wizard = new MeshWizard(getSelectedCase(), m_systemMgr, this);
+    auto* wizard = new MeshWizard(caseName, m_systemMgr, this);
     wizard->setAttribute(Qt::WA_DeleteOnClose);
 
     // Connect the signal to your slot
@@ -631,6 +638,14 @@ void MainWindow::launchMeshExecutionDialog() {
     CaseData caseData = m_systemMgr.getData(caseName);
     QString casePath = caseData.casePath + "/" + caseName;
     QString openFoamPath = caseData.openFoamPath;
+
+    // Check server connection
+    auto system = m_systemMgr.getSystem(caseName);
+    if (system == nullptr) {
+        QMessageBox::critical(this, tr("Server access failure"),
+                              tr("Couldn't reach server."));
+        return;
+    }
 
     // Check if using Foundation release of OpenFOAM
     QString dirName = QDir(openFoamPath).dirName();
@@ -650,12 +665,12 @@ void MainWindow::launchMeshExecutionDialog() {
                            casePath + "/system/snappyHexMeshDict"};
     }
     QString meshConfigFileString = meshConfigFiles.join("\n");
-    QStringList results = m_systemMgr.getSystem(caseName)->
-        processPaths(meshConfigFileString, PathOperationType::CHECK);
+    QStringList results = system->processPaths(meshConfigFileString,
+                                               PathOperationType::CHECK);
 
     // Launch dialog if any config files are present
     if (results.contains("0")) {
-        auto* dialog = new RunMeshDialog(getSelectedCase(), m_systemMgr,
+        auto* dialog = new RunMeshDialog(caseName, m_systemMgr,
                                          results, isFoundation, this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -722,7 +737,7 @@ void MainWindow::runMesh(const QString& caseName, bool runBlockMesh,
         if (numCores > 1) {
             // Create surfacePatchDict
             QString dictText =
-                Utils::createDecomposeParDict(openFoamPath, numCores);
+                CaseIO::createDecomposeParDict(openFoamPath, numCores);
             m_systemMgr.getSystem(caseName)->writeData(dictText.toUtf8(),
                 casePath + "/system/decomposeParDict");
         }
@@ -751,10 +766,55 @@ void MainWindow::viewMesh() {
 
 // Launch solver configuration wizard
 void MainWindow::launchSolverConfigurationWizard() {
+    // Check if server is available
+    QString caseName = getSelectedCase();
+    QString casePath = m_systemMgr.getData(caseName).casePath;
+    auto system = m_systemMgr.getSystem(caseName);
+    if (system == nullptr) {
+        QMessageBox::critical(this, tr("Server access failure"),
+                              tr("Couldn't reach server."));
+        return;
+    }
+
+    // Get patch names
+    QStringList patchNames;
+    QString fileName = "constant/polyMesh/boundary";
+    QByteArray fileData = system->getFileContent(
+        casePath + "/" + caseName + "/" + fileName);
+    if (!fileData.isEmpty()) {
+        patchNames = CaseIO::getPatches(fileData);
+    } else {
+        QMessageBox::critical(this, tr("Boundary File Absent"),
+            tr("Couldn't access constant/polyMesh/boundary file."));
+        return;
+    }
+
+    // Get field names
+    QStringList fieldNames;
+    // Check if field files are in 0
+    fileName = casePath + "/" + caseName + "/0";
+    fieldNames = m_systemMgr.getSystem(caseName)->processPaths(
+        fileName, PathOperationType::LIST);
+    if (fieldNames.isEmpty()) {
+        QMessageBox::critical(this, tr("Field Files Absent"),
+            tr("Couldn't find any field files in the case's 0 folder."));
+        return;
+    }
+
+    // Remove pipe characters if present
+    for (int i = fieldNames.size() - 1; i >= 0; --i) {
+        if (fieldNames[i].endsWith('|')) {
+            fieldNames[i].chop(1);
+        }
+        else {
+            fieldNames.removeAt(i);
+        }
+    }
+
     // Create the wizard
-    auto* wizard = new SolverWizard(getSelectedCase(), m_systemMgr,
+    auto* wizard = new SolverWizard(caseName, m_systemMgr,
         m_solverFamilies, m_turbulenceModels, m_transportProperties,
-        m_fieldData, m_boundaryConditions, this);
+        m_fieldData, m_boundaryConditions, patchNames, this);
     wizard->setAttribute(Qt::WA_DeleteOnClose);
 
     // Parse case files
@@ -776,6 +836,14 @@ void MainWindow::launchSolverExecutionDialog() {
     CaseData caseData = m_systemMgr.getData(caseName);
     QString casePath = caseData.casePath + "/" + caseName;
     QString openFoamPath = caseData.openFoamPath;
+
+    // Check if server is available
+    auto system = m_systemMgr.getSystem(caseName);
+    if (system == nullptr) {
+        QMessageBox::critical(this, tr("Server access failure"),
+                              tr("Couldn't reach server."));
+        return;
+    }
 
     // Check if using Foundation release of OpenFOAM
     QString dirName = QDir(openFoamPath).dirName();
@@ -822,15 +890,93 @@ void MainWindow::viewResult() {
     if (!node)
         return;
 
-    // Create editor for mesh
-    createEditor(EditorType::RESULT, node->name, node->fullPath, true);
+    // Get list of folders and field files
+    QString caseName = node->name;
+    QString casePath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
+
+    /*
+    QString res = m_systemMgr.getSystem(caseName)->getTimesAndFields(casePath);
+    QStringList stringList = res.split("|");
+
+    // Safety check: ensure stringList has expected data
+    if (stringList.size() < 2) {
+        qWarning() << "Invalid result string format.";
+        return;
+    }
+
+    QStringList timeFolders = stringList[0].split(",");
+    QStringList fieldFiles = stringList[1].split(",");
+
+    // FIX: Allocate the dialog on the stack to prevent memory leaks
+    SelectionDialog selectionDialog(tr("Field Selection"),
+        tr("Select one of the following fields to be displayed:"),
+        fieldFiles, this);
+
+    // Optional: Only proceed if the user clicked OK
+    if (selectionDialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    QString selectedField = selectionDialog.getSelectedItem();
+    */
+    /*
+    // Create progress bar to load
+    auto* progress =
+        new QProgressDialog("Loading results...", QString(), 0, 0, this);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumWidth(300);
+    progress->show();
+
+    // Create future watcher
+    using RenderDataPtr = std::shared_ptr<RenderData>;
+    auto* watcher = new QFutureWatcher<RenderDataPtr>(this);
+
+    connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
+        [this, watcher, progress, caseName, casePath, selectedField]() {
+
+            // Handle the progress dialog
+            if (progress) {
+                progress->close();
+                progress->deleteLater();
+            }
+
+            // Call function to load data
+            loadResultData(watcher, caseName, casePath);
+
+            // Clean up the watcher
+            watcher->deleteLater();
+        });
+
+    // Set future to get mesh data
+    auto future = QtConcurrent::run<std::shared_ptr<RenderData>>(
+        [this, caseName, casePath, selectedField]() -> std::shared_ptr<RenderData> {
+            return std::make_shared<RenderData>(
+                m_systemMgr.getSystem(caseName)->getMeshData(casePath));
+        });
+    watcher->setFuture(future);
+    */
 
     // Clear data
     m_viewResultAction->setData(QVariant());
 }
 
+// Access result data
+std::shared_ptr<RenderData> MainWindow::loadResultData(
+    QFutureWatcher<std::shared_ptr<RenderData>>* watcher,
+    QString caseName, QString resultPath) {
+
+    // Get mesh data
+    std::shared_ptr<RenderData> renderData = watcher->result();
+    if (renderData) {
+        for (const auto& patch: renderData->patches) {
+            qDebug() << patch.name;
+        }
+    }
+    return renderData;
+}
+
 void MainWindow::updateResult(const QString& casePath,
-                                const QString& timeFolder) {
+                            const QString& timeFolder) {
     // Access data in time folder
     QString caseName = QFileInfo(casePath).fileName();
     QString resultPath = casePath + "/postProcessing/surfaces/" + timeFolder;
@@ -851,3 +997,58 @@ void MainWindow::updateResult(const QString& casePath,
         m_tabWidget->setTabText(m_tabWidget->currentIndex(), tabText);
     }
 }
+
+// Launch post-processing wizard
+void MainWindow::launchPostProcessingWizard() {
+    // Check server connection
+    QString caseName = getSelectedCase();
+    QString casePath = m_systemMgr.getData(caseName).casePath;
+    auto system = m_systemMgr.getSystem(caseName);
+    if (system == nullptr) {
+        QMessageBox::critical(this, tr("Server access failure"),
+            tr("Couldn't reach server."));
+        return;
+    }
+
+    // Get patch names
+    QStringList patchNames;
+    QString fileName = "constant/polyMesh/boundary";
+    QByteArray fileData = system->getFileContent(
+        casePath + "/" + caseName + "/" + fileName);
+    if (!fileData.isEmpty()) {
+        patchNames = CaseIO::getPatches(fileData);
+    } else {
+        QMessageBox::critical(this, tr("Boundary File Absent"),
+             tr("Couldn't access constant/polyMesh/boundary file."));
+        return;
+    }
+
+    // Get field names
+    QStringList fieldNames;
+    // Check if field files are in 0
+    fileName = casePath + "/" + caseName + "/0";
+    fieldNames = m_systemMgr.getSystem(caseName)->processPaths(
+        fileName, PathOperationType::LIST);
+    if (fieldNames.isEmpty()) {
+        QMessageBox::critical(this, tr("Field Files Absent"),
+            tr("Couldn't find any field files in the case's 0 folder."));
+        return;
+    }
+
+    // Remove pipe characters if present
+    for (int i = fieldNames.size() - 1; i >= 0; --i) {
+        if (fieldNames[i].endsWith('|')) {
+            fieldNames[i].chop(1);
+        }
+        else {
+            fieldNames.removeAt(i);
+        }
+    }
+
+    // Create the wizard
+    auto* wizard = new PostprocessingWizard(getSelectedCase(), patchNames,
+                        fieldNames, m_systemMgr, this);
+    wizard->setAttribute(Qt::WA_DeleteOnClose);
+    wizard->exec();
+}
+

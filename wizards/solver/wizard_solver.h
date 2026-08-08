@@ -24,25 +24,30 @@
 #include <QWizard>
 
 #include "parser/open_foam_dictionary.h"
+#include "parser/control_dict.h"
+#include "parser/decompose_par_dict.h"
+#include "parser/field.h"
+#include "parser/fv_solution.h"
 #include "core_types.h"
-#include "solver_structs.h"
 #include "systems/system_manager.h"
-
-#include "page_10_control.h"
-#include "page_20_transient.h"
-#include "page_30_physics.h"
-#include "page_40_boundary.h"
-#include "page_50_algorithm.h"
-#include "page_60_simple.h"
-#include "page_70_pimple.h"
-#include "page_80_piso.h"
-#include "page_90_parallel.h"
-#include "page_93_visualization.h"
 
 class SolverWizard : public QWizard {
     Q_OBJECT
 
  public:
+    enum {
+        Page_Control = 0,
+        Page_Transient = 1,
+        Page_Physics = 2,
+        Page_Boundary = 3,
+        Page_Algorithm = 4,
+        Page_Simple = 5,
+        Page_Pimple = 6,
+        Page_Piso = 7,
+        Page_Parallel = 8,
+        Page_Tasks = 9
+    };
+
     SolverWizard(const QString& caseName, const SystemManager& systemMgr,
     const std::vector<FlowCompute::SolverFamily>& families,
     const FlowCompute::TurbulenceDatabase& turbModels,
@@ -50,34 +55,28 @@ class SolverWizard : public QWizard {
         transportProperties,
     const QHash<QString, FlowCompute::FieldDef>& fieldData,
     const std::vector<FlowCompute::BoundaryConditionDef>&
-        boundaryConditions, QWidget *parent);
+        boundaryConditions, QStringList patchNames, QWidget *parent);
 
     bool parseFiles();
-    ControlConfig& getControlConfig() { return m_controlConfig; };
-    PhysicsConfig& getPhysicsConfig() { return m_physicsConfig; };
-    QHash<QString, FlowCompute::FieldData>& getBoundaryConfig() {
+    CaseIO::ControlConfig& getControlConfig() { return m_controlConfig; };
+    CaseIO::PhysicsConfig& getPhysicsConfig() { return m_physicsConfig; };
+    QHash<QString, CaseIO::FieldData>& getBoundaryConfig() {
         return m_boundaryConfig;
     };
-    MathConfig& getMathConfig() { return m_mathConfig; };
-    ParallelConfig& getParallelConfig() { return m_parallelConfig; };
-    VisualizationConfig& getVisualizationConfig() {
-        return m_visualizationConfig;
-    };
+    CaseIO::MathConfig& getMathConfig() { return m_mathConfig; };
+    CaseIO::ParallelConfig& getParallelConfig() { return m_parallelConfig; };
 
     QStringList getSolverFields();
     QStringList getTurbulenceFields();
-    std::vector<FlowCompute::MeshPatch>& getBoundaries() {
+    std::vector<CaseIO::MeshPatch>& getBoundaries() {
         return m_boundaries;
     };
-    std::vector<FlowCompute::MeshPatch>
-        parseBoundaryPatches(const QByteArray& fileData);
 
     void setCaseName(const QString& text) { m_caseName = text; };
-    void setConfiguredFields(const QStringList& fields) {
-        m_configuredFields = fields;
+    void setFieldNames(const QStringList& fields) {
+        m_fieldNames = fields;
     }
-    QStringList getConfiguredFields() const { return m_configuredFields; }
-
+    QStringList getFieldNames() const { return m_fieldNames; }
     FlowCompute::Algorithm getSolverAlgorithm();
 
  signals:
@@ -90,7 +89,7 @@ class SolverWizard : public QWizard {
 
  private:
     const SystemManager& m_systemMgr;
-    std::vector<FlowCompute::MeshPatch> m_boundaries;
+    std::vector<CaseIO::MeshPatch> m_boundaries;
 
     // Data from config files
     std::vector<FlowCompute::SolverFamily> m_families;
@@ -104,14 +103,13 @@ class SolverWizard : public QWizard {
     // Solver dictionary structures
     bool showParsingErrorMessage(QString fileName);
     QMap<QString, std::shared_ptr<OpenFoamDictionary>> m_dictMap;
-    ControlConfig m_controlConfig;
-    PhysicsConfig m_physicsConfig;
-    QHash<QString, FlowCompute::FieldData> m_boundaryConfig;
-    MathConfig m_mathConfig;
-    ParallelConfig m_parallelConfig;
-    VisualizationConfig m_visualizationConfig;
+    CaseIO::ControlConfig m_controlConfig;
+    CaseIO::PhysicsConfig m_physicsConfig;
+    QHash<QString, CaseIO::FieldData> m_boundaryConfig;
+    CaseIO::MathConfig m_mathConfig;
+    CaseIO::ParallelConfig m_parallelConfig;
 
-    QStringList m_configuredFields;
+    QStringList m_fieldNames, m_patchNames;
     QString m_caseName;
     QString createSelectionDialog(const QStringList& paths);
 };

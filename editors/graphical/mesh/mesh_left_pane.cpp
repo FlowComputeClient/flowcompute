@@ -151,8 +151,8 @@ MeshLeftPane::MeshLeftPane(QStringList fields,
     layout->addStretch();
 }
 
-void MeshLeftPane::setPatches(const std::vector<FlowCompute::MeshPatch>&
-                                  patches) {
+void MeshLeftPane::setPatches(
+    const std::vector<CaseIO::MeshPatch>& patches) {
     m_boundaryPatches = patches;
 
     // Configure the table

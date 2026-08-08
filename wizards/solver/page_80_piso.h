@@ -23,7 +23,7 @@
 #include <QWizardPage>
 #include <QSpinBox>
 
-#include "solver_structs.h"
+#include "parser/fv_solution.h"
 
 class SolverWizard;
 
@@ -40,7 +40,7 @@ class PisoPage : public QWizardPage {
 
  private:
     SolverWizard* m_solverWizard;
-    MathConfig* m_cfg;
+    CaseIO::MathConfig* m_cfg;
 
     QDoubleSpinBox* m_pRefValueSpin;
     QSpinBox *m_nCorrectorsSpin, *m_nNonOrthogonalCorrectorsSpin,

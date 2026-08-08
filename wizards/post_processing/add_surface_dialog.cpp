@@ -1,0 +1,62 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
+#include "add_surface_dialog.h"
+
+#include <QMetaEnum>
+
+#include "parser/function_object.h"
+
+AddSurfaceDialog::AddSurfaceDialog(QWidget *parent)
+    : QDialog(parent) {
+
+    setWindowTitle(tr("Add New Surface"));
+    setModal(true);
+    QFormLayout* layout = new QFormLayout(this);
+    layout->setSpacing(15);
+
+    // Name Input
+    m_nameEdit = new QLineEdit(this);
+    layout->addRow(tr("Surface Name:"), m_nameEdit);
+
+    // Type Selection
+    m_typeCombo = new QComboBox(this);
+    QMetaEnum metaEnum = QMetaEnum::fromType<CaseIO::SurfaceDef::SurfaceType>();
+    for (int i = 0; i < metaEnum.keyCount(); ++i) {
+        m_typeCombo->addItem(metaEnum.key(i), metaEnum.value(i));
+    }
+    layout->addRow(tr("Surface Type:"), m_typeCombo);
+
+    // Standard OK/Cancel Buttons
+    QDialogButtonBox* buttonBox = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    layout->addRow(buttonBox);
+
+    // Connections
+    connect(buttonBox, &QDialogButtonBox::accepted, this,
+            &AddSurfaceDialog::validateAndAccept);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    this->adjustSize();
+}
+
+void AddSurfaceDialog::validateAndAccept() {
+    if (m_nameEdit->text().trimmed().isEmpty()) {
+        return;
+    }
+    accept();
+}

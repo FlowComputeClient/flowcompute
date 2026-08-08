@@ -15,10 +15,24 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "wizard_solver.h"
+#include "wizards/solver/wizard_solver.h"
 
-#include "utils.h"
-#include "solver_io.h"
+#include <QMessageBox>
+
+#include "parser/boundary.h"
+#include "parser/transport_properties.h"
+#include "parser/turbulence_properties.h"
+
+#include "wizards/solver/page_10_control.h"
+#include "wizards/solver/page_20_transient.h"
+#include "wizards/solver/page_30_physics.h"
+#include "wizards/solver/page_40_boundary.h"
+#include "wizards/solver/page_50_algorithm.h"
+#include "wizards/solver/page_60_simple.h"
+#include "wizards/solver/page_70_pimple.h"
+#include "wizards/solver/page_80_piso.h"
+#include "wizards/solver/page_90_parallel.h"
+#include "wizards/post_processing/page_10_tasks.h"
 
 SolverWizard::SolverWizard(const QString& caseName,
     const SystemManager& systemMgr,
@@ -28,10 +42,10 @@ SolverWizard::SolverWizard(const QString& caseName,
         transportProperties,
     const QHash<QString, FlowCompute::FieldDef>& fieldData,
     const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
-    QWidget *parent): QWizard(parent), m_caseName(caseName),
-        m_systemMgr(systemMgr), m_families(families), m_turbModels(turbModels),
-        m_fieldData(fieldData), m_boundaryConditions(boundaryConditions) {
-
+    QStringList patchNames, QWidget *parent): QWizard(parent),
+        m_caseName(caseName), m_systemMgr(systemMgr), m_families(families),
+        m_turbModels(turbModels), m_fieldData(fieldData),
+        m_boundaryConditions(boundaryConditions), m_patchNames(patchNames) {
     // Configure the wizard's appearance
     setWizardStyle(QWizard::ClassicStyle);
     setWindowTitle("Solver Configuration Wizard");
@@ -47,18 +61,26 @@ SolverWizard::SolverWizard(const QString& caseName,
     QStringList cases = m_systemMgr.getCases();
     setPage(Page_Control, new ControlPage(caseName, cases, families, this));
     setPage(Page_Transient, new TransientPage(families, this));
-    setPage(Page_Physics, new PhysicsPage(families, turbModels,
-                                          transportProperties, this));
-    setPage(Page_Boundary, new BoundaryPage(fieldData, boundaryConditions,
-                                            this));
+    setPage(Page_Physics,
+        new PhysicsPage(families, turbModels, transportProperties, this));
+    setPage(Page_Boundary,
+        new BoundaryPage(fieldData, boundaryConditions, this));
     setPage(Page_Algorithm, new AlgorithmPage(this));
     setPage(Page_Simple, new SimplePage(this));
     setPage(Page_Pimple, new PimplePage(this));
     setPage(Page_Piso, new PisoPage(this));
     setPage(Page_Parallel, new ParallelPage(this));
-    setPage(Page_Visualization1, new VisualizationPage(this));
-
+    setPage(Page_Tasks, new TasksPage(m_patchNames, m_fieldNames, this));
     setOption(QWizard::NoBackButtonOnStartPage);
+
+    // Allow the user to finish the wizard at Page_Parallel
+    connect(this, &QWizard::currentIdChanged, this, [this](int id) {
+        if (id == Page_Parallel) {
+            this->setOption(QWizard::HaveFinishButtonOnEarlyPages, true);
+        } else {
+            this->setOption(QWizard::HaveFinishButtonOnEarlyPages, false);
+        }
+    });
 }
 
 bool SolverWizard::parseFiles() {
@@ -76,7 +98,7 @@ bool SolverWizard::parseFiles() {
     fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/" + fileName);
     if (!fileData.isEmpty()) {
-        m_boundaries = SolverIO::parseBoundaryPatches(fileData);
+        m_boundaries = CaseIO::parseBoundary(fileData);
     }
     if(m_boundaries.empty()) {
         QMessageBox msgBox(this);
@@ -99,18 +121,18 @@ bool SolverWizard::parseFiles() {
         dict = std::make_shared<OpenFoamDictionary>(fileData);
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
-            m_controlConfig = SolverIO::parseControlConfig(dict);
+            m_controlConfig = CaseIO::parseControlDict(dict);
         } else {
-            auto action = Utils::showParsingErrorMessage(fileName, this);
+            auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
-            case Utils::ParseErrorAction::EditFile:
+            case CaseIO::ParseErrorAction::EditFile:
                 emit createEditor(EditorType::TEXT, fileName.split('/').last(),
                                   m_caseName + "/0.orig", false);
                 reject();
                 return false;
-            case Utils::ParseErrorAction::Overwrite:
+            case CaseIO::ParseErrorAction::Overwrite:
                 break;
-            case Utils::ParseErrorAction::Cancel:
+            case CaseIO::ParseErrorAction::Cancel:
                 return false;
             }
         }
@@ -124,18 +146,18 @@ bool SolverWizard::parseFiles() {
         dict = std::make_shared<OpenFoamDictionary>(fileData);
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
-            m_physicsConfig = SolverIO::parseTurbulenceProperties(dict);
+            m_physicsConfig = CaseIO::parseTurbulenceProperties(dict);
         } else {
-            auto action = Utils::showParsingErrorMessage(fileName, this);
+            auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
-            case Utils::ParseErrorAction::EditFile:
+            case CaseIO::ParseErrorAction::EditFile:
                 emit createEditor(EditorType::TEXT,
                     fileName.split('/').last(), m_caseName + "/0.orig", false);
                 reject();
                 return false;
-            case Utils::ParseErrorAction::Overwrite:
+            case CaseIO::ParseErrorAction::Overwrite:
                 break;
-            case Utils::ParseErrorAction::Cancel:
+            case CaseIO::ParseErrorAction::Cancel:
                 return false;
             }
         }
@@ -149,18 +171,18 @@ bool SolverWizard::parseFiles() {
         dict = std::make_shared<OpenFoamDictionary>(fileData);
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
-            SolverIO::parseTransportProperties(dict, m_physicsConfig);
+            CaseIO::parseTransportProperties(dict, m_physicsConfig);
         } else {
-            auto action = Utils::showParsingErrorMessage(fileName, this);
+            auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
-            case Utils::ParseErrorAction::EditFile:
+            case CaseIO::ParseErrorAction::EditFile:
                 emit createEditor(EditorType::TEXT,
                     fileName.split('/').last(), m_caseName + "/0.orig", false);
                 reject();
                 return false;
-            case Utils::ParseErrorAction::Overwrite:
+            case CaseIO::ParseErrorAction::Overwrite:
                 break;
-            case Utils::ParseErrorAction::Cancel:
+            case CaseIO::ParseErrorAction::Cancel:
                 return false;
             }
         }
@@ -180,21 +202,21 @@ bool SolverWizard::parseFiles() {
             auto dict = std::make_shared<OpenFoamDictionary>(fileData);
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
-                FlowCompute::FieldData fieldData;
-                SolverIO::parseFieldFile(dict, fieldData);
+                CaseIO::FieldData fieldData;
+                CaseIO::parseFieldFile(dict, fieldData);
                 m_boundaryConfig[fileName] = fieldData;
             } else {
-                auto action = Utils::showParsingErrorMessage(fileName, this);
+                auto action = CaseIO::showParsingErrorMessage(fileName, this);
                 switch(action) {
-                case Utils::ParseErrorAction::EditFile:
+                case CaseIO::ParseErrorAction::EditFile:
                     emit createEditor(EditorType::TEXT,
                         fileName.split('/').last(), m_caseName + "/0.orig",
                             false);
                     reject();
                     return false;
-                case Utils::ParseErrorAction::Overwrite:
+                case CaseIO::ParseErrorAction::Overwrite:
                     break;
-                case Utils::ParseErrorAction::Cancel:
+                case CaseIO::ParseErrorAction::Cancel:
                     return false;
                 }
             }
@@ -209,7 +231,7 @@ bool SolverWizard::parseFiles() {
         dict = std::make_shared<OpenFoamDictionary>(fileData);
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
-            SolverIO::parseSolutionFile(dict, m_mathConfig);
+            CaseIO::parseFvSolution(dict, m_mathConfig);
         } else {
 
             /*
@@ -219,16 +241,16 @@ bool SolverWizard::parseFiles() {
             }
             */
 
-            auto action = Utils::showParsingErrorMessage(fileName, this);
+            auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
-            case Utils::ParseErrorAction::EditFile:
+            case CaseIO::ParseErrorAction::EditFile:
                 emit createEditor(EditorType::TEXT, fileName.split('/').last(),
                                   m_caseName + "/system", false);
                 reject();
                 return false;
-            case Utils::ParseErrorAction::Overwrite:
+            case CaseIO::ParseErrorAction::Overwrite:
                 break;
-            case Utils::ParseErrorAction::Cancel:
+            case CaseIO::ParseErrorAction::Cancel:
                 return false;
             }
         }
@@ -242,7 +264,7 @@ bool SolverWizard::parseFiles() {
         dict = std::make_shared<OpenFoamDictionary>(fileData);
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
-            SolverIO::parseParallelFile(dict, m_parallelConfig);
+            CaseIO::parseDecomposeParDict(dict, m_parallelConfig);
         } else {
 
             /*
@@ -252,16 +274,16 @@ bool SolverWizard::parseFiles() {
             }
             */
 
-            auto action = Utils::showParsingErrorMessage(fileName, this);
+            auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
-            case Utils::ParseErrorAction::EditFile:
+            case CaseIO::ParseErrorAction::EditFile:
                 emit createEditor(EditorType::TEXT, fileName.split('/').last(),
                                   m_caseName + "/system", false);
                 reject();
                 return false;
-            case Utils::ParseErrorAction::Overwrite:
+            case CaseIO::ParseErrorAction::Overwrite:
                 break;
-            case Utils::ParseErrorAction::Cancel:
+            case CaseIO::ParseErrorAction::Cancel:
                 return false;
             }
         }
@@ -328,9 +350,10 @@ FlowCompute::Algorithm SolverWizard::getSolverAlgorithm() {
 }
 
 void SolverWizard::accept() {
-
+    // Complete validation
     QWizard::accept();
 
+    // Access communication
     CaseData caseData = m_systemMgr.getData(m_caseName);
     QString openFoamPath = caseData.openFoamPath;
     QString casePath = caseData.casePath;
@@ -339,34 +362,44 @@ void SolverWizard::accept() {
     // Update boundary file
     QByteArray fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/constant/polyMesh/boundary");
-    QByteArray newData = SolverIO::removeEmptyPatches(fileData);
+    QByteArray newData = CaseIO::removeEmptyPatches(fileData);
     system->writeData(newData,
         casePath + "/" + m_caseName + "/constant/polyMesh/boundary");
 
-    // Update/create controlDict
-    QString fileName = "system/controlDict";
-    /*
-    if (m_dictMap.contains(fileName)) {
-        controlDictText = SolverIO::updateControlDict(m_dictMap[fileName], m_controlConfig);
-    } else {
-        controlDictText = SolverIO::createControlDict(m_controlConfig, openFoamPath);
+    // Access the tasks page
+    TasksPage* tasksPage = qobject_cast<TasksPage*>(page(Page_Tasks));
+    if (!tasksPage) {
+        qWarning() << "Error: Could not resolve TasksPage";
+        return;
     }
-    */
-    QString dictText = SolverIO::createControlDict(m_controlConfig,
-        m_visualizationConfig, openFoamPath);
+
+    // Create the text for function objects
+    QString funcText = "FoamFile\n{\n    version 2.0;\n    format ascii;\n"
+       "    class dictionary;\n    object postProcessDict;\n}\n\n" +
+       CaseIO::createFunctionsBlock(tasksPage->getFunctionObjects());
+
+    // Update/create controlDict
+    QString dictText, fileName = "system/controlDict";
+    if (m_dictMap.contains(fileName)) {
+        dictText = CaseIO::updateControlDict(
+            m_dictMap[fileName], m_controlConfig, funcText);
+    } else {
+        dictText = CaseIO::createControlDict(
+            m_controlConfig, openFoamPath, funcText);
+    }
     system->writeData(dictText.toUtf8(),
         casePath + "/" + m_caseName + "/" + fileName);
 
     // Update/create turbulenceProperties
     fileName = "constant/turbulenceProperties";
-    dictText = SolverIO::createTurbulenceProperties(m_physicsConfig,
+    dictText = CaseIO::createTurbulenceProperties(m_physicsConfig,
                                                     openFoamPath);
     system->writeData(dictText.toUtf8(),
         casePath + "/" + m_caseName + "/" + fileName);
 
     // Update/create transportProperties
     fileName = "constant/transportProperties";
-    dictText = SolverIO::createTransportProperties(m_physicsConfig,
+    dictText = CaseIO::createTransportProperties(m_physicsConfig,
                                                    openFoamPath);
     system->writeData(dictText.toUtf8(),
         casePath + "/" + m_caseName + "/" + fileName);
@@ -375,9 +408,9 @@ void SolverWizard::accept() {
     for (auto it = m_boundaryConfig.constBegin();
          it != m_boundaryConfig.constEnd(); ++it) {
         const QString& fieldName = it.key();
-        FlowCompute::FieldData fieldData = it.value();
+        CaseIO::FieldData fieldData = it.value();
         fileName = "0.orig/" + fieldName;
-        dictText = SolverIO::createFieldFile(fieldName,
+        dictText = CaseIO::createFieldFile(fieldName,
             m_boundaryConfig[fieldName], openFoamPath);
         system->writeData(dictText.toUtf8(),
             casePath + "/" + m_caseName + "/" + fileName);
@@ -385,13 +418,13 @@ void SolverWizard::accept() {
 
     // Update/create fvSolution
     fileName = "system/fvSolution";
-    dictText = SolverIO::createSolutionFile(m_mathConfig, openFoamPath);
+    dictText = CaseIO::createFvSolution(m_mathConfig, openFoamPath);
     system->writeData(dictText.toUtf8(),
         casePath + "/" + m_caseName + "/" + fileName);
 
     // Update/create decomposeParDict
     fileName = "system/decomposeParDict";
-    dictText = SolverIO::createParallelFile(m_parallelConfig, openFoamPath);
+    dictText = CaseIO::createDecomposeParDict(m_parallelConfig, openFoamPath);
     system->writeData(dictText.toUtf8(),
         casePath + "/" + m_caseName + "/" + fileName);
 

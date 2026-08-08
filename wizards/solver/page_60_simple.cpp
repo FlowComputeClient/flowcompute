@@ -85,7 +85,8 @@ void SimplePage::initializePage() {
 
     // Access field data and boundaries
     m_cfg = &(m_solverWizard->getMathConfig());
-    SimpleConfig& cfg = std::get<SimpleConfig>(m_cfg->algorithmConfig);
+    CaseIO::SimpleConfig& cfg =
+        std::get<CaseIO::SimpleConfig>(m_cfg->algorithmConfig);
 
     // Update fields
     m_nNonOrthogonalCorrectorsSpin->setValue(cfg.nNonOrthogonalCorrectors);
@@ -129,7 +130,8 @@ bool SimplePage::validatePage() {
     if (!m_cfg) return false;
 
     // Update state data
-    SimpleConfig& cfg = std::get<SimpleConfig>(m_cfg->algorithmConfig);
+    CaseIO::SimpleConfig& cfg =
+        std::get<CaseIO::SimpleConfig>(m_cfg->algorithmConfig);
     cfg.nNonOrthogonalCorrectors = m_nNonOrthogonalCorrectorsSpin->value();
     cfg.consistent = m_consistentCheck->isChecked();
     cfg.pRefCell = m_pRefCellSpin->value();
@@ -162,7 +164,7 @@ bool SimplePage::validatePage() {
 
 // Set next page of the wizard
 int SimplePage::nextId() const {
-    return Page_Parallel;
+    return SolverWizard::Page_Parallel;
 }
 
 // Center checkboxes visually in a table cell

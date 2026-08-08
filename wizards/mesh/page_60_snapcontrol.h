@@ -36,7 +36,7 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "mesh_structs.h"
+#include "parser/snappy_hex_mesh_dict.h"
 
 class MainWindow;
 class MeshWizard;
@@ -53,7 +53,7 @@ class SnapControlPage : public QWizardPage {
     bool validatePage() override;
 
  private:
-    SnapControlConfig* m_cfg;
+    CaseIO::SnapControlConfig* m_cfg;
     MeshWizard* meshWizard;
     QSpinBox *smoothingBox, *maxSnappingBox, *relaxationBox, *snapIterationBox;
     QCheckBox *explicitSnapBox, *implicitSnapBox;

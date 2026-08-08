@@ -174,12 +174,10 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
 }
 
 bool InteractivePage::validatePage() {
-
     // Access the case configuration structure
     NewCaseWizard* newCaseWizard = qobject_cast<NewCaseWizard*>(wizard());
-    if (!newCaseWizard) {
+    if (!newCaseWizard)
         return false;
-    }
     CaseConfig* caseConfig = &(newCaseWizard->getCaseConfig());
 
     // Set configuration settings
@@ -193,6 +191,5 @@ bool InteractivePage::validatePage() {
     caseConfig->radiationConfig = m_radiationCheck->isChecked();
     caseConfig->combustionConfig = m_combustionCheck->isChecked();
     caseConfig->priorityConfig = m_prioritySlider->value();
-
     return true;
 }

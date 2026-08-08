@@ -64,8 +64,15 @@ struct RenderData {
     std::vector<uint32_t> indices;
     std::vector<uint32_t> lineIndices;
     std::vector<RenderPatch> patches;
+    std::vector<uint32_t> pointOffsets;
+    std::vector<uint32_t> faceAdjacency;
     std::array<float, 3> boundingBoxMin;
     std::array<float, 3> boundingBoxMax;
+};
+
+struct FieldData {
+    uint32_t numElements;
+    std::vector<float> elementVals;
 };
 
 #endif  // GEOMETRY_GRAPHIC_DATA_H_

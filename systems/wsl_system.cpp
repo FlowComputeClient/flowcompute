@@ -22,8 +22,9 @@
 #include <QSettings>
 #include <QDebug>
 
-#include <string>
 #include <vector>
+
+#include "dialogs/selection/selection_dialog.h"
 
 QJsonObject WslSystem::contactServer(QString action, QString message,
                                      int opType) {
@@ -362,10 +363,28 @@ bool WslSystem::writeData(const QString& localPath,
     }
 }
 
-QString WslSystem::getResultFolders(QString projPath) {
-    QJsonObject result = contactServer("getResultFolders", projPath);
-    QString res = result["message"].toString();
-    return res;
+std::pair<QStringList, QStringList>
+    WslSystem::getTimesAndFields(const QString& projPath) {
+
+    QStringList timeFolders, fieldNames;
+    QJsonObject result = contactServer("getTimesAndFields", projPath);
+
+    // Get array of time folders
+    QJsonArray timeArray = result["time_folders"].toArray();
+    for (const QJsonValue& timeFolder : std::as_const(timeArray)) {
+        if (timeFolder.isString()) {
+            timeFolders.append(timeFolder.toString());
+        }
+    }
+
+    // Get array of field names
+    QJsonArray fieldArray = result["latest_fields"].toArray();
+    for (const QJsonValue& fieldName : std::as_const(fieldArray)) {
+        if (fieldName.isString()) {
+            fieldNames.append(fieldName.toString());
+        }
+    }
+    return std::make_pair(timeFolders, fieldNames);
 }
 
 QByteArray WslSystem::getFileContent(const QString& path) {
@@ -648,7 +667,7 @@ RenderData WslSystem::getResultData(const QString& path) {
 // Check for installed WSL distributions
 bool WslSystem::checkDistributions() {
     QString selectedDistribution;
-    std::vector<std::string> distributions;
+    QStringList distributions;
 
     // Use QProcess to query installed WSL distributions
     QProcess process;
@@ -669,7 +688,7 @@ bool WslSystem::checkDistributions() {
         for (const QString& line : std::as_const(lines)) {
             QString dist = line.trimmed();
             if (!dist.isEmpty()) {
-                distributions.push_back(dist.toStdString());
+                distributions.append(dist);
             }
         }
     } else {
@@ -682,9 +701,14 @@ bool WslSystem::checkDistributions() {
         qWarning() << "No WSL distributions found.";
         return false;
     } else if (distributions.size() == 1) {
-        selectedDistribution = QString::fromStdString(distributions[0]);
+        selectedDistribution = distributions[0];
     } else {
-        selectedDistribution = createSelectionDialog(distributions);
+        auto selectionDialog =
+        new SelectionDialog(tr("Multiple WSL Distributions Detected"),
+                            tr("Select one of the following:"),
+                            distributions);
+        selectionDialog->exec();
+        selectedDistribution = selectionDialog->getSelectedItem();
     }
 
     // If the user cancelled the dialog, the string will be empty
@@ -700,55 +724,5 @@ bool WslSystem::checkDistributions() {
     settings.endGroup();
     settings.endGroup();
 
-    qDebug() << selectedDistribution;
-
     return true;
-}
-
-QString WslSystem::createSelectionDialog(
-    const std::vector<std::string>& paths) {
-
-    // Create the dialog
-    QDialog dialog(nullptr);
-    dialog.setWindowTitle(QObject::tr("Multiple WSL Distributions Detected"));
-
-    // Layout for the dialog
-    QVBoxLayout *layout = new QVBoxLayout(&dialog);
-
-    // Add label
-    layout->addWidget(new QLabel(
-        QObject::tr("Select the desired WSL distribution:"), &dialog));
-
-    // Button group to manage exclusivity and retrieval
-    QButtonGroup buttonGroup(&dialog);
-
-    // Create radio buttons
-    for (int i = 0; i < paths.size(); ++i) {
-        QRadioButton *rb =
-            new QRadioButton(QString::fromStdString(paths[i]), &dialog);
-        layout->addWidget(rb);
-        buttonGroup.addButton(rb, i);
-        if (i == 0) {
-            rb->setChecked(true);
-        }
-    }
-
-    // OK/Cancel buttons
-    QDialogButtonBox *buttonBox =
-        new QDialogButtonBox(QDialogButtonBox::Ok |
-            QDialogButtonBox::Cancel, &dialog);
-    layout->addWidget(buttonBox);
-
-    QObject::connect(buttonBox, &QDialogButtonBox::accepted,
-                     &dialog, &QDialog::accept);
-    QObject::connect(buttonBox, &QDialogButtonBox::rejected,
-                     &dialog, &QDialog::reject);
-
-    // Execute the dialog
-    if (dialog.exec() == QDialog::Accepted) {
-        QAbstractButton *selected = buttonGroup.checkedButton();
-        if (selected)
-            return selected->text();
-    }
-    return "";
 }

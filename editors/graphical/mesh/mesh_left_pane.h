@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "./core_types.h"
+#include "parser/field.h"
 
 class MeshLeftPane : public QWidget {
     Q_OBJECT
@@ -45,18 +46,18 @@ class MeshLeftPane : public QWidget {
 
     // Get and set patch names
     std::vector<std::string> getPatchNames() const;
-    void setPatches(const std::vector<FlowCompute::MeshPatch>& patches);
+    void setPatches(const std::vector<CaseIO::MeshPatch>& patches);
 
  signals:
     void dirtyStateChanged(bool isDirty);
     void meshCheckRequested();
     void meshPatchRequested(double angle);
     void meshRenumberRequested();
-    void patchApplyRequested(std::vector<FlowCompute::MeshPatch>& patches);
+    void patchApplyRequested(std::vector<CaseIO::MeshPatch>& patches);
 
  private:
     QDoubleSpinBox* m_angleSpin;
-    QHash<QString, FlowCompute::FieldData> m_fieldEditorMap;
+    QHash<QString, CaseIO::FieldData> m_fieldEditorMap;
     QPushButton *m_checkButton, *m_renumberButton, *m_patchButton,
         *m_applyButton;
     QString m_currentField;
@@ -64,7 +65,7 @@ class MeshLeftPane : public QWidget {
     QTableWidget *m_patchTable;
     QHash<QString, FlowCompute::FieldDef> m_fieldData;
     std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
-    std::vector<FlowCompute::MeshPatch> m_boundaryPatches;
+    std::vector<CaseIO::MeshPatch> m_boundaryPatches;
 
  private slots:
     void onCheckButtonClicked();

@@ -25,7 +25,7 @@
 #include <QSpinBox>
 #include <QTableWidget>
 
-#include "solver_structs.h"
+#include "parser/fv_solution.h"
 
 class SolverWizard;
 
@@ -42,7 +42,7 @@ class SimplePage : public QWizardPage {
 
  private:
     SolverWizard* m_solverWizard;
-    MathConfig* m_cfg;
+    CaseIO::MathConfig* m_cfg;
 
     QCheckBox *m_consistentCheck;
     QDoubleSpinBox *m_pRefValueSpin;
@@ -50,4 +50,4 @@ class SimplePage : public QWizardPage {
     QTableWidget* m_resTable;
 };
 
-#endif // PAGE_60_SIMPLE_H
+#endif  // PAGE_60_SIMPLE_H

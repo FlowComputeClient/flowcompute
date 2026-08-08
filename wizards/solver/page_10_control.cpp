@@ -63,7 +63,7 @@ ControlPage::ControlPage(const QString& caseName, const QStringList& cases,
     timingLayout->setSpacing(10);
 
     m_startFromCombo = new QComboBox(this);
-    QMetaEnum metaEnum = QMetaEnum::fromType<Solver::StartSolverType>();
+    QMetaEnum metaEnum = QMetaEnum::fromType<CaseIO::StartSolverType>();
     for (int i = 0; i < metaEnum.keyCount(); ++i) {
         m_startFromCombo->addItem(metaEnum.key(i));
     }
@@ -79,7 +79,7 @@ ControlPage::ControlPage(const QString& caseName, const QStringList& cases,
     timingLayout->addRow(tr("Start time: "), m_startTimeSpin);
 
     m_stopAtCombo = new QComboBox(this);
-    metaEnum = QMetaEnum::fromType<Solver::EndSolverType>();
+    metaEnum = QMetaEnum::fromType<CaseIO::EndSolverType>();
     for (int i = 0; i < metaEnum.keyCount(); ++i) {
         m_stopAtCombo->addItem(metaEnum.key(i));
     }
@@ -118,14 +118,14 @@ ControlPage::ControlPage(const QString& caseName, const QStringList& cases,
     writeLayout->addRow(checkLayout);
 
     m_writeFormatCombo = new QComboBox(this);
-    metaEnum = QMetaEnum::fromType<Solver::WriteFormatType>();
+    metaEnum = QMetaEnum::fromType<CaseIO::WriteFormatType>();
     for (int i = 0; i < metaEnum.keyCount(); ++i) {
         m_writeFormatCombo->addItem(metaEnum.key(i));
     }
     writeLayout->addRow(tr("Write format: "), m_writeFormatCombo);
 
     m_writeControlCombo = new QComboBox(this);
-    metaEnum = QMetaEnum::fromType<Solver::WriteControlType>();
+    metaEnum = QMetaEnum::fromType<CaseIO::WriteControlType>();
     for (int i = 0; i < metaEnum.keyCount(); ++i) {
         m_writeControlCombo->addItem(metaEnum.key(i));
     }
@@ -200,18 +200,20 @@ bool ControlPage::validatePage() {
     m_cfg->solver = m_solverCombo->currentText();
 
     // Timing fields
-    m_cfg->startFrom = static_cast<Solver::StartSolverType>(m_startFromCombo->currentIndex());
+    m_cfg->startFrom =
+        static_cast<CaseIO::StartSolverType>(m_startFromCombo->currentIndex());
     m_cfg->startTime = m_startTimeSpin->value();
-    m_cfg->stopAt = static_cast<Solver::EndSolverType>(m_stopAtCombo->currentIndex());
+    m_cfg->stopAt =
+        static_cast<CaseIO::EndSolverType>(m_stopAtCombo->currentIndex());
     m_cfg->endTime = m_endTimeSpin->value();
     m_cfg->deltaT = m_deltaTSpin->value();
 
     // Write output fields
     m_cfg->writeCompression = m_compressCheck->isChecked();
     m_cfg->runTimeModifiable = m_modifiableCheck->isChecked();
-    m_cfg->writeFormat = static_cast<Solver::WriteFormatType>(
+    m_cfg->writeFormat = static_cast<CaseIO::WriteFormatType>(
         m_writeFormatCombo->currentIndex());
-    m_cfg->writeControl = static_cast<Solver::WriteControlType>(
+    m_cfg->writeControl = static_cast<CaseIO::WriteControlType>(
         m_writeControlCombo->currentIndex());
     m_cfg->writeInterval = m_writeIntervalEdit->text().toDouble();
     m_cfg->purgeWrite = m_purgeWriteSpin->value();
@@ -230,9 +232,9 @@ bool ControlPage::validatePage() {
 // Set next page of the wizard
 int ControlPage::nextId() const {
     if (m_isSteadyState) {
-        return Page_Physics;
+        return SolverWizard::Page_Physics;
     } else {
-        return Page_Transient;
+        return SolverWizard::Page_Transient;
     }
 }
 

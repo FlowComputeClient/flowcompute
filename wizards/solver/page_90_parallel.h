@@ -36,7 +36,7 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "solver_structs.h"
+#include "parser/decompose_par_dict.h"
 
 class SolverWizard;
 
@@ -53,7 +53,7 @@ class ParallelPage : public QWizardPage {
 
  private:
     SolverWizard* solverWizard;
-    ParallelConfig* m_cfg;
+    CaseIO::ParallelConfig* m_cfg;
 
     QCheckBox *m_parallelCheck;
     QComboBox *m_methodCombo, *m_hierOrderCombo;

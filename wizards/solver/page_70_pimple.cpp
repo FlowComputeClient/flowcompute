@@ -87,7 +87,8 @@ void PimplePage::initializePage() {
 
     // Access field data and boundaries
     m_cfg = &(m_solverWizard->getMathConfig());
-    PimpleConfig& cfg = std::get<PimpleConfig>(m_cfg->algorithmConfig);
+    CaseIO::PimpleConfig& cfg =
+        std::get<CaseIO::PimpleConfig>(m_cfg->algorithmConfig);
 
     // Update fields
     m_nOuterCorrectorsSpin->setValue(cfg.nOuterCorrectors);
@@ -131,7 +132,8 @@ bool PimplePage::validatePage() {
     if (!m_cfg) return false;
 
     // Update state data
-    PimpleConfig& cfg = std::get<PimpleConfig>(m_cfg->algorithmConfig);
+    CaseIO::PimpleConfig& cfg =
+        std::get<CaseIO::PimpleConfig>(m_cfg->algorithmConfig);
     cfg.nOuterCorrectors = m_nOuterCorrectorsSpin->value();
     cfg.nCorrectors = m_nCorrectorsSpin->value();
     cfg.nNonOrthogonalCorrectors = m_nNonOrthogonalCorrectorsSpin->value();
@@ -165,7 +167,7 @@ bool PimplePage::validatePage() {
 
 // Set next page of the wizard
 int PimplePage::nextId() const {
-    return Page_Parallel;
+    return SolverWizard::Page_Parallel;
 }
 
 // Center checkboxes visually in a table cell

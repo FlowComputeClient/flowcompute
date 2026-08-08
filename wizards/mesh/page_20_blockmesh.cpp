@@ -18,6 +18,7 @@
 #include "page_20_blockmesh.h"
 
 #include <QDir>
+#include <QFormLayout>
 #include <QPushButton>
 
 #include "page_10_geometry.h"

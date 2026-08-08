@@ -17,6 +17,15 @@
 
 #include "wizard_new_case.h"
 
+#include <QFile>
+
+#include "page_10_intro.h"
+#include "page_15_remote.h"
+#include "page_20_tutorial.h"
+#include "page_30_interactive.h"
+#include "page_40_project.h"
+
+#include "dialogs/selection/selection_dialog.h"
 #include "template_strings.h"
 
 NewCaseWizard::NewCaseWizard(SystemManager& systemMgr, QWidget *parent):
@@ -31,6 +40,8 @@ NewCaseWizard::NewCaseWizard(SystemManager& systemMgr, QWidget *parent):
     // Add pages
     setPage(static_cast<int>(WizardPage::Page_Intro),
             new IntroPage(isWslAvailable, this));
+    setPage(static_cast<int>(WizardPage::Page_Remote),
+            new RemotePage(systemMgr, this));
     setPage(static_cast<int>(WizardPage::Page_Tutorial),
             new TutorialPage(this));
     setPage(static_cast<int>(WizardPage::Page_Interactive),
@@ -57,9 +68,10 @@ bool NewCaseWizard::validateCurrentPage() {
         // Read registered fields
         m_caseName = field("caseName").toString();
         m_targetId = static_cast<TargetType>(field("targetSystemId").toInt());
+        m_system = m_systemMgr.getSystem(m_targetId);
 
         // For WSL access, check if server is installed
-        if (m_targetId == 0) {
+        if (m_targetId == static_cast<int>(TargetType::LOCAL_WINDOWS)) {
             if(!m_systemMgr.checkWslServer()) {
                 QString title = tr("Server Installation Failure");
                 QString msg = tr("Failed to install the WSL server in "
@@ -99,81 +111,38 @@ bool NewCaseWizard::validateCurrentPage() {
             }
         }
 
-        // Determine OpenFOAM installation
-        QStringList ofList = m_systemMgr.getSystem(m_targetId)->findOpenFoam();
-        if(ofList.empty()) {
-            QMessageBox::critical(this, tr("Missing OpenFOAM"),
-                tr("No OpenFOAM installations detected..."));
-            m_openFoamPath = "";
-            return false;
-        } else if (ofList.size() > 1) {
-            m_openFoamPath = createSelectionDialog(ofList);
-            return !m_openFoamPath.isEmpty();
-        } else {
-            m_openFoamPath = ofList[0];
+        // For remote access, move to the next page
+        if (m_targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
+            return true;
         }
-        return true;
+        return checkOpenFoam();
+    } else if (currentId() == static_cast<int>(WizardPage::Page_Remote)) {
+        return checkOpenFoam();
     }
+
     return QWizard::validateCurrentPage();
 }
 
-QString NewCaseWizard::createSelectionDialog(const QStringList& paths) {
+bool NewCaseWizard::checkOpenFoam() {
 
-    // Create the dialog
-    QDialog dialog(this);
-    dialog.setWindowTitle("Multiple OpenFOAM Installations Detected");
-
-    // Layout for the dialog
-    QVBoxLayout *layout = new QVBoxLayout(&dialog);
-    layout->setSpacing(15);
-    layout->setContentsMargins(10, 10, 10, 10);
-
-    // Add label
-    layout->addWidget(new QLabel(tr("Select one of the following "
-                                    "OpenFOAM installations:"), &dialog));
-
-    // Create sub-layout
-    QVBoxLayout *subLayout = new QVBoxLayout();
-    subLayout->setContentsMargins(12, 5, 0, 0);
-    subLayout->setSpacing(15);
-    layout->addLayout(subLayout);
-
-    // Button group to manage exclusivity and retrieval
-    QButtonGroup buttonGroup(&dialog);
-
-    // Create radio buttons
-    for (int i = 0; i < paths.size(); ++i) {
-        QRadioButton *rb = new QRadioButton(paths[i], &dialog);
-        subLayout->addWidget(rb);
-        buttonGroup.addButton(rb, i);
-        if (i == 0) {
-            rb->setChecked(true);
-        }
+    // Determine OpenFOAM installation
+    QStringList ofList = m_systemMgr.getSystem(m_targetId)->findOpenFoam();
+    if(ofList.empty()) {
+        QMessageBox::critical(this, tr("Missing OpenFOAM"),
+                              tr("No OpenFOAM installations detected..."));
+        m_openFoamPath = "";
+        return false;
+    } else if (ofList.size() > 1) {
+        auto selectionDialog =
+            new SelectionDialog(tr("Multiple OpenFOAM Installations Detected"),
+                tr("Select one of the following:"), ofList, this);
+        selectionDialog->exec();
+        m_openFoamPath = selectionDialog->getSelectedItem();
+        return !m_openFoamPath.isEmpty();
+    } else {
+        m_openFoamPath = ofList[0];
     }
-
-    layout->addSpacing(5);
-
-    // OK/Cancel buttons
-    QDialogButtonBox *buttonBox =
-        new QDialogButtonBox(QDialogButtonBox::Ok |
-            QDialogButtonBox::Cancel, &dialog);
-    buttonBox->setCenterButtons(true);
-    layout->addWidget(buttonBox);
-
-    layout->addSpacing(5);
-
-    QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dialog,
-        &QDialog::accept);
-    QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog,
-        &QDialog::reject);
-
-    // Execute the dialog
-    if (dialog.exec() == QDialog::Accepted) {
-        QAbstractButton *selected = buttonGroup.checkedButton();
-        if (selected)
-            return selected->text();
-    }
-    return "";
+    return true;
 }
 
 void NewCaseWizard::accept() {

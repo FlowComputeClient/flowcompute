@@ -18,7 +18,6 @@
 #include "page_90_parallel.h"
 
 #include "wizard_solver.h"
-#include "../../core_types.h"
 
 // Configures decomposeParDict
 ParallelPage::ParallelPage(QWidget *parent): QWizardPage(parent) {
@@ -26,6 +25,7 @@ ParallelPage::ParallelPage(QWidget *parent): QWizardPage(parent) {
     // Set title and style
     setTitle(tr("Parallel Mesh Decomposition (decomposeParDict)"));
     QVBoxLayout* layout = new QVBoxLayout(this);
+    setFinalPage(true);
 
     // Parallel group
     QGroupBox* parallelGroup =
@@ -51,7 +51,7 @@ ParallelPage::ParallelPage(QWidget *parent): QWizardPage(parent) {
     // Select the method
     m_methodCombo = new QComboBox(this);
     QMetaEnum methodEnum =
-        QMetaEnum::fromType<FlowCompute::DecompositionMethod>();
+        QMetaEnum::fromType<CaseIO::ParallelConfig::DecompositionMethod>();
     for (int i = 0; i < methodEnum.keyCount(); ++i) {
         m_methodCombo->addItem(methodEnum.key(i), methodEnum.value(i));
     }
@@ -187,26 +187,27 @@ bool ParallelPage::validatePage() {
 
     // Set shared parameters
     m_cfg->numSubdomains = m_subdomainsSpin->value();
-    m_cfg->method = static_cast<FlowCompute::DecompositionMethod>(
+    m_cfg->method = static_cast<CaseIO::ParallelConfig::DecompositionMethod>(
         m_methodCombo->currentData().toInt());
 
     // Consolidate Simple and Hierarchical validation
-    if (m_cfg->method == FlowCompute::DecompositionMethod::Simple ||
-        m_cfg->method == FlowCompute::DecompositionMethod::Hierarchical) {
+    if (m_cfg->method == CaseIO::ParallelConfig::DecompositionMethod::Simple ||
+        m_cfg->method ==
+            CaseIO::ParallelConfig::DecompositionMethod::Hierarchical) {
 
-        // Determine which set of widgets to read from based on the active method
-        QSpinBox* activeX =
-            (m_cfg->method == FlowCompute::DecompositionMethod::Simple) ?
-                                m_simpleXSpin : m_hierXSpin;
-        QSpinBox* activeY =
-            (m_cfg->method == FlowCompute::DecompositionMethod::Simple) ?
-                                m_simpleYSpin : m_hierYSpin;
-        QSpinBox* activeZ =
-            (m_cfg->method == FlowCompute::DecompositionMethod::Simple) ?
-                                m_simpleZSpin : m_hierZSpin;
-        QDoubleSpinBox* activeDelta =
-            (m_cfg->method == FlowCompute::DecompositionMethod::Simple) ?
-                                m_simpleDeltaSpin : m_hierDeltaSpin;
+        // Determine which set of widgets to read
+        QSpinBox* activeX = (m_cfg->method ==
+            CaseIO::ParallelConfig::DecompositionMethod::Simple) ?
+                m_simpleXSpin : m_hierXSpin;
+        QSpinBox* activeY = (m_cfg->method ==
+            CaseIO::ParallelConfig::DecompositionMethod::Simple) ?
+                m_simpleYSpin : m_hierYSpin;
+        QSpinBox* activeZ = (m_cfg->method ==
+            CaseIO::ParallelConfig::DecompositionMethod::Simple) ?
+                m_simpleZSpin : m_hierZSpin;
+        QDoubleSpinBox* activeDelta = (m_cfg->method ==
+            CaseIO::ParallelConfig::DecompositionMethod::Simple) ?
+                m_simpleDeltaSpin : m_hierDeltaSpin;
 
         int nx = activeX->value();
         int ny = activeY->value();
@@ -231,7 +232,8 @@ bool ParallelPage::validatePage() {
         m_cfg->delta = activeDelta->value();
 
         // Apply method-specific values
-        if (m_cfg->method == FlowCompute::DecompositionMethod::Hierarchical) {
+        if (m_cfg->method ==
+                CaseIO::ParallelConfig::DecompositionMethod::Hierarchical) {
             m_cfg->order = m_hierOrderCombo->currentText();
         }
     }
@@ -251,17 +253,17 @@ void ParallelPage::methodChanged(int index) {
     // Get the selected decomposition method
     QVariant data = m_methodCombo->itemData(index);
     auto currentMethod =
-        static_cast<FlowCompute::DecompositionMethod>(data.toInt());
+        static_cast<CaseIO::ParallelConfig::DecompositionMethod>(data.toInt());
 
     switch (currentMethod) {
-    case FlowCompute::DecompositionMethod::Scotch:
-    case FlowCompute::DecompositionMethod::Metis:
+    case CaseIO::ParallelConfig::DecompositionMethod::Scotch:
+    case CaseIO::ParallelConfig::DecompositionMethod::Metis:
         m_methodStack->setCurrentIndex(0);
         break;
-    case FlowCompute::DecompositionMethod::Simple:
+    case CaseIO::ParallelConfig::DecompositionMethod::Simple:
         m_methodStack->setCurrentIndex(1);
         break;
-    case FlowCompute::DecompositionMethod::Hierarchical:
+    case CaseIO::ParallelConfig::DecompositionMethod::Hierarchical:
         m_methodStack->setCurrentIndex(2);
         break;
     }

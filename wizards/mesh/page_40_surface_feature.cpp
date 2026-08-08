@@ -33,23 +33,23 @@ SurfaceFeaturePage::SurfaceFeaturePage(QWidget *parent):
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
     // Create table to set surface extraction features
-    featureTable = new QTableWidget(this);
-    featureTable->setColumnCount(5);
-    featureTable->setHorizontalHeaderLabels({"File Name", "Included Angle",
+    m_featureTable = new QTableWidget(this);
+    m_featureTable->setColumnCount(5);
+    m_featureTable->setHorizontalHeaderLabels({"File Name", "Included Angle",
         "Open Edges", "Write OBJ File", "Edge Level"});
-    featureTable->horizontalHeader()->setSectionResizeMode(
+    m_featureTable->horizontalHeader()->setSectionResizeMode(
         0, QHeaderView::Stretch);
-    featureTable->horizontalHeader()->setSectionResizeMode(
+    m_featureTable->horizontalHeader()->setSectionResizeMode(
         1, QHeaderView::ResizeToContents);
-    featureTable->horizontalHeader()->setSectionResizeMode(
+    m_featureTable->horizontalHeader()->setSectionResizeMode(
         2, QHeaderView::ResizeToContents);
-    featureTable->horizontalHeader()->setSectionResizeMode(
+    m_featureTable->horizontalHeader()->setSectionResizeMode(
         3, QHeaderView::ResizeToContents);
-    featureTable->horizontalHeader()->setSectionResizeMode(
+    m_featureTable->horizontalHeader()->setSectionResizeMode(
         4, QHeaderView::ResizeToContents);
-    featureTable->verticalHeader()->setVisible(false);
-    featureTable->setSelectionMode(QAbstractItemView::NoSelection);
-    mainLayout->addWidget(featureTable);
+    m_featureTable->verticalHeader()->setVisible(false);
+    m_featureTable->setSelectionMode(QAbstractItemView::NoSelection);
+    mainLayout->addWidget(m_featureTable);
 
     mainLayout->addStretch();
 
@@ -65,18 +65,18 @@ void SurfaceFeaturePage::initializePage() {
     }
 
     // Clear existing data to prevent stacking issues
-    featureTable->setRowCount(0);
+    m_featureTable->setRowCount(0);
 
     // Get data from Geometry Page
     GeometryPage* geometryPage = qobject_cast<GeometryPage*>(wizard()->page(0));
     QStringList geometryFiles = geometryPage->getGeometryFiles();
-    featureTable->setRowCount(geometryFiles.size());
+    m_featureTable->setRowCount(geometryFiles.size());
 
     // List selected files
     for (int i = 0; i < geometryFiles.size(); ++i) {
         QString fileName = geometryFiles[i];
 
-        SurfaceFeatureEntry entry;
+        CaseIO::SurfaceFeatureEntry entry;
         auto it = meshWizard->getFeatureMap().find(fileName);
         if (it != meshWizard->getFeatureMap().end()) {
             entry = it->second;
@@ -85,7 +85,7 @@ void SurfaceFeaturePage::initializePage() {
         // --- Column 0: File Name ---
         QTableWidgetItem* fileItem = new QTableWidgetItem(fileName);
         fileItem->setFlags(fileItem->flags() & ~Qt::ItemIsEditable);
-        featureTable->setItem(i, 0, fileItem);
+        m_featureTable->setItem(i, 0, fileItem);
 
         // --- Column 1: Included Angle ---
         QDoubleSpinBox* angleSpin = new QDoubleSpinBox(this);
@@ -97,30 +97,30 @@ void SurfaceFeaturePage::initializePage() {
         double safeAngle = (entry.angle > 0.0) ?
                                entry.angle : 150.0;
         angleSpin->setValue(safeAngle);
-        featureTable->setCellWidget(i, 1, angleSpin);
+        m_featureTable->setCellWidget(i, 1, angleSpin);
 
         // --- Column 2: Open Edges ---
         QCheckBox* openEdgesCheck = new QCheckBox(this);
         openEdgesCheck->setChecked(entry.openEdges);
-        featureTable->setCellWidget(i, 2, centerCheckBox(openEdgesCheck));
+        m_featureTable->setCellWidget(i, 2, centerCheckBox(openEdgesCheck));
 
         // --- Column 3: Write OBJ ---
         QCheckBox* writeObjCheck = new QCheckBox(this);
         writeObjCheck->setChecked(entry.writeObj);
-        featureTable->setCellWidget(i, 3, centerCheckBox(writeObjCheck));
+        m_featureTable->setCellWidget(i, 3, centerCheckBox(writeObjCheck));
 
         // --- Column 4: Edge Level ---
         QSpinBox* edgeLevelSpin = new QSpinBox(this);
         edgeLevelSpin->setRange(0, 8);
         edgeLevelSpin->setValue(3);
-        featureTable->setCellWidget(i, 4, edgeLevelSpin);
+        m_featureTable->setCellWidget(i, 4, edgeLevelSpin);
     }
 
     // Set the table height
-    int height = featureTable->horizontalHeader()->height() +
-        (featureTable->rowCount() * featureTable->rowHeight(0))
-        + featureTable->frameWidth() * 2;
-    featureTable->setFixedHeight(height);    
+    int height = m_featureTable->horizontalHeader()->height() +
+        (m_featureTable->rowCount() * m_featureTable->rowHeight(0))
+        + m_featureTable->frameWidth() * 2;
+    m_featureTable->setFixedHeight(height);
 }
 
 // Center checkboxes visually in a table cell
@@ -137,25 +137,25 @@ bool SurfaceFeaturePage::validatePage() {
 
     // Clear the existing map to prevent stale data
     meshWizard->getFeatureMap().clear();
-    for (int i = 0; i < featureTable->rowCount(); ++i) {
+    for (int i = 0; i < m_featureTable->rowCount(); ++i) {
 
         // Read the filename
-        QString fileName = featureTable->item(i, 0)->text();
+        QString fileName = m_featureTable->item(i, 0)->text();
 
         // Access the table's widgets
         auto* angleSpin =
-            qobject_cast<QDoubleSpinBox*>(featureTable->cellWidget(i, 1));
-        auto* openEdgesWidget = featureTable->cellWidget(i, 2);
+            qobject_cast<QDoubleSpinBox*>(m_featureTable->cellWidget(i, 1));
+        auto* openEdgesWidget = m_featureTable->cellWidget(i, 2);
         auto* openEdgesCheck = openEdgesWidget->findChild<QCheckBox*>();
-        auto* writeObjWidget = featureTable->cellWidget(i, 3);
+        auto* writeObjWidget = m_featureTable->cellWidget(i, 3);
         auto* writeObjCheck = writeObjWidget->findChild<QCheckBox*>();
         auto* edgeLevelSpin =
-            qobject_cast<QSpinBox*>(featureTable->cellWidget(i, 4));
+            qobject_cast<QSpinBox*>(m_featureTable->cellWidget(i, 4));
 
         // Build the struct and push to the map
         if (angleSpin && openEdgesCheck && writeObjCheck && edgeLevelSpin) {
 
-            SurfaceFeatureEntry newEntry;
+            CaseIO::SurfaceFeatureEntry newEntry;
             newEntry.angle = angleSpin->value();
             newEntry.openEdges = openEdgesCheck->isChecked();
             newEntry.writeObj = writeObjCheck->isChecked();
@@ -168,11 +168,11 @@ bool SurfaceFeaturePage::validatePage() {
 
 int SurfaceFeaturePage::nextId() const {
     if (meshWizard->m_runCastellated) {
-        return Page_Castellation;
+        return MeshWizard::Page_Castellation;
     } else if (meshWizard->m_runSnap) {
-        return Page_SnapControl;
+        return MeshWizard::Page_SnapControl;
     } else if (meshWizard->m_runLayers) {
-        return Page_LayerControl;
+        return MeshWizard::Page_LayerControl;
     }
     return -1;
 }

@@ -23,7 +23,6 @@ QWidget* centerBox(QCheckBox* box);
 
 // Introduction page asks for the case name and platform
 LayerControlPage::LayerControlPage(QWidget *parent): QWizardPage(parent) {
-
     // Set title and style
     setTitle(tr("Boundary Layer Configuration"));
 
@@ -148,7 +147,6 @@ LayerControlPage::LayerControlPage(QWidget *parent): QWizardPage(parent) {
 }
 
 void LayerControlPage::initializePage() {
-
     // Access the mesh wizard
     meshWizard = qobject_cast<MeshWizard*>(wizard());
     if (!meshWizard) {

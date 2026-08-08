@@ -26,9 +26,10 @@
 #include <string>
 #include <vector>
 
+#include "editors/graphical/mesh/mesh_left_pane.h"
 #include "editors/graphical/vulkan/vulkan_window.h"
 #include "geometry/graphic_data.h"
-#include "editors/graphical/mesh/mesh_left_pane.h"
+#include "parser/common.h"
 
 class TargetSystem;
 
@@ -65,7 +66,7 @@ class MeshEditor : public QWidget {
 
     std::vector<FlowCompute::SolverFamily> m_families;
     FlowCompute::TurbulenceDatabase m_turbModels;
-    std::vector<FlowCompute::MeshPatch> m_boundaries;
+    std::vector<CaseIO::MeshPatch> m_boundaries;
     QHash<QString, FlowCompute::FieldDef> m_fieldData;
 
     VulkanWindow* m_vulkanWindow;
@@ -81,7 +82,7 @@ class MeshEditor : public QWidget {
     void onMeshCheckRequest();
     void onMeshPatchRequest(double featureAngle);
     void onMeshRenumberRequest();
-    void onPatchApply(std::vector<FlowCompute::MeshPatch>& patches);
+    void onPatchApply(std::vector<CaseIO::MeshPatch>& patches);
 };
 
 #endif  // EDITORS_GRAPHICAL_MESH_MESH_EDITOR_H_

@@ -24,12 +24,13 @@
 
 enum class UtilityType {
     MESH = 0,
-    SOLVER
+    SOLVER,
+    POSTPROCESS
 };
 
 enum class PathOperationType {
     CREATE = 0,
-    DELETE,
+    REMOVE,
     CHECK,
     LIST
 };
@@ -57,7 +58,8 @@ class TargetSystem: public QObject {
     virtual QStringList processPaths(const QString& path,
                                      PathOperationType type) = 0;
     virtual RenderData getMeshData(const QString& path) = 0;
-    virtual QString getResultFolders(QString path) = 0;
+    virtual std::pair<QStringList, QStringList>
+        getTimesAndFields(const QString& projPath) = 0;
     virtual RenderData getResultData(const QString& path) = 0;
 
  signals:

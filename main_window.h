@@ -25,6 +25,7 @@
 #include <QMainWindow>
 #include <QMenu>
 #include <QMenuBar>
+#include <QProgressDialog>
 #include <QStandardPaths>
 #include <QToolBar>
 #include <QVersionNumber>
@@ -70,10 +71,10 @@ class MainWindow : public QMainWindow {
     void applyTheme(const QString &themeFile);
 
     // Load data
-    std::shared_ptr<RenderData> getMeshData(QString caseName, QString casePath,
-        QString openFoamPath);
-    std::shared_ptr<RenderData> getResultData(QString caseName,
-        QString resultPath);
+    std::shared_ptr<RenderData> getMeshData(QString caseName, QString casePath);
+    std::shared_ptr<RenderData> loadResultData(
+        QFutureWatcher<std::shared_ptr<RenderData>>* watcher,
+        QString caseName, QString resultPath);
     void loadSolverFamilies();
     void loadMaterialProperties();
     void loadTurbulenceModels();
@@ -178,6 +179,9 @@ class MainWindow : public QMainWindow {
     void stopSolver();
     void viewResult();
     void updateResult(const QString& casePath, const QString& timeFolder);
+
+    // Post-processing wizard
+    void launchPostProcessingWizard();
 
     // Other
     void log(const QString& text);

@@ -19,10 +19,8 @@
 #define SELECTION_DIALOG_H_
 
 #include <QDialog>
-#include <QListWidget>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QDialogButtonBox>
+
+class QButtonGroup;
 
 class SelectionDialog : public QDialog {
     Q_OBJECT
@@ -33,9 +31,10 @@ class SelectionDialog : public QDialog {
                     const QStringList& items, QWidget* parent = nullptr);
 
     QString getSelectedItem() const;
+    int getSelectedIndex() const;
 
  private:
-    QListWidget* m_listWidget;
+    QButtonGroup* m_buttonGroup;
 };
 
 #endif // SELECTION_DIALOG_H_

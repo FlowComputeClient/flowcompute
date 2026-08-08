@@ -18,21 +18,16 @@
 #ifndef WIZARDS_NEW_CASE_WIZARD_NEW_CASE_H_
 #define WIZARDS_NEW_CASE_WIZARD_NEW_CASE_H_
 
-#include <QFile>
 #include <QWizard>
-
-#include "page_10_intro.h"
-#include "page_20_tutorial.h"
-#include "page_30_interactive.h"
-#include "page_40_project.h"
 
 #include "systems/system_manager.h"
 
 enum class WizardPage {
     Page_Intro = 0,
-    Page_Tutorial = 1,
-    Page_Interactive = 2,
-    Page_Project = 3
+    Page_Remote = 1,
+    Page_Tutorial = 2,
+    Page_Interactive = 3,
+    Page_Project = 4
 };
 
 enum class CaseCreationType {
@@ -93,11 +88,12 @@ class NewCaseWizard : public QWizard {
     CaseConfig m_caseConfig;
     QString m_geometryFile;
 
-    QString createSelectionDialog(const QStringList& paths);
+    bool checkOpenFoam();
 
     // Create template case
     bool createCase(QString newCasePath);
     void createCaseFiles(const QString&, const QString&, const QString&);
+
 };
 
 #endif  // WIZARDS_NEW_CASE_WIZARD_NEW_CASE_H_

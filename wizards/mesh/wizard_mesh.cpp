@@ -19,8 +19,13 @@
 
 #include <QDir>
 
-#include "mesh_io.h"
-#include "utils.h"
+#include "page_10_geometry.h"
+#include "page_20_blockmesh.h"
+#include "page_30_blockmesh.h"
+#include "page_40_surface_feature.h"
+#include "page_50_castellation.h"
+#include "page_60_snapcontrol.h"
+#include "page_70_layercontrol.h"
 
 // Function declarations
 MeshWizard::MeshWizard(const QString& caseName, const SystemManager& systemMgr,
@@ -56,7 +61,6 @@ bool MeshWizard::loadParseFiles() {
 
     // If blockMesh should be run
     if (m_runBlockMesh) {
-
         // Load data
         fileName = "system/blockMeshDict";
         fileData = system->getFileContent(
@@ -65,19 +69,19 @@ bool MeshWizard::loadParseFiles() {
             dict = std::make_shared<OpenFoamDictionary>(fileData);
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
-                m_blockMeshConfig = MeshIO::parseBlockMesh(dict);
+                m_blockMeshConfig = CaseIO::parseBlockMeshDict(dict);
             } else {
-                auto action = Utils::showParsingErrorMessage(fileName, this);
+                auto action = CaseIO::showParsingErrorMessage(fileName, this);
                 switch(action) {
-                case Utils::ParseErrorAction::EditFile:
+                case CaseIO::ParseErrorAction::EditFile:
                     emit createEditor(EditorType::TEXT,
                         fileName.split('/').last(), m_caseName + "/system",
                             false);
                     reject();
                     return false;
-                case Utils::ParseErrorAction::Overwrite:
+                case CaseIO::ParseErrorAction::Overwrite:
                     break;
-                case Utils::ParseErrorAction::Cancel:
+                case CaseIO::ParseErrorAction::Cancel:
                     return false;
                 }
             }
@@ -94,20 +98,20 @@ bool MeshWizard::loadParseFiles() {
             dict = std::make_shared<OpenFoamDictionary>(fileData);
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
-                m_surfaceFeatureMap = MeshIO::parseSurfaceFeatureData(
+                m_surfaceFeatureMap = CaseIO::parseSurfaceFeatureData(
                     dict, m_geometryMap.keys());
             } else {
-                auto action = Utils::showParsingErrorMessage(fileName, this);
+                auto action = CaseIO::showParsingErrorMessage(fileName, this);
                 switch(action) {
-                case Utils::ParseErrorAction::EditFile:
+                case CaseIO::ParseErrorAction::EditFile:
                     emit createEditor(EditorType::TEXT,
                         fileName.split('/').last(), m_caseName + "/system",
                             false);
                     reject();
                     return false;
-                case Utils::ParseErrorAction::Overwrite:
+                case CaseIO::ParseErrorAction::Overwrite:
                     break;
-                case Utils::ParseErrorAction::Cancel:
+                case CaseIO::ParseErrorAction::Cancel:
                     return false;
                 }
             }
@@ -126,23 +130,23 @@ bool MeshWizard::loadParseFiles() {
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
                 if (m_runCastellated) m_castellatedMeshConfig =
-                        MeshIO::parseCastellatedMesh(dict);
+                        CaseIO::parseCastellatedMesh(dict);
                 if (m_runSnap) m_snapControlConfig =
-                        MeshIO::parseSnapControlConfig(dict);
+                        CaseIO::parseSnapControlConfig(dict);
                 if (m_runLayers) m_layerControlConfig =
-                        MeshIO::parseLayerControlConfig(dict);
+                        CaseIO::parseLayerControlConfig(dict);
             }  else {
-                auto action = Utils::showParsingErrorMessage(fileName, this);
+                auto action = CaseIO::showParsingErrorMessage(fileName, this);
                 switch(action) {
-                case Utils::ParseErrorAction::EditFile:
+                case CaseIO::ParseErrorAction::EditFile:
                     emit createEditor(EditorType::TEXT,
                         fileName.split('/').last(), m_caseName + "/system",
                             false);
                     reject();
                     return false;
-                case Utils::ParseErrorAction::Overwrite:
+                case CaseIO::ParseErrorAction::Overwrite:
                     break;
-                case Utils::ParseErrorAction::Cancel:
+                case CaseIO::ParseErrorAction::Cancel:
                     return false;
                 }
             }
@@ -159,15 +163,14 @@ void MeshWizard::accept() {
 
     // Update or create blockMeshDict
     if (m_runBlockMesh) {
-
         QString blockMeshDictText;
         if (m_dictMap.contains("system/blockMeshDict")) {
             blockMeshDictText =
-                MeshIO::updateBlockMeshDict(m_dictMap["system/blockMeshDict"],
+                CaseIO::updateBlockMeshDict(m_dictMap["system/blockMeshDict"],
                     m_blockMeshConfig);
         } else {
             blockMeshDictText =
-                MeshIO::createBlockMeshDict(m_blockMeshConfig, openFoamPath);
+                CaseIO::createBlockMeshDict(m_blockMeshConfig, openFoamPath);
         }
 
         // Update file
@@ -199,7 +202,7 @@ void MeshWizard::accept() {
         bool isFoundation = foundationRegex.match(dirName).hasMatch();
 
         QString surfaceFeatureDictText =
-            MeshIO::createSurfaceFeatureDict(m_surfaceFeatureMap,
+            CaseIO::createSurfaceFeatureDict(m_surfaceFeatureMap,
                 openFoamPath);
 
         // Update file
@@ -229,7 +232,7 @@ void MeshWizard::accept() {
         */
 
         snappyHexMeshDictText =
-            MeshIO::createSnappyHexMeshDict(m_surfaceFeatureMap,
+            CaseIO::createSnappyHexMeshDict(m_surfaceFeatureMap,
                 m_castellatedMeshConfig, m_snapControlConfig,
                 m_layerControlConfig, openFoamPath);
 

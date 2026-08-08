@@ -40,7 +40,9 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "../../core_types.h"
+#include "core_types.h"
+
+#include "parser/field.h"
 
 class SolverWizard;
 
@@ -59,14 +61,14 @@ protected:
 
 private:
     SolverWizard* solverWizard;
-    QHash<QString, FlowCompute::FieldData>* m_cfg;
+    QHash<QString, CaseIO::FieldData>* m_cfg;
     QString m_currentField, m_currentPatch;
 
     // Data from wizard
     QHash<QString, FlowCompute::FieldDef> m_fieldData;
     std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
     std::vector<FlowCompute::BoundaryConditionDef> m_finalList;
-    std::vector<FlowCompute::MeshPatch> m_boundaryPatches;
+    std::vector<CaseIO::MeshPatch> m_boundaryPatches;
     QStringList m_solverFields, m_turbFields, m_fieldList;
 
     // Widgets
@@ -76,6 +78,9 @@ private:
     QListWidget *m_fieldListWidget, *m_patchListWidget;
     QStackedWidget *m_detailStack;
     QTableWidget *m_boundaryTable;
+
+    // Get math type for field class
+    QString getBaseMathType(FlowCompute::FieldClass foamClass);
 
 private slots:
     void onFieldSelected(const QString& text);

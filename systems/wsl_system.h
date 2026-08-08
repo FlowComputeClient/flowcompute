@@ -73,7 +73,8 @@ class WslSystem : public TargetSystem {
     int launchShortUtility(const QString& cmd, QString& output) override;
     void launchLongUtility(const QString& cmd, const QString& caseName,
                            UtilityType utilityType) override;
-    QString getResultFolders(QString path) override;
+    std::pair<QStringList, QStringList>
+        getTimesAndFields(const QString& projPath) override;
     QStringList processPaths(const QString& path,
                              PathOperationType type) override;
     RenderData getMeshData(const QString& path) override;
@@ -81,7 +82,6 @@ class WslSystem : public TargetSystem {
 
  private:
     void terminateProcess();
-    QString createSelectionDialog(const std::vector<std::string>& paths);
     QJsonObject contactServer(QString action, QString message, int opType = -1);
 };
 

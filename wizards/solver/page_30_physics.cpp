@@ -88,7 +88,7 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
 
     // Delta setting
     m_deltaModelCombo = new QComboBox(turbulenceGroup);
-    QMetaEnum metaEnum = QMetaEnum::fromType<Solver::DeltaModel>();
+    QMetaEnum metaEnum = QMetaEnum::fromType<CaseIO::DeltaModel>();
     for (int i = 0; i < metaEnum.keyCount(); ++i) {
         m_deltaModelCombo->addItem(metaEnum.key(i));
     }
@@ -104,7 +104,7 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
 
     // Transport model selector
     m_transportModelCombo = new QComboBox(transportGroup);
-    metaEnum = QMetaEnum::fromType<Solver::TransportModel>();
+    metaEnum = QMetaEnum::fromType<CaseIO::TransportModel>();
     for (int i = 0; i < metaEnum.keyCount(); ++i) {
         m_transportModelCombo->addItem(metaEnum.key(i));
     }
@@ -127,14 +127,14 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
     m_propertiesTable->setHorizontalHeaderLabels(
         { "Property", "Variable", "Dimension", "Value" });
     m_propertiesTable->verticalHeader()->setVisible(false);
-    m_propertiesTable->horizontalHeader()->setSectionResizeMode(0,
-                                            QHeaderView::ResizeToContents);
-    m_propertiesTable->horizontalHeader()->setSectionResizeMode(1,
-                                            QHeaderView::Stretch);
-    m_propertiesTable->horizontalHeader()->setSectionResizeMode(2,
-                                            QHeaderView::Stretch);
-    m_propertiesTable->horizontalHeader()->setSectionResizeMode(3,
-                                            QHeaderView::Stretch);
+    m_propertiesTable->horizontalHeader()->
+        setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    m_propertiesTable->horizontalHeader()->
+        setSectionResizeMode(1, QHeaderView::Stretch);
+    m_propertiesTable->horizontalHeader()->
+        setSectionResizeMode(2, QHeaderView::Stretch);
+    m_propertiesTable->horizontalHeader()->
+        setSectionResizeMode(3, QHeaderView::Stretch);
     m_propertiesTable->setSelectionMode(QAbstractItemView::NoSelection);
     transportLayout->addRow(m_propertiesTable);
 
@@ -173,7 +173,7 @@ void PhysicsPage::initializePage() {
         static_cast<int>(m_cfg->deltaModel));
 
     // Get transport properties for solver
-    ControlConfig* controlConfig = &(solverWizard->getControlConfig());
+    CaseIO::ControlConfig* controlConfig = &(solverWizard->getControlConfig());
     QString solverCategory = controlConfig->solverCategory;
     QString solverName = controlConfig->solver;
     QStringList transportProperties = [&]() -> QStringList {
@@ -273,9 +273,9 @@ bool PhysicsPage::validatePage() {
     m_cfg->simulationType = topLevel->text(0);
 
     // Get data from combo boxes
-    m_cfg->transportModel = static_cast<Solver::TransportModel>(
+    m_cfg->transportModel = static_cast<CaseIO::TransportModel>(
         m_transportModelCombo->currentIndex());
-    m_cfg->deltaModel = static_cast<Solver::DeltaModel>(
+    m_cfg->deltaModel = static_cast<CaseIO::DeltaModel>(
         m_deltaModelCombo->currentIndex());
 
     // Extract Fluid Properties from the Table

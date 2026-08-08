@@ -31,10 +31,10 @@
 #include "editors/graphical/surface/surface_editor.h"
 #include "editors/graphical/mesh/mesh_editor.h"
 #include "geometry/stl/stl_reader.h"
+#include "parser/surface_patch_dict.h"
 #include "systems/local_system.h"
 #include "systems/remote_system.h"
 #include "systems/wsl_system.h"
-#include "./utils.h"
 
 // Create the main window
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
@@ -44,16 +44,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setWindowIcon(QIcon(":/images/flowcompute.png"));
 #endif
     setWindowTitle("FlowCompute 0.8.0 - Visual CFD Made Simple");
-
-    /*
-    m_isWindows = true;
-    m_isWslAvailable = checkWsl();
-    */
-
-    /*
-    m_isWindows = false;
-    m_isWslAvailable = false;
-    */
 
     // Set font
     int regularId =
@@ -170,19 +160,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     int caseCount = settings.beginReadArray("Cases");
     bool wslServerCheck = false, wslServerAvailable = false;
     bool remoteServerCheck = false, remoteServerAvailable = false;
+
+    // Read settings
+    CaseData data;
     for (int i = 0; i < caseCount; ++i) {
         settings.setArrayIndex(i);
-
-        // Read settings
         QString caseName = settings.value("caseName").toString();
-        CaseData data;
         data.casePath = settings.value("casePath").toString();
         data.caseFiles = settings.value("caseFiles").toStringList();
         data.targetId = settings.value("targetSystemId", 0).toInt();
         data.openFoamPath = settings.value("openFoamPath").toString();
-        m_systemMgr.addCase(caseName, data);
 
-        // Check server
+        // Check server availability
         if ((data.targetId == 0) && (!wslServerCheck)) {
             wslServerAvailable = m_systemMgr.checkWslServer();
             wslServerCheck = true;
@@ -190,30 +179,58 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             remoteServerAvailable = m_systemMgr.checkRemoteServer();
             remoteServerCheck = true;
         }
+        bool isServerAvailable =
+            ((data.targetId == 0) && wslServerAvailable) ||
+            ((data.targetId == 2) && remoteServerAvailable);
 
-        // Check utilities
-        if (!m_utilMap.contains(data.openFoamPath)) {
-            if (((data.targetId == 0) && (!wslServerAvailable)) ||
-                ((data.targetId == 2) && (!remoteServerAvailable))) {
+        bool casePresent = true;
+        QStringList paths;
+        QString casePath = data.casePath + "/" + caseName + "/";
+        if (!isServerAvailable) {
+            if (!m_utilMap.contains(data.openFoamPath)) {
                 m_utilMap[data.openFoamPath] = QMap<QString, bool>();
+            }
+            log(QString(tr("Server unreachable for case %1.").arg(caseName)));
+        } else {
+            paths = m_systemMgr.getSystem(data.targetId)->processPaths(
+                casePath, PathOperationType::CHECK);
+            if (!paths.isEmpty() && paths[0] == "0") {
+
+                // Get files in case
+                m_systemMgr.addCase(caseName, data);
+                paths = m_systemMgr.getSystem(data.targetId)->processPaths(
+                    casePath, PathOperationType::LIST);
+
+                // Check utilities
+                if (!m_utilMap.contains(data.openFoamPath)) {
+                    m_utilMap[data.openFoamPath] =
+                        checkUtilities(casePath, m_utilities);
+                }
+
+                // Log if server is up but OpenFOAM is missing
+                if (m_utilMap[data.openFoamPath].empty()) {
+                    log(QString(tr("Failed to open case %1. "
+                                   "Cannot access OpenFOAM at %2.")
+                                    .arg(caseName, data.openFoamPath)));
+                }
             } else {
-                QString path = data.casePath + "/" + caseName + "/";
-                m_utilMap[data.openFoamPath] =
-                    checkUtilities(path, m_utilities);
+                casePresent = false;
             }
         }
 
-        // Log message if no utilities can be accessed
-        if (m_utilMap[data.openFoamPath].empty()) {
-            log(QString(
-                tr("Failed to open case %1. Cannot access OpenFOAM at %2. ")
-                    .arg(caseName, data.openFoamPath)));
-        }
-
         // Update navigator
-        m_navigator->addCase(caseName, data.caseFiles,
-                             m_utilMap[data.openFoamPath].empty());
-        m_navigator->expandCase(caseName);
+        if (casePresent) {
+            bool isDisabled = m_utilMap[data.openFoamPath].empty() ||
+                              !isServerAvailable;
+            m_navigator->addCase(caseName, paths, isDisabled);
+            if (!isDisabled) {
+                m_navigator->expandCase(caseName);
+            }
+        } else {
+            log(QString(tr("Couldn't find case %1 at path %2. "
+                "Please import the case if it has moved.")
+                    .arg(caseName, casePath)));
+        }
     }
     settings.endArray();
 
@@ -437,11 +454,12 @@ void MainWindow::createActions() {
     connect(m_viewResultAction, &QAction::triggered, this,
             &MainWindow::viewResult);
 
-    // Post-process
-    // postProcessAction = new QAction(QIcon(":/images/post_process.png"),
-    //      tr("&Post-process"), this);
-    // postProcessAction->setStatusTip(tr("Launch post-processing"));
-    // connect(meshAction, &QAction::triggered, this, SLOT(About()));
+    // Post-processing
+    m_postProcessAction = new QAction(QIcon(":/images/postprocess.png"),
+         tr("&Post-process"), this);
+    m_postProcessAction->setStatusTip(tr("Launch post-processing"));
+    connect(m_postProcessAction, &QAction::triggered, this,
+            &MainWindow::launchPostProcessingWizard);
 
     // Configure the About action in the help menu
     m_aboutAction = new QAction(QIcon(":/images/help.png"), tr("&Help"), this);
@@ -498,6 +516,7 @@ void MainWindow::createMenus() {
 
     // Create post-process menu
     postProcessMenu = menuBar()->addMenu(tr("&PostProcess"));
+    postProcessMenu->addAction(m_postProcessAction);
     menuBar()->addSeparator();
 
     // Create help menu
@@ -539,7 +558,7 @@ void MainWindow::createToolBar() {
     toolBar->addSeparator();
 
     // Create tool bar with view actions
-    // toolBar->addAction(postProcessAction);
+    toolBar->addAction(m_postProcessAction);
 
     // Add help actions
     toolBar->addAction(m_aboutAction);
@@ -722,7 +741,7 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath) {
     // Start the background thread
     QFuture<RenderDataPtr> future =
         QtConcurrent::run(&MainWindow::getMeshData, this,
-                          caseName, casePath, openFoamPath);
+                          caseName, casePath);
     watcher->setFuture(future);
 
     // Refresh polyMesh directory in navigator
@@ -992,7 +1011,7 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
     } else if (utilMap.value("surfacePatch", false)) {
         // Create surfacePatchDict
         QString dictText =
-            Utils::createSurfacePatchDict(openFoamPath, fileName, angle);
+            CaseIO::createSurfacePatchDict(openFoamPath, fileName, angle);
         m_systemMgr.getSystem(caseName)->writeData(
             dictText.toUtf8(), casePath + "/system/surfacePatchDict");
 
@@ -1181,6 +1200,8 @@ void MainWindow::longUtilityFinished(const QString& status,
         updatePath(caseName, "system");
         break;
     case UtilityType::SOLVER:
+        updatePath(caseName, "");
+    case UtilityType::POSTPROCESS:
         updatePath(caseName, "");
         break;
     }

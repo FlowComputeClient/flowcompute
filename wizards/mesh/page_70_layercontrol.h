@@ -37,7 +37,7 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "mesh_structs.h"
+#include "parser/snappy_hex_mesh_dict.h"
 
 class MainWindow;
 class MeshWizard;
@@ -53,7 +53,7 @@ class LayerControlPage : public QWizardPage {
     bool validatePage() override;
 
  private:
-    LayerControlConfig *m_cfg;
+    CaseIO::LayerControlConfig *m_cfg;
     MeshWizard *meshWizard;
 
     QCheckBox *relativeSizesCheck;

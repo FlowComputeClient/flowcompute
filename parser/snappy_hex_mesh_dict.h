@@ -1,61 +1,14 @@
-// Copyright 2026 FlowCompute LLC
-//
-// This file is part of FlowCompute.
-//
-// FlowCompute is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// FlowCompute is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+#ifndef PARSER_SNAPPY_HEX_MESH_DICT_H_
+#define PARSER_SNAPPY_HEX_MESH_DICT_H_
 
-#ifndef MESH_STRUCTS_H
-#define MESH_STRUCTS_H
-
-#include <QString>
-#include <QVector3D>
-
-#include <map>
-#include <vector>
 #include <array>
+#include <map>
+#include <memory>
 
-enum class PatchType {
-    patch = 0,
-    wall,
-    symmetryPlane,
-    empty,
-    wedge,
-    cyclic,
-    Count
-};
+#include "open_foam_dictionary.h"
+#include "surface_feature.h"
 
-struct Patch {
-    QString name;
-    PatchType type;
-    std::vector<std::array<int, 4>> faces;
-};
-
-struct BlockMeshConfig {
-    double convertToMeters = 1.0;
-    std::vector<std::array<double, 3>> vertices;
-    QString shape = "hex";
-    int nX = 40, nY = 40, nZ = 40;
-    double gradingX = 1.0, gradingY = 1.0, gradingZ = 1.0;
-    std::vector<Patch> patches;
-};
-
-struct SurfaceFeatureEntry {
-    double angle = 150.0;
-    int edgeLevel = 3;
-    bool openEdges = true;
-    bool writeObj = true;
-};
+namespace CaseIO {
 
 struct RefinementRegion {
     QString name;
@@ -71,7 +24,6 @@ struct RefinementSurface {
 };
 
 struct CastellatedMeshConfig {
-
     // Cell limits
     int maxLocalCells = 100000;
     int maxGlobalCells = 2000000;
@@ -120,4 +72,28 @@ struct LayerControlConfig {
     int nSmoothSurfaceNormals = 1;
 };
 
-#endif // MESH_STRUCTS_H
+// Parse castellation section of snappyHexMeshDict
+CastellatedMeshConfig parseCastellatedMesh(
+    const std::shared_ptr<OpenFoamDictionary> dict);
+
+// Parse snap control section of snappyHexMeshDict
+SnapControlConfig parseSnapControlConfig(
+    const std::shared_ptr<OpenFoamDictionary> dict);
+
+// Parse layer control section of snappyHexMeshDict
+LayerControlConfig parseLayerControlConfig(
+    const std::shared_ptr<OpenFoamDictionary> dict);
+
+// Update existing snappyHexMeshDict file
+QString updateSnappyHexMeshDict(std::shared_ptr<OpenFoamDictionary> dict,
+    const CastellatedMeshConfig&, const SnapControlConfig&,
+    const LayerControlConfig&);
+
+// Create new snappyHexMeshDict file
+QString createSnappyHexMeshDict(
+    const std::map<QString, SurfaceFeatureEntry>& entryMap,
+    const CastellatedMeshConfig&, const SnapControlConfig&,
+    const LayerControlConfig&, const QString& openFoamPath);
+};
+
+#endif  // PARSER_SNAPPY_HEX_MESH_DICT_H_

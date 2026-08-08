@@ -16,7 +16,6 @@
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
 #include "page_20_tutorial.h"
-#include "page_10_intro.h"
 
 #include "wizard_new_case.h"
 
@@ -70,8 +69,6 @@ void TutorialPage::onTreeSelectionChanged() {
             return;
         }
     }
-
-    // If nothing is selected, clear the field
     m_hiddenPathEdit->clear();
 }
 

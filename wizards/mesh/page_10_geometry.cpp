@@ -171,15 +171,15 @@ bool GeometryPage::validatePage() {
 
 int GeometryPage::nextId() const {
     if (m_blockMeshCheck->isChecked()) {
-        return Page_BlockMesh1;
+        return MeshWizard::Page_BlockMesh1;
     } else if (m_extractCheck->isChecked()) {
-        return Page_SurfaceExtraction;
+        return MeshWizard::Page_SurfaceExtraction;
     } else if (m_castellatedCheck->isChecked()) {
-        return Page_Castellation;
+        return MeshWizard::Page_Castellation;
     } else if (m_snapCheck->isChecked()) {
-        return Page_SnapControl;
+        return MeshWizard::Page_SnapControl;
     } else if (m_layersCheck->isChecked()) {
-        return Page_LayerControl;
+        return MeshWizard::Page_LayerControl;
     }
     return -1;
 }

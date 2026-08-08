@@ -31,16 +31,12 @@ qt_add_executable(FlowCompute
     main.cpp
     main_window.cpp
     main_window.h
-	main_window_slots.cpp
+    main_window_slots.cpp
     resources.qrc
     core_types.h
-    utils.h utils.cpp
-
-    dialogs/surface/surface_dialog.h
-    dialogs/surface/surface_dialog.cpp
 
     dialogs/preferences/preferences_dialog.h
-	dialogs/preferences/preferences_dialog.cpp
+    dialogs/preferences/preferences_dialog.cpp
 
     dialogs/run_mesh/run_mesh_dialog.h
     dialogs/run_mesh/run_mesh_dialog.cpp
@@ -55,7 +51,7 @@ qt_add_executable(FlowCompute
     dialogs/utility_output/utility_output_dialog.cpp
 
     editors/tab_bar.h
-	editors/tab_bar.cpp
+    editors/tab_bar.cpp
     editors/tab_widget.h
     editors/tab_widget.cpp
 
@@ -98,19 +94,44 @@ qt_add_executable(FlowCompute
     geometry/stl/stl_reader.h
     geometry/stl/stl_reader.cpp
     geometry/obj/obj_reader.h
-    geometry/obj/obj_reader.cpp	
+    geometry/obj/obj_reader.cpp
 
+    parser/parser.c
     parser/open_foam_dictionary.h
     parser/open_foam_dictionary.cpp
-    parser/parser.c
-    # third_party/tree_sitter/src/lib.c
+    parser/block_mesh_dict.h
+    parser/block_mesh_dict.cpp
+    parser/boundary.h
+    parser/boundary.cpp
+    parser/common.h
+    parser/common.cpp
+    parser/control_dict.h
+    parser/control_dict.cpp
+    parser/decompose_par_dict.h
+    parser/decompose_par_dict.cpp
+    parser/field.h
+    parser/field.cpp
+    parser/function_object.h 
+	parser/function_object.cpp
+    parser/fv_solution.h
+    parser/fv_solution.cpp
+    parser/snappy_hex_mesh_dict.h
+    parser/snappy_hex_mesh_dict.cpp
+    parser/surface_feature.h
+    parser/surface_feature.cpp
+    parser/surface_patch_dict.h
+    parser/surface_patch_dict.cpp
+    parser/transport_properties.h
+    parser/transport_properties.cpp
+    parser/turbulence_properties.h
+    parser/turbulence_properties.cpp
 
     systems/local_system.h
-	systems/local_system.cpp
+    systems/local_system.cpp
     systems/remote_system.h
     systems/remote_system.cpp
     systems/system_manager.h
-	systems/system_manager.cpp
+    systems/system_manager.cpp
     systems/target_system.h
     systems/wsl_system.h
     systems/wsl_system.cpp
@@ -125,21 +146,6 @@ qt_add_executable(FlowCompute
     views/navigator/case_navigator.cpp
     views/navigator/node_data.cpp
 
-    wizards/new_case/wizard_new_case.h
-    wizards/new_case/wizard_new_case.cpp
-    wizards/new_case/page_10_intro.h
-    wizards/new_case/page_10_intro.cpp
-    wizards/new_case/page_20_tutorial.h
-    wizards/new_case/page_20_tutorial.cpp
-    wizards/new_case/page_30_interactive.h
-    wizards/new_case/page_30_interactive.cpp
-    wizards/new_case/page_40_project.cpp
-    wizards/new_case/page_40_project.h
-    wizards/new_case/template_strings.h
-
-    wizards/mesh/mesh_structs.h
-    wizards/mesh/mesh_io.h
-    wizards/mesh/mesh_io.cpp
     wizards/mesh/wizard_mesh.h
     wizards/mesh/wizard_mesh.cpp
     wizards/mesh/page_10_geometry.h
@@ -157,13 +163,44 @@ qt_add_executable(FlowCompute
     wizards/mesh/page_70_layercontrol.h
     wizards/mesh/page_70_layercontrol.cpp
 
-    wizards/solver/solver_structs.h
+    wizards/new_case/wizard_new_case.h
+    wizards/new_case/wizard_new_case.cpp
+    wizards/new_case/page_10_intro.h
+    wizards/new_case/page_10_intro.cpp
+    wizards/new_case/page_15_remote.h
+    wizards/new_case/page_15_remote.cpp	
+    wizards/new_case/page_20_tutorial.h
+    wizards/new_case/page_20_tutorial.cpp
+    wizards/new_case/page_30_interactive.h
+    wizards/new_case/page_30_interactive.cpp
+    wizards/new_case/page_40_project.cpp
+    wizards/new_case/page_40_project.h
+    wizards/new_case/template_strings.h
+
+    wizards/post_processing/forces_dialog.h
+    wizards/post_processing/forces_dialog.cpp
+    wizards/post_processing/force_coeffs_dialog.h
+    wizards/post_processing/force_coeffs_dialog.cpp	
+    wizards/post_processing/field_minmax_dialog.h
+    wizards/post_processing/field_minmax_dialog.cpp	
+    wizards/post_processing/page_10_tasks.h
+    wizards/post_processing/page_10_tasks.cpp
+    wizards/post_processing/page_20_time_region.h
+    wizards/post_processing/page_20_time_region.cpp	
+    wizards/post_processing/probes_dialog.h
+    wizards/post_processing/probes_dialog.cpp	
+    wizards/post_processing/surfaces_dialog.h
+    wizards/post_processing/surfaces_dialog.cpp		
+    wizards/post_processing/add_surface_dialog.h
+    wizards/post_processing/add_surface_dialog.cpp			
+    wizards/post_processing/wizard_postprocessing.h
+    wizards/post_processing/wizard_postprocessing.cpp
+    wizards/post_processing/task_structs.h
+    wizards/post_processing/yplus_dialog.h
+    wizards/post_processing/yplus_dialog.cpp		
+
     wizards/solver/wizard_solver.h
     wizards/solver/wizard_solver.cpp
-    wizards/solver/solver_io.h
-    wizards/solver/solver_io.cpp
-    wizards/solver/surface_widget.cpp
-    wizards/solver/surface_widget.h
     wizards/solver/page_10_control.cpp
     wizards/solver/page_10_control.h
     wizards/solver/page_20_transient.h
@@ -182,8 +219,10 @@ qt_add_executable(FlowCompute
     wizards/solver/page_80_piso.cpp
     wizards/solver/page_90_parallel.cpp
     wizards/solver/page_90_parallel.h
-    wizards/solver/page_93_visualization.h
-    wizards/solver/page_93_visualization.cpp
+
+
+
+    systems/local_system_mesh.cpp
 )
 
 target_compile_options(FlowCompute PRIVATE
@@ -199,6 +238,9 @@ target_link_libraries(FlowCompute PRIVATE
     Qt::Core Qt::Widgets Qt::Network Qt::Concurrent
     miniz tree_sitter
 )
+
+find_package(libssh REQUIRED)
+target_link_libraries(FlowCompute PRIVATE ssh)
 
 # Find the Vulkan shader compiler
 find_package(Vulkan REQUIRED)

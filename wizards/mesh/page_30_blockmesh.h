@@ -37,7 +37,7 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "mesh_structs.h"
+#include "parser/block_mesh_dict.h"
 
 class MainWindow;
 class MeshWizard;
@@ -54,7 +54,7 @@ protected:
     bool validatePage() override;
 
 private:
-    BlockMeshConfig* m_cfg;
+    CaseIO::BlockMeshConfig* m_cfg;
     MeshWizard* meshWizard;
     QTableWidget* patchTable;
     QCheckBox* gradingCheckBox;

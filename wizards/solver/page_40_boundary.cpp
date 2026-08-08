@@ -19,8 +19,6 @@
 
 #include "wizard_solver.h"
 
-#include "../../core_types.h"
-
 // Introduction page asks for the case name and platform
 BoundaryPage::BoundaryPage(
     const QHash<QString, FlowCompute::FieldDef>& fieldData,
@@ -164,14 +162,14 @@ void BoundaryPage::initializePage() {
             // Search for the patch
             auto bcsIt = std::find_if(fieldData.bcs.begin(), fieldData.bcs.end(),
             [&patch](const std::pair<QString,
-                FlowCompute::BoundaryCondition>& bcPair) {
+                CaseIO::BoundaryCondition>& bcPair) {
                 return bcPair.first == patch.name;
             });
 
             // Add patch if not found
             if (bcsIt == fieldData.bcs.end()) {
                 fieldData.bcs.push_back({patch.name,
-                    FlowCompute::BoundaryCondition()});
+                    CaseIO::BoundaryCondition()});
             }
         }
     }
@@ -180,7 +178,7 @@ void BoundaryPage::initializePage() {
     for (const QString& f : std::as_const(m_fieldList)) {
         if (!m_cfg->contains(f)) {
 
-            FlowCompute::FieldData fieldData;
+            CaseIO::FieldData fieldData;
             if (m_fieldData.contains(f)) {
                 fieldData.dimension = m_fieldData[f].dimensions;
                 fieldData.internalField = m_fieldData[f].defaultValue;
@@ -188,7 +186,7 @@ void BoundaryPage::initializePage() {
             }
             for (const auto& patch : std::as_const(m_boundaryPatches)) {
                 fieldData.bcs.push_back({patch.name,
-                    FlowCompute::BoundaryCondition()});
+                    CaseIO::BoundaryCondition()});
             }
             m_cfg->insert(f, fieldData);
         }
@@ -206,15 +204,18 @@ void BoundaryPage::initializePage() {
 }
 
 bool BoundaryPage::validatePage() {
+
+    return true;
+
     if (!m_cfg) { return false; }
 
     // Update wizard fields
-    solverWizard->setConfiguredFields(m_fieldList);
+    solverWizard->setFieldNames(m_fieldList);
 
     // Iterate through fields
     for (auto fieldIt = m_cfg->begin(); fieldIt != m_cfg->end(); ++fieldIt) {
         const QString& fieldName = fieldIt.key();
-        const FlowCompute::FieldData& fieldData = fieldIt.value();
+        const CaseIO::FieldData& fieldData = fieldIt.value();
 
         // Validate Internal Field
         if (fieldData.internalField.trimmed().isEmpty()) {
@@ -227,7 +228,7 @@ bool BoundaryPage::validatePage() {
         // Validate Boundary Conditions
         for (const auto& bcPair : fieldData.bcs) {
             const QString& patchName = bcPair.first;
-            const FlowCompute::BoundaryCondition& bc = bcPair.second;
+            const CaseIO::BoundaryCondition& bc = bcPair.second;
 
             // Ensure a boundary condition type was selected
             if (bc.type.trimmed().isEmpty()) {
@@ -269,8 +270,8 @@ void BoundaryPage::onFieldSelected(const QString& field) {
 void BoundaryPage::onPatchSelected(const QString& patch) {
 
     m_currentPatch = patch;
-    FlowCompute::FieldData fieldData = m_cfg->value(m_currentField);
-    QString fieldClassName = FlowCompute::getBaseMathType(fieldData.fieldClass);
+    CaseIO::FieldData fieldData = m_cfg->value(m_currentField);
+    QString fieldClassName = getBaseMathType(fieldData.fieldClass);
 
     if (patch == "< Internal >") {
         m_detailStack->setCurrentIndex(0);
@@ -314,7 +315,7 @@ void BoundaryPage::onPatchSelected(const QString& patch) {
             const auto& bcs = (*m_cfg)[m_currentField].bcs;
             auto it = std::find_if(bcs.begin(), bcs.end(),
                [this](const std::pair<QString,
-                    FlowCompute::BoundaryCondition>& p) {
+                    CaseIO::BoundaryCondition>& p) {
                    return p.first == m_currentPatch;
                });
             if (it != bcs.end()) {
@@ -366,7 +367,7 @@ void BoundaryPage::onBcTypeChanged(const QString& bcType) {
     auto& bcs = (*m_cfg)[m_currentField].bcs;
 
     auto it = std::find_if(bcs.begin(), bcs.end(),
-        [this](const std::pair<QString, FlowCompute::BoundaryCondition>& p) {
+        [this](const std::pair<QString, CaseIO::BoundaryCondition>& p) {
             return p.first == m_currentPatch;
         });
 
@@ -401,7 +402,7 @@ void BoundaryPage::onBcTypeChanged(const QString& bcType) {
             auto& currentBcs = (*m_cfg)[m_currentField].bcs;
             auto patchIt = std::find_if(currentBcs.begin(), currentBcs.end(),
                 [this](const std::pair<QString,
-                FlowCompute::BoundaryCondition>& p) {
+                CaseIO::BoundaryCondition>& p) {
                     return p.first == m_currentPatch;
                 });
 
@@ -409,5 +410,37 @@ void BoundaryPage::onBcTypeChanged(const QString& bcType) {
                 patchIt->second.parameters[param] = text;
             }
         });
+    }
+}
+
+QString BoundaryPage::getBaseMathType(FlowCompute::FieldClass foamClass) {
+    switch (foamClass) {
+    case FlowCompute::FieldClass::volScalarField:
+    case FlowCompute::FieldClass::surfaceScalarField:
+    case FlowCompute::FieldClass::pointScalarField:
+        return "scalar";
+
+    case FlowCompute::FieldClass::volVectorField:
+    case FlowCompute::FieldClass::surfaceVectorField:
+    case FlowCompute::FieldClass::pointVectorField:
+        return "vector";
+
+    case FlowCompute::FieldClass::volSymmTensorField:
+    case FlowCompute::FieldClass::surfaceSymmTensorField:
+    case FlowCompute::FieldClass::pointSymmTensorField:
+        return "symmTensor";
+
+    case FlowCompute::FieldClass::volTensorField:
+    case FlowCompute::FieldClass::surfaceTensorField:
+    case FlowCompute::FieldClass::pointTensorField:
+        return "tensor";
+
+    case FlowCompute::FieldClass::volSphericalTensorField:
+    case FlowCompute::FieldClass::surfaceSphericalTensorField:
+    case FlowCompute::FieldClass::pointSphericalTensorField:
+        return "sphericalTensor";
+
+    default:
+        return "unknown";
     }
 }

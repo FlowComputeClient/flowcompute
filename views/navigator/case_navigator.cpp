@@ -132,23 +132,36 @@ void CaseNavigator::addCase(QString caseName, QStringList caseFiles,
     }
     m_root->appendRow(caseFolder);
 
-    // Create a node for top-level files/folders
+    // Create a node for each child
     NodeData* node;
-    NodeType type;
-    for (QString item : caseFiles) {
+    QList<NodeData*> childFolders, childFiles;
+    for (QString item : std::as_const(caseFiles)) {
         if (!item.endsWith('|')) {
             node = new NodeData(item, caseName, NodeType::Folder, isDisabled);
+            childFolders.push_back(node);
         } else {
             item.chop(1);
-            type = checkType(item, caseName);
+            NodeType type = checkType(item, caseName);
             node = new NodeData(item, caseName, type, isDisabled);
+            childFiles.push_back(node);
         }
+    }
 
-        // Explicitly disable the child files and folders as well
-        if (isDisabled) {
-            node->setEnabled(false);
-        }
-        caseFolder->appendRow(node);
+    // Lambda to compare nodes
+    auto sortAlphabetically = [](const NodeData* a, const NodeData* b) {
+        return a->name.compare(b->name, Qt::CaseInsensitive) < 0;
+    };
+
+    // Sort folders and files
+    std::sort(childFolders.begin(), childFolders.end(), sortAlphabetically);
+    std::sort(childFiles.begin(), childFiles.end(), sortAlphabetically);
+
+    // Display folders, then files
+    for (auto const& child : childFolders) {
+        caseFolder->appendRow(child);
+    }
+    for (auto const& child : childFiles) {
+        caseFolder->appendRow(child);
     }
 }
 

@@ -25,8 +25,8 @@
 #include <string>
 #include <vector>
 
-#include "wizards/solver/solver_io.h"
 #include "parser/open_foam_dictionary.h"
+#include "parser/boundary.h"
 #include "systems/target_system.h"
 
 MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
@@ -190,7 +190,7 @@ void MeshEditor::updatePatches() {
     QByteArray fileData = m_targetSystem->getFileContent(
         m_casePath + "/constant/polyMesh/boundary");
     if (!fileData.isEmpty()) {
-        m_boundaries = SolverIO::parseBoundaryPatches(fileData);
+        m_boundaries = CaseIO::parseBoundary(fileData);
         // auto [newData, m_boundaries] =
         //   SolverIO::removeEmptyPatches(fileData);
         // m_mainWin->targetSystems[m_targetId]->writeData(newData, m_casePath
@@ -205,7 +205,7 @@ void MeshEditor::updatePatches() {
     // Make sure the lists of boundaries match
     m_boundaries.erase(
         std::remove_if(m_boundaries.begin(), m_boundaries.end(),
-           [this](const FlowCompute::MeshPatch& boundary) {
+           [this](const CaseIO::MeshPatch& boundary) {
                std::string nameToCheck = boundary.name.toStdString();
                return std::find(m_patchNames.begin(), m_patchNames.end(),
                                 nameToCheck) == m_patchNames.end();
@@ -214,22 +214,22 @@ void MeshEditor::updatePatches() {
     m_leftPane->setPatches(m_boundaries);
 }
 
-void MeshEditor::onPatchApply(std::vector<FlowCompute::MeshPatch>& patches) {
+void MeshEditor::onPatchApply(std::vector<CaseIO::MeshPatch>& patches) {
     // Select only patches whose names or types have changed
-    std::vector<FlowCompute::MeshPatch> filtered;
+    std::vector<CaseIO::MeshPatch> filtered;
     std::copy_if(patches.begin(), patches.end(),
-        std::back_inserter(filtered), [](const FlowCompute::MeshPatch& bp) {
+        std::back_inserter(filtered), [](const CaseIO::MeshPatch& bp) {
         return bp.nameChanged || bp.typeChanged;
     });
 
     // Update boundary file
     QByteArray fileData = m_targetSystem->getFileContent(
         m_casePath + "/constant/polyMesh/boundary");
-    SolverIO::BoundaryFileParts parts = SolverIO::splitBoundaryFile(fileData);
+    CaseIO::BoundaryFileParts parts = CaseIO::splitBoundaryFile(fileData);
     auto dict = std::make_shared<OpenFoamDictionary>(parts.payload);
     if (!dict->hasSyntaxErrors()) {
         // Create updated text
-        QString updatedPayload = SolverIO::updateBoundaryFile(dict, filtered);
+        QString updatedPayload = CaseIO::updateBoundaryFile(dict, filtered);
 
         // Rebuild data
         QByteArray finalFileData;

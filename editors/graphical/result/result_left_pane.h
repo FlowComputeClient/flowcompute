@@ -31,7 +31,8 @@
 
 #include <vector>
 
-#include "core_types.h"
+#include "./core_types.h"
+#include "parser/field.h"
 
 class ResultLeftPane : public QWidget {
     Q_OBJECT
@@ -45,7 +46,7 @@ class ResultLeftPane : public QWidget {
 
  private:
     QDoubleSpinBox* m_angleSpin;
-    QHash<QString, FlowCompute::FieldData> m_fieldEditorMap;
+    QHash<QString, CaseIO::FieldData> m_fieldEditorMap;
     QPushButton *m_checkButton, *m_renumberButton,
         *m_patchButton, *m_applyButton;
     QString m_currentField, m_timeFolder;
@@ -54,7 +55,7 @@ class ResultLeftPane : public QWidget {
 
     QHash<QString, FlowCompute::FieldDef> m_fieldData;
     std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
-    std::vector<FlowCompute::MeshPatch> m_boundaryPatches;
+    std::vector<CaseIO::MeshPatch> m_boundaryPatches;
 };
 
 #endif  // EDITORS_GRAPHICAL_RESULT_RESULT_LEFT_PANE_H_

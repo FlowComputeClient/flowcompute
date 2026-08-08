@@ -1,185 +1,14 @@
-// Copyright 2026 FlowCompute LLC
-//
-// This file is part of FlowCompute.
-//
-// FlowCompute is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// FlowCompute is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+#include "snappy_hex_mesh_dict.h"
 
-#include "mesh_io.h"
-
+#include <QDebug>
 #include <QDir>
+#include <QRegularExpression>
 
-#include "utils.h"
+#include "common.h"
 
 // Parse the block mesh file into a BlockMeshConfig structure
-BlockMeshConfig
-    MeshIO::parseBlockMesh(std::shared_ptr<OpenFoamDictionary> dict) {
-        BlockMeshConfig config;
-
-    // Scale
-    double scale = dict->getNumber("scale");
-    if (scale == 0.0) {
-        scale = dict->getNumber("convertToMeters");
-    }
-    config.convertToMeters = (scale != 0.0) ? scale : 1.0;
-
-    // Vertices
-    QString verticesStr = dict->getString("vertices");
-    QString numPat = "[-+]?[0-9]*\\.?[0-9]+(?:[eE][-+]?[0-9]+)?";
-
-    // Build a pattern that looks for: ( x y z )
-    QString vertexPattern =
-        QString("\\(\\s*(%1)\\s+(%2)\\s+(%3)\\s*\\)").arg(numPat,
-                                                        numPat, numPat);
-    QRegularExpression vertexRe(vertexPattern);
-    QRegularExpressionMatchIterator vi = vertexRe.globalMatch(verticesStr);
-
-    while (vi.hasNext()) {
-        QRegularExpressionMatch match = vi.next();
-        // captured(1), (2), and (3) correspond to x, y, and z
-        double x = match.captured(1).toDouble();
-        double y = match.captured(2).toDouble();
-        double z = match.captured(3).toDouble();
-
-        config.vertices.push_back({x, y, z});
-    }
-
-    // Blocks
-    QString blocksStr = dict->getString("blocks");
-    // QString numPat = "[-+]?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?";
-
-    QString fullPattern = QString(
-                              "hex\\s*\\([^)]+\\)\\s*"
-                              "\\(\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s*\\)\\s*"
-                              "[a-zA-Z]+\\s*"
-                              "\\(\\s*(%1)\\s+(%2)\\s+(%3)\\s*\\)"
-                              ).arg(numPat, numPat, numPat);
-
-    QRegularExpression blockRe(fullPattern);
-    QRegularExpressionMatch blockMatch = blockRe.match(blocksStr);
-
-    if (blockMatch.hasMatch()) {
-        config.shape = "hex";
-        config.nX = blockMatch.captured(1).toInt();
-        config.nY = blockMatch.captured(2).toInt();
-        config.nZ = blockMatch.captured(3).toInt();
-        config.gradingX = blockMatch.captured(4).toDouble();
-        config.gradingY = blockMatch.captured(5).toDouble();
-        config.gradingZ = blockMatch.captured(6).toDouble();
-    }
-
-    // Boundary patches
-    QString boundaryStr = dict->getString("boundary");
-    QRegularExpression patchRe(
-        "([a-zA-Z0-9_]+)\\s*\\{\\s*type\\s+([a-zA-Z]+);\\s*faces\\s*"
-        "\\((.*?)\\);\\s*\\}",
-        QRegularExpression::DotMatchesEverythingOption
-        );
-
-    QRegularExpressionMatchIterator pi = patchRe.globalMatch(boundaryStr);
-
-    while (pi.hasNext()) {
-        QRegularExpressionMatch pMatch = pi.next();
-        Patch patch;
-        patch.name = pMatch.captured(1);
-        QString typeStr = pMatch.captured(2);
-
-        // Map the extracted string to your C++ Enum
-        if (typeStr == "wall") patch.type = PatchType::wall;
-        else if (typeStr == "symmetryPlane") patch.type = PatchType::symmetryPlane;
-        else if (typeStr == "empty") patch.type = PatchType::empty;
-        else if (typeStr == "wedge") patch.type = PatchType::wedge;
-        else if (typeStr == "cyclic") patch.type = PatchType::cyclic;
-        else patch.type = PatchType::patch; // Fallback default
-
-        // Parse the inner faces string for this specific patch
-        // Looks for sequences like: (0 1 5 4)
-        QString facesStr = pMatch.captured(3);
-        QRegularExpression
-            faceRe("\\(\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s*\\)");
-        QRegularExpressionMatchIterator fi = faceRe.globalMatch(facesStr);
-
-        while (fi.hasNext()) {
-            QRegularExpressionMatch fMatch = fi.next();
-            std::array<int, 4> faceIndices = {
-                fMatch.captured(1).toInt(),
-                fMatch.captured(2).toInt(),
-                fMatch.captured(3).toInt(),
-                fMatch.captured(4).toInt()
-            };
-            patch.faces.push_back(faceIndices);
-        }
-        config.patches.push_back(patch);
-    }
-    return config;
-}
-
-// Parse surface feature extraction data
-std::map<QString, SurfaceFeatureEntry>
-    MeshIO::parseSurfaceFeatureData(
-        const std::shared_ptr<OpenFoamDictionary> dict,
-        const QStringList& geometryFiles) {
-
-    // Clear existing map to ensure idempotence
-    std::map<QString, SurfaceFeatureEntry> surfaceFeatureMap;
-    if ((!dict) || (geometryFiles.empty())) return surfaceFeatureMap;
-
-    // Helper lambda to safely parse OpenFOAM boolean syntax
-    auto parseOfBool = [](QString val, bool defaultVal) -> bool {
-        if (val.isEmpty()) return defaultVal;
-        val = val.toLower().trimmed();
-        if (val == "yes" || val == "true" || val == "on") return true;
-        if (val == "no" || val == "false" || val == "off") return false;
-        return defaultVal;
-    };
-
-    // Iterate through geometry files
-    for (const QString& stlName : std::as_const(geometryFiles)) {
-
-        // Initialize with safe OpenFOAM defaults (150.0, false, true, true)
-        SurfaceFeatureEntry entry;
-
-        // Parse Booleans
-        QString writeObjStr = dict->getString(stlName + "/writeObj");
-        entry.writeObj = parseOfBool(writeObjStr, true);
-
-        // QString nonManifoldStr = dict->getString(stlName + "/nonManifoldEdges");
-        // entry.nonManifoldEdges = parseOfBool(nonManifoldStr, false);
-
-        QString openEdgesStr = dict->getString(stlName + "/openEdges");
-        entry.openEdges = parseOfBool(openEdgesStr, true);
-
-        // --- 2. Parse Included Angle using the new path syntax ---
-        // Look inside the standard OpenFOAM sub-dictionary first
-        double angle = dict->getNumber(stlName +
-            "/extractFromSurfaceCoeffs/includedAngle");
-
-        if (!std::isnan(angle)) {
-            entry.angle = angle;
-        } else {
-            // Check if the user placed it at the top level of the STL block
-            angle = dict->getNumber(stlName + "/includedAngle");
-            if (!std::isnan(angle)) {
-                entry.angle = angle;
-            }
-        }
-        surfaceFeatureMap[stlName] = entry;
-    }
-    return surfaceFeatureMap;
-}
-
 // Parse castellation mesh data
-CastellatedMeshConfig MeshIO::parseCastellatedMesh(
+CaseIO::CastellatedMeshConfig CaseIO::parseCastellatedMesh(
     const std::shared_ptr<OpenFoamDictionary> dict) {
 
     CastellatedMeshConfig config;
@@ -277,7 +106,7 @@ CastellatedMeshConfig MeshIO::parseCastellatedMesh(
 }
 
 // Parse snap control mesh configuration data
-SnapControlConfig MeshIO::parseSnapControlConfig(
+CaseIO::SnapControlConfig CaseIO::parseSnapControlConfig(
     const std::shared_ptr<OpenFoamDictionary> dict) {
     SnapControlConfig config;
 
@@ -318,7 +147,7 @@ SnapControlConfig MeshIO::parseSnapControlConfig(
     return config;
 }
 
-LayerControlConfig MeshIO::parseLayerControlConfig(
+CaseIO::LayerControlConfig CaseIO::parseLayerControlConfig(
     const std::shared_ptr<OpenFoamDictionary> dict) {
 
     LayerControlConfig config;
@@ -381,312 +210,7 @@ LayerControlConfig MeshIO::parseLayerControlConfig(
     return config;
 }
 
-// Update the blockMeshDict file
-QString MeshIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict,
-                                    const BlockMeshConfig& config) {
-    if (!dict) {
-        qWarning() << "Cannot update blockMeshDict: Dictionary is null.";
-        return QString();
-    }
-
-    // Update scaling factor (handling ESI/Keysight vs Foundation syntax)
-    if (!std::isnan(dict->getNumber("convertToMeters"))) {
-        dict->setValue("convertToMeters",
-                       QString::number(config.convertToMeters));
-    }
-    else if (!std::isnan(dict->getNumber("scale"))) {
-        dict->setValue("scale", QString::number(config.convertToMeters));
-    }
-    else {
-        qWarning() << "Warning: Neither 'convertToMeters' nor 'scale' found."
-                      "Scaling not updated.";
-    }
-
-    // Update vertices
-    QString vertsStr;
-    QTextStream vertsOut(&vertsStr);
-    vertsOut << "(\n";
-    for (const auto& pt : config.vertices) {
-        vertsOut <<
-            QString("    (%1 %2 %3)\n").arg(pt[0]).arg(pt[1]).arg(pt[2]);
-    }
-    vertsOut << ")";
-
-    dict->setValue("vertices", vertsStr);
-
-    // Update blocks
-    QString blocksStr;
-    QTextStream blocksOut(&blocksStr);
-    blocksOut << "(\n";
-    blocksOut <<
-       QString("    %1 (0 1 2 3 4 5 6 7) (%2 %3 %4) simpleGrading (%5 %6 %7)\n")
-            .arg(config.shape)
-            .arg(config.nX).arg(config.nY).arg(config.nZ)
-            .arg(config.gradingX).arg(config.gradingY).arg(config.gradingZ);
-    blocksOut << ")";
-
-    dict->setValue("blocks", blocksStr);
-
-    // Update boundary (Patches)
-    if (!config.patches.empty()) {
-        QString boundaryStr;
-        QTextStream boundOut(&boundaryStr);
-        boundOut << "(\n";
-
-        for (const auto& patch : config.patches) {
-
-            // Set string for patch type
-            QString patchType;
-            switch (patch.type) {
-            case PatchType::patch:
-                patchType = "patch"; break;
-            case PatchType::wall:
-                patchType = "wall"; break;
-            case PatchType::symmetryPlane:
-                patchType = "symmetryPlane"; break;
-            case PatchType::empty:
-                patchType = "empty"; break;
-            case PatchType::wedge:
-                patchType = "wedge"; break;
-            case PatchType::cyclic:
-                patchType = "cyclic"; break;
-            default:
-                patchType = "patch";
-            }
-
-            boundOut << "    " << patch.name << "\n";
-            boundOut << "    {\n";
-            boundOut << "        type " << patchType << ";\n";
-            boundOut << "        faces\n";
-            boundOut << "        (\n";
-            for (const auto& face : patch.faces) {
-                boundOut << QString("            (%1 %2 %3 %4)\n")
-                    .arg(face[0]).arg(face[1]).arg(face[2]).arg(face[3]);
-            }
-            boundOut << "        );\n";
-            boundOut << "    }\n";
-        }
-        boundOut << ")";
-
-        // OpenFOAM sometimes uses "boundary" and sometimes "patches".
-        dict->setValue("boundary", boundaryStr);
-    }
-
-    // Return the updated AST as a raw text string
-    return dict->getRawText();
-}
-
-// Create a new blockMeshDict file
-QString MeshIO::createBlockMeshDict(const BlockMeshConfig& config,
-                                    QString openFoamPath) {
-    QString dictStr;
-    QTextStream out(&dictStr);
-
-    // Write the standard OpenFOAM header
-    out << Utils::createFoamHeader("blockMeshDict", openFoamPath);
-
-    // Write the scale factor
-    bool isESI = false;
-    QRegularExpression re("openfoam-?v?(\\d+)",
-                          QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch match = re.match(openFoamPath);
-    if (match.hasMatch()) {
-        QString digits = match.captured(1);
-        int verNumber = digits.toInt();
-
-        if (verNumber > 100) {
-            out << "scale " << config.convertToMeters << ";\n\n";
-        } else {
-            out << "convertToMeters " << config.convertToMeters << ";\n\n";
-        }
-    } else {
-        qWarning() << "Warning: Could not parse OpenFOAM version from path:"
-                   << openFoamPath;
-    }
-
-    // Write vertices
-    out << "vertices\n";
-    out << "(\n";
-    for (const auto& pt : config.vertices) {
-        out << QString("    (%1 %2 %3)\n").arg(pt[0]).arg(pt[1]).arg(pt[2]);
-    }
-    out << ");\n\n";
-
-    // Write blocks
-    out << "blocks\n";
-    out << "(\n";
-    out << QString("    %1 (0 1 2 3 4 5 6 7) (%2 %3 %4)"
-                   " simpleGrading (%5 %6 %7)\n")
-               .arg(config.shape)
-               .arg(config.nX).arg(config.nY).arg(config.nZ)
-               .arg(config.gradingX).arg(config.gradingY).arg(config.gradingZ);
-    out << ");\n\n";
-
-    // Write edges
-    out << "edges\n";
-    out << "(\n";
-    out << ");\n\n";
-
-    // Write boundary patches
-    out << "boundary\n";
-    out << "(\n";
-    for (const auto& patch : config.patches) {
-
-        // Determine OpenFOAM patch type string
-        QString patchType;
-        switch (patch.type) {
-        case PatchType::patch:
-            patchType = "patch"; break;
-        case PatchType::wall:
-            patchType = "wall"; break;
-        case PatchType::symmetryPlane:
-            patchType = "symmetryPlane"; break;
-        case PatchType::empty:
-            patchType = "empty"; break;
-        case PatchType::wedge:
-            patchType = "wedge"; break;
-        case PatchType::cyclic:
-            patchType = "cyclic"; break;
-        default:
-            patchType = "patch"; // Safe fallback
-            qWarning() << "Warning: Unknown patch type for" << patch.name <<
-                "- defaulting to 'patch'.";
-            break;
-        }
-
-        out << "    " << patch.name << "\n";
-        out << "    {\n";
-        out << "        type " << patchType << ";\n";
-        out << "        faces\n";
-        out << "        (\n";
-        for (const auto& face : patch.faces) {
-            out << QString("            (%1 %2 %3 %4)\n")
-            .arg(face[0]).arg(face[1]).arg(face[2]).arg(face[3]);
-        }
-        out << "        );\n";
-        out << "    }\n";
-    }
-    out << ");\n\n";
-
-    // 7. Write mergePatchPairs (Required empty list)
-    out << "mergePatchPairs\n";
-    out << "(\n";
-    out << ");\n\n";
-
-    // Write closing separator
-    out << "// ************************************************************************* //\n";
-
-    return dictStr;
-}
-
-// Update surfaceFeatureExtractDict or surfaceFeaturesDict
-QString MeshIO::updateSurfaceFeatureDict(
-    std::shared_ptr<OpenFoamDictionary> dict,
-    const std::map<QString, SurfaceFeatureEntry>& entries) {
-
-    if (!dict) {
-        qWarning() << "Cannot update surfaceFeatureExtractDict: Dictionary pointer is null.";
-        return QString();
-    }
-
-    for (const auto& [fileName, config] : entries) {
-
-        // Build the configuration block for this specific surface
-        QString blockStr;
-        QTextStream out(&blockStr);
-
-        // Use standard OpenFOAM boolean syntax (yes/no)
-        QString writeObjStr = config.writeObj ? "yes" : "no";
-        // QString nonManifoldStr = config.nonManifoldEdges ? "yes" : "no";
-        QString openEdgesStr = config.openEdges ? "yes" : "no";
-
-        out << "\n"
-            << "    {\n"
-            << "        extractionMethod    extractFromSurface;\n"
-            << "        extractFromSurfaceCoeffs\n"
-            << "        {\n"
-            << "            includedAngle   " << config.angle << ";\n"
-            << "        }\n"
-            << "        writeObj            " << writeObjStr << ";\n"
-            // << "        nonManifoldEdges    " << nonManifoldStr << ";\n"
-            << "        openEdges           " << openEdgesStr << ";\n"
-            << "    }";
-
-        // Inject the updated block into AST
-        dict->setValue(fileName, blockStr);
-    }
-
-    return dict->getRawText();
-}
-
-QString MeshIO::createSurfaceFeatureDict(
-    const std::map<QString, SurfaceFeatureEntry>& entryMap, QString ofPath) {
-
-    QString dictStr;
-    QTextStream out(&dictStr);
-
-    // Determine which OpenFOAM release is used
-    QString dirName = QDir(ofPath).dirName();
-    const QRegularExpression foundationRegex("^openfoam\\d{2}$",
-        QRegularExpression::CaseInsensitiveOption);
-    bool isFoundation = foundationRegex.match(dirName).hasMatch();
-
-    // Generate the standard OpenFOAM header
-    if (isFoundation) {
-        out << Utils::createFoamHeader("surfaceFeaturesDict", ofPath);
-
-        // Generate a block for each file (Foundation version)
-        for (const auto& [fileName, config] : entryMap) {
-            // Remove the extension for the block identifier
-            QString identifier = QFileInfo(fileName).baseName();
-            if (identifier.isEmpty()) {
-                identifier = fileName;
-            }
-
-            QString writeObjStr = config.writeObj ? "yes" : "no";
-
-            out << identifier << "\n"
-                << "{\n"
-                << "    surfaces\n"
-                << "    (\n"
-                << "        \"" << fileName << "\"\n"
-                << "    );\n"
-                << "    includedAngle           " << config.angle << ";\n"
-                << "    geometricTestOnly       yes;\n"
-                << "    writeObj                " << writeObjStr << ";\n"
-                << "}\n\n";
-        }
-    } else {
-        out << Utils::createFoamHeader("surfaceFeatureExtractDict", ofPath);
-
-        // Generate a block for each file
-        for (const auto& [fileName, config] : entryMap) {
-
-            // Write the block for the given file
-            QString writeObjStr = config.writeObj ? "yes" : "no";
-            QString openEdgesStr = config.openEdges ? "yes" : "no";
-            out << fileName << "\n"
-                << "{\n"
-                << "    extractionMethod    extractFromSurface;\n"
-                << "    extractFromSurfaceCoeffs\n"
-                << "    {\n"
-                << "        includedAngle   " << config.angle << ";\n"
-                << "    }\n"
-                << "    writeObj            " << writeObjStr << ";\n"
-                << "    nonManifoldEdges    yes;\n"
-                << "    openEdges           " << openEdgesStr << ";\n"
-                << "}\n\n";
-        }
-    }
-
-    // Write the standard OpenFOAM closing separator
-    out << "// ***************************************"
-           "********************************** //\n";
-
-    return dictStr;
-}
-
-QString MeshIO::updateSnappyHexMeshDict(
+QString CaseIO::updateSnappyHexMeshDict(
     std::shared_ptr<OpenFoamDictionary> dict,
     const CastellatedMeshConfig& castConfig,
     const SnapControlConfig& snapConfig,
@@ -796,7 +320,7 @@ QString MeshIO::updateSnappyHexMeshDict(
     return dict->getRawText();
 }
 
-QString MeshIO::createSnappyHexMeshDict(
+QString CaseIO::createSnappyHexMeshDict(
     const std::map<QString, SurfaceFeatureEntry>& entryMap,
     const CastellatedMeshConfig& castConfig,
     const SnapControlConfig& snapConfig, const LayerControlConfig& layerConfig,
@@ -808,14 +332,14 @@ QString MeshIO::createSnappyHexMeshDict(
     // Determine which OpenFOAM release is used
     QString dirName = QDir(openFoamPath).dirName();
     const QRegularExpression foundationRegex("^openfoam\\d{2}$",
-        QRegularExpression::CaseInsensitiveOption);
+                                             QRegularExpression::CaseInsensitiveOption);
     bool isFoundation = foundationRegex.match(dirName).hasMatch();
 
     // Helper lambda to convert booleans to OpenFOAM format
     auto boolToStr = [](bool b) { return b ? "true" : "false"; };
 
     // Write Header
-    out << Utils::createFoamHeader("snappyHexMeshDict", openFoamPath);
+    out << createFoamHeader("snappyHexMeshDict", openFoamPath);
 
     // Global switches
     out << "castellatedMesh    true;\n";
@@ -899,8 +423,8 @@ QString MeshIO::createSnappyHexMeshDict(
     if (!std::isnan(castConfig.locationInMesh[0])) {
         out << QString("    locationInMesh (%1 %2 %3);\n")
         .arg(castConfig.locationInMesh[0])
-        .arg(castConfig.locationInMesh[1])
-        .arg(castConfig.locationInMesh[2]);
+            .arg(castConfig.locationInMesh[1])
+            .arg(castConfig.locationInMesh[2]);
     } else {
         out << "    locationInMesh (0 0 0);\n";
     }

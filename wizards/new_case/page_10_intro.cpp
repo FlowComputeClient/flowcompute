@@ -17,7 +17,13 @@
 
 #include "page_10_intro.h"
 
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
 #include <QOperatingSystemVersion>
+#include <QRadioButton>
 
 #include "wizard_new_case.h"
 
@@ -28,72 +34,66 @@ IntroPage::IntroPage(bool isWslAvailable, QWidget *parent):
     setTitle(tr("Case Configuration"));
 
     // Create a grid layout with two columns
-    QGridLayout* layout = new QGridLayout(this);
-    layout->setSpacing(20);
+    QFormLayout* mainLayout = new QFormLayout(this);
+    mainLayout->setSpacing(20);
 
     // Ask for case folder name
-    layout->addWidget(new QLabel(tr("Name of new case:")), 0, 0);
     m_caseNameEdit = new QLineEdit(this);
-    layout->addWidget(m_caseNameEdit, 0, 1);
+    mainLayout->addRow(tr("Name of new case:"), m_caseNameEdit);
     m_caseNameEdit->setText("test");
     registerField("caseName", m_caseNameEdit);
 
     // Ask for the target system
     QGroupBox* targetGroup = new QGroupBox(tr("Target System"), this);
-    layout->addWidget(targetGroup, 1, 0, 1, 2);
+    mainLayout->addRow(targetGroup);
     QFont f = targetGroup->font();
     f.setBold(true);
     targetGroup->setFont(f);
 
-    // Create grid layout for group
-    QGridLayout* targetGroupLayout = new QGridLayout(targetGroup);
-    targetGroup->setLayout(targetGroupLayout);
-    targetGroupLayout->setSpacing(20);
+    // Create layout for group
+    QVBoxLayout* targetLayout = new QVBoxLayout(targetGroup);
+    targetGroup->setLayout(targetLayout);
+    targetLayout->setSpacing(20);
 
     // Create radio button group
     m_targetButtonGroup = new QButtonGroup(this);
 
     // Create target options
-    int row = 0;
-    QRadioButton *remoteButton = new QRadioButton(tr("Remote:"), targetGroup);
-    m_remoteIPAddrEdit = new QLineEdit(targetGroup);
+    m_remoteRadio = new QRadioButton(tr("Remote"), targetGroup);
     if (QOperatingSystemVersion::currentType() ==
         QOperatingSystemVersion::Windows) {
 
         // WSL radio button
         QRadioButton *localWinButton =
             new QRadioButton(tr("Local (WSL)"), targetGroup);
-        targetGroupLayout->addWidget(localWinButton, row++, 0);
+        targetLayout->addWidget(localWinButton);
         m_targetButtonGroup->addButton(localWinButton,
             static_cast<int>(TargetType::LOCAL_WINDOWS));
 
         // Remote Linux button
-        targetGroupLayout->addWidget(remoteButton, row, 0);
-        m_targetButtonGroup->addButton(remoteButton,
+        targetLayout->addWidget(m_remoteRadio);
+        m_targetButtonGroup->addButton(m_remoteRadio,
             static_cast<int>(TargetType::REMOTE_LINUX));
-        targetGroupLayout->addWidget(m_remoteIPAddrEdit, row++, 1);
 
         // Disable WSL option if not available
         if (!isWslAvailable) {
             localWinButton->setText("Local (WSL) - WSL not available");
             localWinButton->setDisabled(true);
             localWinButton->setChecked(false);
-            remoteButton->setChecked(true);
+            m_remoteRadio->setChecked(true);
         } else {
             localWinButton->setChecked(true);
-            remoteButton->setChecked(false);
+            m_remoteRadio->setChecked(false);
         }
-
     } else {
         QRadioButton *localLinuxButton =
             new QRadioButton(tr("Local"), targetGroup);
         m_targetButtonGroup->addButton(localLinuxButton,
             static_cast<int>(TargetType::LOCAL_LINUX));
-        targetGroupLayout->addWidget(localLinuxButton, row++, 0);
-        targetGroupLayout->addWidget(remoteButton, row, 0);
-        m_targetButtonGroup->addButton(remoteButton,
+        targetLayout->addWidget(localLinuxButton);
+        targetLayout->addWidget(m_remoteRadio);
+        m_targetButtonGroup->addButton(m_remoteRadio,
             static_cast<int>(TargetType::REMOTE_LINUX));
-        targetGroupLayout->addWidget(m_remoteIPAddrEdit, row++, 1);
         localLinuxButton->setChecked(true);
     }
 
@@ -102,19 +102,10 @@ IntroPage::IntroPage(bool isWslAvailable, QWidget *parent):
             &IntroPage::targetSystemChanged);
     registerField("targetSystemId", this, "targetSystemId");
 
-    // Set the first button to checked
-    // QList<QAbstractButton*> buttons = m_targetButtonGroup->buttons();
-    // buttons.first()->setChecked(true);
-
-    // Enable IP box if remote target is chosen
-    m_remoteIPAddrEdit->setEnabled(remoteButton->isChecked());
-    connect(remoteButton, &QRadioButton::toggled,
-            m_remoteIPAddrEdit, &QLineEdit::setEnabled);
-
     // Ask for the case creation method
     QGroupBox* caseCreationGroup =
         new QGroupBox(tr("Case Initialization"), this);
-    layout->addWidget(caseCreationGroup, 2, 0, 1, 2);
+    mainLayout->addRow(caseCreationGroup);
     f = caseCreationGroup->font();
     f.setBold(true);
     caseCreationGroup->setFont(f);
@@ -128,15 +119,15 @@ IntroPage::IntroPage(bool isWslAvailable, QWidget *parent):
     caseCreationGroup->setLayout(caseCreationGroupLayout);
 
     // Create interactive radio button
-    m_interactiveRadio = new QRadioButton(tr("Interactive case builder"),
-                                          caseCreationGroup);
+    m_interactiveRadio =
+        new QRadioButton(tr("Interactive case builder"), caseCreationGroup);
     m_caseCreationButtonGroup->addButton(m_interactiveRadio, 0);
     caseCreationGroupLayout->addWidget(m_interactiveRadio);
     m_interactiveRadio->setChecked(true);
 
     // Create tutorial radio button
-    m_tutorialRadio = new QRadioButton(tr("Copy a tutorial case"),
-                                       caseCreationGroup);
+    m_tutorialRadio =
+        new QRadioButton(tr("Copy a tutorial case"), caseCreationGroup);
     m_caseCreationButtonGroup->addButton(m_tutorialRadio, 1);
     caseCreationGroupLayout->addWidget(m_tutorialRadio);
 
@@ -146,16 +137,20 @@ IntroPage::IntroPage(bool isWslAvailable, QWidget *parent):
     registerField("caseCreationType", this, "caseCreationType");
 
     // Set the page layout
-    setLayout(layout);
+    setLayout(mainLayout);
 }
 
+// Set next page according to radio button selection
 int IntroPage::nextId() const {
-    // Set next page according to radio button selection
-    if (m_tutorialRadio->isChecked()) {
-        return static_cast<int>(WizardPage::Page_Tutorial);
-    }
-    else if (m_interactiveRadio->isChecked()) {
-        return static_cast<int>(WizardPage::Page_Interactive);
+    if (m_remoteRadio->isChecked()) {
+        return static_cast<int>(WizardPage::Page_Remote);
+    } else {
+        if (m_tutorialRadio->isChecked()) {
+            return static_cast<int>(WizardPage::Page_Tutorial);
+        }
+        else if (m_interactiveRadio->isChecked()) {
+            return static_cast<int>(WizardPage::Page_Interactive);
+        }
     }
     return -1;
 }

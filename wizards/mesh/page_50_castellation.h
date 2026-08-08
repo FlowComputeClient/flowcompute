@@ -37,7 +37,7 @@
 #include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "mesh_structs.h"
+#include "parser/snappy_hex_mesh_dict.h"
 
 class MainWindow;
 class MeshWizard;
@@ -54,7 +54,7 @@ class CastellationPage : public QWizardPage {
     bool validatePage() override;
 
  private:
-    CastellatedMeshConfig* m_cfg;
+    CaseIO::CastellatedMeshConfig* m_cfg;
     MeshWizard* meshWizard;
     QComboBox* meshRegionBox;
     QSpinBox *maxGlobalCellBox, *maxLocalCellBox, *cellLevelBox;

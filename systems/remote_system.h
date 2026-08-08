@@ -20,15 +20,28 @@
 
 #include "target_system.h"
 
+#include <libssh/libssh.h>
+
 class RemoteSystem : public TargetSystem {
     Q_OBJECT
 
  public:
     RemoteSystem() {}
-    ~RemoteSystem() {}
+    ~RemoteSystem();
+
+    // Create connection
+    bool establishSession(const QString& host, const QString& user,
+          int port, const QString& passwd, QString& errorMessage,
+          std::function<bool(const QString&, const QString&)> callback);
+
+    // Execute command through SSH
+    QString execCommand(const QString& cmd);
 
     QStringList findOpenFoam() override;
     QStringList getTutorials(const QString& path) override;
+
+    void processAllrunScript(const QString& scriptPath,
+        const QString& projectPath, const QString& originalTutorialPath);
     QStringList copyTutorialFolders(const QString& tutPath,
                                     const QString& projPath) override;
     QByteArray getFileContent(const QString& path) override;
@@ -39,11 +52,16 @@ class RemoteSystem : public TargetSystem {
     int launchShortUtility(const QString& cmd, QString& output) override;
     void launchLongUtility(const QString& cmd, const QString& caseName,
                            UtilityType utilityType) override;
-    QString getResultFolders(QString path) override;
+    std::pair<QStringList, QStringList>
+        getTimesAndFields(const QString& projPath) override;
     QStringList processPaths(const QString& path,
                              PathOperationType type) override;
     RenderData getMeshData(const QString& path) override;
     RenderData getResultData(const QString& path) override;
+
+ private:
+    ssh_session m_session;
+
 };
 
 #endif  // SYSTEMS_REMOTE_SYSTEM_H_

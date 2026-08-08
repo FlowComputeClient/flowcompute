@@ -19,15 +19,11 @@
 #define PAGE_10_INTRO_H_
 
 #include <QButtonGroup>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QLabel>
-#include <QLineEdit>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
+class QGroupBox;
+class QLineEdit;
+class QRadioButton;
 class NewCaseWizard;
 
 class IntroPage : public QWizardPage {
@@ -61,9 +57,9 @@ class IntroPage : public QWizardPage {
 
  private:
     QString m_openFoamPath;
-    QLineEdit *m_caseNameEdit, *m_remoteIPAddrEdit;
+    QLineEdit *m_caseNameEdit;
     QButtonGroup *m_targetButtonGroup, *m_caseCreationButtonGroup;
-    QRadioButton *m_tutorialRadio, *m_interactiveRadio;
+    QRadioButton *m_remoteRadio, *m_tutorialRadio, *m_interactiveRadio;
 };
 
 #endif  // PAGE_10_INTRO_H_

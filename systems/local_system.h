@@ -24,6 +24,13 @@
 
 namespace fs = std::filesystem;
 
+struct FaceList {
+    std::vector<int32_t> offsets;
+    std::vector<int32_t> connectivity;
+};
+
+enum class FoamFormat { Ascii, Binary, Unknown };
+
 class LocalSystem : public TargetSystem {
     Q_OBJECT
 
@@ -43,7 +50,8 @@ class LocalSystem : public TargetSystem {
     int launchShortUtility(const QString& cmd, QString& output) override;
     void launchLongUtility(const QString& cmd, const QString& caseName,
                            UtilityType utilityType) override;
-    QString getResultFolders(QString path) override;
+    std::pair<QStringList, QStringList>
+        getTimesAndFields(const QString& projPath) override;
     QStringList processPaths(const QString& path,
                              PathOperationType type) override;
     RenderData getMeshData(const QString& path) override;

@@ -37,7 +37,7 @@
 #include <QWizardPage>
 
 #include "geometry/graphic_data.h"
-#include "mesh_structs.h"
+#include "parser/block_mesh_dict.h"
 #include "systems/system_manager.h"
 
 class MeshWizard;
@@ -54,7 +54,7 @@ protected:
 
 private:
     const SystemManager& m_systemMgr;
-    BlockMeshConfig* m_cfg;
+    CaseIO::BlockMeshConfig* m_cfg;
     MeshWizard* meshWizard;
     BoundingBox m_rawGeomBox;
     QComboBox *m_scaleFactorCombo;
