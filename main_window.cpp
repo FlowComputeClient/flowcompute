@@ -181,6 +181,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         }
         bool isServerAvailable =
             ((data.targetId == 0) && wslServerAvailable) ||
+            (data.targetId == 1) ||
             ((data.targetId == 2) && remoteServerAvailable);
 
         bool casePresent = true;

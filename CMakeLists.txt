@@ -239,8 +239,14 @@ target_link_libraries(FlowCompute PRIVATE
     miniz tree_sitter
 )
 
-find_package(libssh REQUIRED)
-target_link_libraries(FlowCompute PRIVATE ssh)
+if(WIN32)
+    find_package(libssh REQUIRED)
+    target_link_libraries(FlowCompute PRIVATE ssh)
+elseif(UNIX)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBSSH REQUIRED IMPORTED_TARGET libssh)
+    target_link_libraries(FlowCompute PRIVATE PkgConfig::LIBSSH)
+endif()
 
 # Find the Vulkan shader compiler
 find_package(Vulkan REQUIRED)

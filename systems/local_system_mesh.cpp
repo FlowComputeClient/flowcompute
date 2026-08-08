@@ -474,5 +474,8 @@ RenderData LocalSystem::getMeshData(const QString& path) {
         uint32_t insertIdx = currentInsertPos[ptIdx]++;
         renderData.faceAdjacency[insertIdx] = faceIdx;
     }
+
+    // Set the format
+    renderData.format = RenderType::Mesh;
     return renderData;
 }
