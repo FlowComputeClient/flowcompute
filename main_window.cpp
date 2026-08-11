@@ -1499,26 +1499,6 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     QSettings settings;
     settings.setValue("Theme/file", m_themeFile);
 
-    // Save cases to settings
-    settings.remove("Cases");
-    settings.beginWriteArray("Cases");
-    QStringList cases = m_navigator->getCases();
-
-    // Iterate through cases
-    for (int i = 0; i < cases.size(); ++i) {
-        settings.setArrayIndex(i);
-        QString caseName = cases.at(i);
-        CaseData data = m_systemMgr.getData(caseName);
-
-        // Save values to settings
-        settings.setValue("caseName", caseName);
-        settings.setValue("casePath", data.casePath);
-        settings.setValue("caseFiles", data.caseFiles);
-        settings.setValue("targetSystemId", data.targetId);
-        settings.setValue("openFoamPath", data.openFoamPath);
-    }
-    settings.endArray();
-
     // Save open tabs to settings
     settings.remove("Tabs");
     settings.beginWriteArray("Tabs");

@@ -32,7 +32,9 @@ enum class PathOperationType {
     CREATE = 0,
     REMOVE,
     CHECK,
-    LIST
+    LIST,
+    RENAME,
+    COPY
 };
 
 #include "geometry/graphic_data.h"

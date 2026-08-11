@@ -58,15 +58,15 @@ RemotePage::RemotePage(SystemManager& systemMgr, QWidget *parent):
     // User name
     m_userNameEdit = new QLineEdit(authGroup);
     authLayout->addRow(tr("User name: "), m_userNameEdit);
-    registerField("remoteUser", m_userNameEdit);
+    registerField("userName", m_userNameEdit);
 
     // Hostname
     m_hostNameEdit = new QLineEdit(authGroup);
     authLayout->addRow(tr("Hostname/IP address: "), m_hostNameEdit);
-    registerField("remoteHost", m_hostNameEdit);
+    registerField("hostName", m_hostNameEdit);
 
-    m_userNameEdit->setText("mattscar");
-    m_hostNameEdit->setText("192.168.100.33");
+    // m_userNameEdit->setText("mattscar");
+    // m_hostNameEdit->setText("192.168.100.33");
 
     // Password
     m_passwordEdit = new QLineEdit(authGroup);
@@ -79,7 +79,7 @@ RemotePage::RemotePage(SystemManager& systemMgr, QWidget *parent):
     m_portSpin->setRange(1, 65535);
     m_portSpin->setValue(22);
     authLayout->addRow(tr("Port number: "), m_portSpin);
-    registerField("remotePort", m_portSpin);
+    registerField("port", m_portSpin);
 
     // Connection button
     QHBoxLayout* buttonLayout = new QHBoxLayout();

@@ -28,6 +28,9 @@ struct CaseData {
     QStringList caseFiles;
     int targetId;
     QString openFoamPath;
+    QString hostName;
+    QString userName;
+    int port;
 };
 
 enum TargetType {

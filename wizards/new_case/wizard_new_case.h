@@ -74,7 +74,8 @@ class NewCaseWizard : public QWizard {
 
  signals:
     void requestCaseCreation(QString caseName, QString casePath,
-        QStringList caseFiles, int systemId, QString openFoamPath);
+        QStringList caseFiles, int systemId, QString openFoamPath,
+        QString userName, QString hostName, int port);
 
  protected:
     void accept() override;

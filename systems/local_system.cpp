@@ -27,6 +27,7 @@
 #include <fstream>
 #include <limits>
 #include <regex>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -67,13 +68,52 @@ QStringList LocalSystem::processPaths(const QString& pathString,
         return QStringList{"Input paths string was empty."};
     }
 
+    // Two-path operations
+    // Handle Two-path operations (RENAME / COPY)
+    if (opType == PathOperationType::RENAME ||
+        opType == PathOperationType::COPY) {
+
+        // Use Qt::SkipEmptyParts to avoid empty string processing
+        QStringList strList = pathString.split('\n', Qt::SkipEmptyParts);
+
+        // Check bounds
+        if (strList.size() < 2) {
+            result.append("-1");
+            result.append("Insufficient paths for two-path operation.");
+            return result;
+        }
+
+        QString sourcePath = strList[0];
+        QString destPath = strList[1];
+        std::error_code ec;
+        fs::path pSrc(sourcePath.toStdString());
+        fs::path pDst(destPath.toStdString());
+
+        if (opType == PathOperationType::RENAME) {
+            fs::rename(pSrc, pDst, ec);
+        } else if (opType == PathOperationType::COPY) {
+            auto copy_opts = fs::copy_options::recursive |
+                             fs::copy_options::overwrite_existing;
+            fs::copy(pSrc, pDst, copy_opts, ec);
+        }
+
+        // Capture the error message
+        if (!ec) {
+            result.append("0");
+        } else {
+            result.append("-1");
+            result.append(QString::fromStdString(ec.message()));
+        }
+        return result;
+    }
+
     // Process the delimited string using Qt string splitting
     QStringList targetPaths = pathString.split('\n', Qt::SkipEmptyParts);
 
-    for (const QString& q_path : std::as_const(targetPaths)) {
-        std::string target_path = q_path.toStdString();
+    for (const QString& qPath : std::as_const(targetPaths)) {
+        std::string targetPath = qPath.toStdString();
         std::error_code ec;
-        fs::path p(target_path);
+        fs::path p(targetPath);
         bool exists = fs::exists(p, ec);
 
         switch (opType) {
@@ -119,17 +159,23 @@ QStringList LocalSystem::processPaths(const QString& pathString,
                 auto options = fs::directory_options::skip_permission_denied;
                 for (const auto& entry : fs::directory_iterator(p, options)) {
                     std::string item_name = entry.path().filename().string();
-                    if (!item_name.empty() && item_name.front() == '.') continue;
+                    if (!item_name.empty() && item_name.front() == '.')
+                        continue;
 
                     if (ends_with(item_name, "_patched.stl") ||
-                        ends_with(item_name, "_tmp.stl")) continue;
+                        ends_with(item_name, "_tmp.stl"))
+                        continue;
 
                     if (entry.is_regular_file()) item_name += "|";
                     result.append(QString::fromStdString(item_name));
                 }
             }
             break;
-        }}
+        }
+
+        default:
+            break;
+        }
     }
     return result;
 }

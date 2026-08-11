@@ -24,8 +24,12 @@
 
 class NavigatorModel : public QStandardItemModel {
     Q_OBJECT
- public:
+public:
     explicit NavigatorModel(QObject *parent = nullptr);
+
+    // Override setData to intercept the rename event
+    bool setData(const QModelIndex &index, const QVariant &value,
+                 int role = Qt::EditRole) override;
 
     // Get node at the given index
     NodeData* nodeFromIndex(const QModelIndex &index) const;

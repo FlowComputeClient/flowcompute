@@ -60,8 +60,7 @@ class RemoteSystem : public TargetSystem {
     RenderData getResultData(const QString& path) override;
 
  private:
-    ssh_session m_session;
-
+    ssh_session m_session = nullptr;
 };
 
 #endif  // SYSTEMS_REMOTE_SYSTEM_H_

@@ -250,9 +250,18 @@ void NewCaseWizard::accept() {
         }
     }
 
+    // Get credentials for remote cases
+    int port = 0;
+    QString userName, hostName;
+    if (m_targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
+        userName = field("userName").toString();
+        hostName = field("hostName").toString();
+        port = field("port").toInt();
+    }
+
     // Request case creation
     emit requestCaseCreation(m_caseName, casePath, files, m_targetId,
-                             m_openFoamPath);
+                             m_openFoamPath, userName, hostName, port);
 
     QWizard::accept();
 }

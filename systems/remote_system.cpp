@@ -192,15 +192,60 @@ QStringList RemoteSystem::processPaths(const QString& pathString,
         return QStringList{"Input paths string was empty."};
     }
 
+    // Rename or Copy operations
+    if (opType == PathOperationType::RENAME ||
+        opType == PathOperationType::COPY) {
+
+        QStringList strList = pathString.split('\n', Qt::SkipEmptyParts);
+        if (strList.size() < 2) {
+            return QStringList{"-1", "Insufficient paths provided."};
+        }
+
+        QString srcPath = strList[0];
+        QString dstPath = strList[1];
+
+        // Sanitize inputs for remote execution
+        srcPath.replace("'", "'\\''");
+        dstPath.replace("'", "'\\''");
+
+        QString cmd;
+        if (opType == PathOperationType::RENAME) {
+            cmd = QString("SRC='%1'; DST='%2'; "
+                          "mv \"$SRC\" \"$DST\" 2>/dev/null; "
+                          "if [ $? -eq 0 ]; then echo '0'; else echo '-1'; fi")
+                      .arg(srcPath, dstPath);
+        } else if (opType == PathOperationType::COPY) {
+            // -r for recursive directory copying, -f to force overwrite
+            cmd = QString("SRC='%1'; DST='%2'; "
+                          "cp -rf \"$SRC\" \"$DST\" 2>/dev/null; "
+                          "if [ $? -eq 0 ]; then echo '0'; else echo '-1'; fi")
+                      .arg(srcPath, dstPath);
+        }
+
+        QStringList cmdResult =
+            execCommand(cmd).split('\n', Qt::SkipEmptyParts);
+
+        // Return early
+        if (!cmdResult.isEmpty()) {
+            return QStringList{cmdResult.first()};
+        }
+        return QStringList{"-1"};
+    }
+
     // Process the delimited string using Qt string splitting
     QStringList targetPaths = pathString.split('\n', Qt::SkipEmptyParts);
 
-    for (const QString& q_path : std::as_const(targetPaths)) {
-        QString safePath = q_path;
+    for (const QString& qPath : std::as_const(targetPaths)) {
+        QString safePath = qPath;
         safePath.replace("'", "'\\''");
 
         QString cmd;
         switch (opType) {
+        case PathOperationType::RENAME:
+            break;
+        case PathOperationType::COPY:
+            break;
+
         case PathOperationType::CREATE:
             cmd = QString("P='%1'; "
                   "if [ -f \"$P\" ]; then exit 0; fi; "

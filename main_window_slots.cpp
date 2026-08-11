@@ -32,7 +32,6 @@
 #include "dialogs/preferences/preferences_dialog.h"
 #include "dialogs/run_mesh/run_mesh_dialog.h"
 #include "dialogs/run_solver/run_solver_dialog.h"
-#include "dialogs/selection/selection_dialog.h"
 #include "editors/graphical/surface/surface_editor.h"
 #include "editors/graphical/mesh/mesh_editor.h"
 #include "editors/graphical/result/result_editor.h"
@@ -60,10 +59,11 @@ void MainWindow::launchNewCaseWizard() {
 
 // Create new case folder
 void MainWindow::createCase(QString caseName, QString casePath,
-        QStringList caseFiles, int targetId, QString openFoamPath) {
+        QStringList caseFiles, int targetId, QString openFoamPath,
+        QString userName, QString hostName, int port) {
     // Add case to map
     m_systemMgr.addCase(caseName, CaseData{casePath, caseFiles, targetId,
-                                        openFoamPath});
+        openFoamPath, userName, hostName, port});
 
     // Update utility map if necessary
     if (!m_utilMap.contains(openFoamPath)) {
@@ -71,9 +71,44 @@ void MainWindow::createCase(QString caseName, QString casePath,
         m_utilMap[openFoamPath] = checkUtilities(path, m_utilities);
     }
 
+    // Update QSettings
+    saveCases();
+
     // Display case in navigator
     m_navigator->addCase(caseName, caseFiles);
     m_navigator->expandCase(caseName);
+}
+
+void MainWindow::saveCases() {
+    // Access settings
+    QSettings settings;
+
+    // Save cases to settings
+    settings.remove("Cases");
+    settings.beginWriteArray("Cases");
+    QStringList cases = m_navigator->getCases();
+
+    // Iterate through cases
+    for (int i = 0; i < cases.size(); ++i) {
+        settings.setArrayIndex(i);
+        QString caseName = cases.at(i);
+        CaseData data = m_systemMgr.getData(caseName);
+
+        // Save values to settings
+        settings.setValue("caseName", caseName);
+        settings.setValue("casePath", data.casePath);
+        settings.setValue("caseFiles", data.caseFiles);
+        settings.setValue("targetSystemId", data.targetId);
+        settings.setValue("openFoamPath", data.openFoamPath);
+
+        // Save credentials if necessary
+        if (data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
+            settings.setValue("userName", data.userName);
+            settings.setValue("hostName", data.hostName);
+            settings.setValue("port", data.port);
+        }
+    }
+    settings.endArray();
 }
 
 // Create an editor for the given file
@@ -437,23 +472,28 @@ void MainWindow::deleteFile() {
         return;
 
     // Construct path to delete
-    QString caseName, filePath, casePath;
+    QString caseName, filePath;
     if (node->fullPath.isEmpty()) {
-        caseName = filePath;
+        caseName = node->name;
         filePath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
-        casePath = caseName;
     } else {
         caseName = node->fullPath.split('/').first();
         filePath = m_systemMgr.getData(caseName).casePath + "/" +
                    node->fullPath + "/" +  node->name;
-        casePath = node->fullPath;
     }
+
+    qDebug() << "Deleting " << filePath;
 
     // Delete file
     QStringList result = m_systemMgr.getSystem(caseName)->processPaths(filePath,
         PathOperationType::REMOVE);
     m_deleteAction->setData(QVariant());
     m_navigator->removeNode(node);
+
+    // Update settings if a case was deleted
+    if (node->fullPath.isEmpty()) {
+        saveCases();
+    }
 }
 
 // Set preferences

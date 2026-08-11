@@ -37,6 +37,23 @@ CaseNavigator::CaseNavigator(QAction* deleteAction,
     setExpandsOnDoubleClick(true);
     setSelectionMode(QAbstractItemView::SingleSelection);
 
+    // Create action for rename
+    m_renameAction = new QAction(tr("Rename"), this);
+    m_renameAction->setShortcut(Qt::Key_F2);
+    m_renameAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    m_renameAction->setIcon(
+        style()->standardIcon(QStyle::SP_FileDialogDetailedView));
+    connect(m_renameAction, &QAction::triggered, this, [this]() {
+        QModelIndex index = currentIndex();
+        if (index.isValid()) {
+            edit(index);
+        }
+    });
+
+    // Set proper size for line edit when renaming files
+    setStyleSheet(
+        "QTreeView QLineEdit { padding: 0px; margin: 0px; border: none;}");
+
     // Create model
     m_model = new NavigatorModel(this);
     setModel(m_model);
@@ -485,22 +502,26 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
         return;
     }
 
+    // Access the selected node
     NodeData* node = m_model->nodeFromIndex(index);
     if (!node)
         return;
-
     if (!node->isEnabled()) {
         QMessageBox::critical(this, tr("Cannot access OpenFOAM"),
             tr("FlowCompute can't find the installation of OpenFOAM."));
         return;
     }
 
-    // Create a fresh, local context menu instance
+    // Create menu
     QMenu contextMenu(this);
 
-    // Setup the ubiquitous Delete action
+    // Configure the Delete action
     m_deleteAction->setData(QVariant::fromValue(node));
     contextMenu.addAction(m_deleteAction);
+
+    // Configure the Rename action
+    m_renameAction->setData(QVariant::fromValue(node));
+    contextMenu.addAction(m_renameAction);
 
     // Conditionally add folder-specific actions
     switch (node->nodeType) {
@@ -555,3 +576,39 @@ void CaseNavigator::removeNode(NodeData* node) {
         parentItem->removeRow(row);
     }
 }
+
+// Rename the selected item
+bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
+
+    qDebug() << "Started renameNode";
+
+    // Determine old path and new path
+    QString caseName, oldPath, casePath, newPath;
+    if (node->fullPath.isEmpty()) {
+        caseName = node->name;
+        oldPath = caseName;
+        newPath = newName;
+    } else {
+        caseName = node->fullPath.split('/').first();
+        oldPath = m_systemMgr.getData(caseName).casePath + "/" +
+                   node->fullPath + "/" + node->name;
+        newPath = m_systemMgr.getData(caseName).casePath + "/" +
+                  node->fullPath + "/" + newName;
+    }
+
+    // Perform file rename operation
+    QString str = QStringList({oldPath, newPath}).join("\n");
+    QStringList res = m_systemMgr.getSystem(caseName)->processPaths(str,
+                                                PathOperationType::RENAME);
+    m_renameAction->setData(QVariant());
+
+    if (res[0] == "0") {
+        qDebug() << "Renamed " << oldPath << " to " << newPath;
+        return true;
+    } else {
+        qDebug() << "Failed to rename " << oldPath << " to " << newPath;
+        return false;
+    }
+}
+
+

@@ -40,6 +40,7 @@ class CaseNavigator : public QTreeView {
     QString getSelectedCase();
     void updatePath(QString path, QStringList children);
     void removeNode(NodeData* node);
+    bool renameNode(NodeData* node, const QString& newName);
     void createChildren(NodeData* node, const QString& nodePath,
                         const QStringList& children);
 
@@ -60,7 +61,7 @@ class CaseNavigator : public QTreeView {
     QStandardItem* m_root;
 
     // Menu and actions
-    QAction *m_deleteAction;
+    QAction *m_deleteAction, *m_renameAction;
     QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
     QAction *m_configureSolverAction, *m_runSolverAction, *m_viewResultAction;
 

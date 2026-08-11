@@ -18,12 +18,13 @@
 #include "node_data.h"
 
 NodeData::NodeData(const QString& name, const QString& fullPath,
-        NodeType type, bool isDisabled) : QStandardItem(name), name(name),
-        fullPath(fullPath), nodeType(type) {
+    NodeType type, bool isDisabled) : QStandardItem(name), name(name),
+    fullPath(fullPath), nodeType(type) {
 
     setForeground(QBrush(Qt::black));
     setIcon(getIconForType(type));
-    setEditable(false);
+    setSizeHint(QSize(0, 28));
+    // setEditable(false);
 
     // Force the expand arrow to appear
     if (type == NodeType::Folder) {

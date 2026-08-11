@@ -142,7 +142,9 @@ class MainWindow : public QMainWindow {
     // Create new case
     void launchNewCaseWizard();
     void createCase(QString caseName, QString casePath, QStringList caseFiles,
-                     int systemId, QString openFoamPath);
+        int systemId, QString openFoamPath, QString userName, QString hostName,
+        int port);
+    void saveCases();
 
     // Editor/file actions
     void createEditor(EditorType type, QString& fileName,
