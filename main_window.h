@@ -100,6 +100,7 @@ class MainWindow : public QMainWindow {
     // Actions
     QAction *m_newCaseAction, *m_saveFileAction, *m_preferencesAction;
     QAction *m_deleteAction, *m_undoAction, *m_redoAction;
+    QAction *m_cutAction, *m_copyAction, *m_pasteAction;
     QAction *m_zoomInAction, *m_zoomOutAction;
     QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
     QAction *m_configureSolverAction, *m_runSolverAction, *m_stopSolverAction;

@@ -15,43 +15,36 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_15_REMOTE_H_
-#define PAGE_15_REMOTE_H_
+#ifndef DIALOG_LOGIN_DIALOG_H_
+#define DIALOG_LOGIN_DIALOG_H_
 
-#include <QFutureWatcher>
-#include <QWizardPage>
+#include <QComboBox>
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QDialogButtonBox>
 
-class NewCaseWizard;
-class QLabel;
+struct SshCredentials {
+    QString userName;
+    QString hostName;
+    QString password;
+    int port = 22;
+};
+
 class QLineEdit;
 class QSpinBox;
-class QString;
 
-#include "systems/system_manager.h"
-
-class RemotePage : public QWizardPage {
+class LoginDialog : public QDialog {
     Q_OBJECT
 
  public:
-    RemotePage(SystemManager& systemMgr, QWidget *parent);
-    int nextId() const override;
-    bool isComplete() const override;
-
- signals:
-    void sshConnect(const QString& userName, const QString& hostName,
-                    const QString& password, int port);
+    LoginDialog(const QString& defaultUser, const QString& defaultHost,
+                 QWidget *parent = nullptr);
+    SshCredentials getCredentials();
 
  private:
-    bool m_isConnected;
-    SystemManager& m_systemMgr;
-    QLabel *m_connectLabel;
     QLineEdit *m_userNameEdit, *m_hostNameEdit, *m_passwordEdit;
     QSpinBox *m_portSpin;
-    QPushButton *m_connectButton;
-
- private slots:
-    void onConnectClicked();
-    void onAuthFinished(bool isConnected, QString errorMsg);
 };
 
-#endif  // PAGE_15_REMOTE_H_
+#endif  // DIALOG_LOGIN_DIALOG_H_

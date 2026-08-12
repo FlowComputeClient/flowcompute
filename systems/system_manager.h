@@ -18,9 +18,10 @@
 #ifndef SYSTEMS_SYSTEM_MANAGER_H_
 #define SYSTEMS_SYSTEM_MANAGER_H_
 
-#include "./target_system.h"
-
+#include <QFutureWatcher>
 #include <QMap>
+
+#include "./target_system.h"
 
 // Store information about project in navigator
 struct CaseData {
@@ -28,8 +29,8 @@ struct CaseData {
     QStringList caseFiles;
     int targetId;
     QString openFoamPath;
-    QString hostName;
     QString userName;
+    QString hostName;
     int port;
 };
 
@@ -54,7 +55,7 @@ public:
     // Access server
     bool checkWsl();
     bool checkWslServer();
-    bool checkRemoteServer();
+    bool checkRemoteServer(const QString& host, int port = 22);
 
     // Assign systems for communication
     void setSystems(
@@ -81,13 +82,27 @@ public:
     // Access target system for the given ID
     std::shared_ptr<TargetSystem> getSystem(int systemId) const;
 
+    // Attempt to log into remote system
+    QFutureWatcher<std::pair<bool, QString>>* setupConnection() const;
+
+    QFutureWatcher<std::pair<bool, QString>>* sshConnect(
+        const QString& user, const QString& host,
+        const QString& password, int port) const;
+
+    // Default credentials
+    void setDefaultHost(const QString& host) { m_defaultHost = host; }
+    void setDefaultUser(const QString& user) { m_defaultUser = user; }
+    QString getDefaultHost() { return m_defaultHost; }
+    QString getDefaultUser() { return m_defaultUser; }
+
 private:
-    QString m_serverVersion = "1.0.0";
+    QString m_serverVersion = "1.0.0", m_defaultHost, m_defaultUser;
     QMap<QString, CaseData> m_caseMap;
     std::array<std::shared_ptr<TargetSystem>,
         static_cast<int>(TargetType::COUNT)> m_systems;
     bool m_isWslAvailable = false;
     bool m_wslServerPresent = false;
+    bool m_remoteServerPresent = false;
 };
 
 #endif  // SYSTEMS_SYSTEM_MANAGER_H_

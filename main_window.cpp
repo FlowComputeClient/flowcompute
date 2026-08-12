@@ -170,19 +170,32 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         data.caseFiles = settings.value("caseFiles").toStringList();
         data.targetId = settings.value("targetSystemId", 0).toInt();
         data.openFoamPath = settings.value("openFoamPath").toString();
+        if (data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
+            data.userName = settings.value("userName").toString();
+            data.hostName = settings.value("hostName").toString();
+            data.port = settings.value("port", 22).toInt();
+            m_systemMgr.setDefaultHost(data.hostName);
+            m_systemMgr.setDefaultUser(data.userName);
+        }
 
         // Check server availability
-        if ((data.targetId == 0) && (!wslServerCheck)) {
+        if ((data.targetId == static_cast<int>(TargetType::LOCAL_WINDOWS)) &&
+            (!wslServerCheck)) {
             wslServerAvailable = m_systemMgr.checkWslServer();
             wslServerCheck = true;
-        } else if ((data.targetId == 2) && (!remoteServerCheck)) {
-            remoteServerAvailable = m_systemMgr.checkRemoteServer();
+        } else if
+            ((data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) &&
+                (!remoteServerCheck)) {
+            remoteServerAvailable =
+                m_systemMgr.checkRemoteServer(data.hostName, data.port);
             remoteServerCheck = true;
         }
         bool isServerAvailable =
-            ((data.targetId == 0) && wslServerAvailable) ||
-            (data.targetId == 1) ||
-            ((data.targetId == 2) && remoteServerAvailable);
+            ((data.targetId == static_cast<int>(TargetType::LOCAL_WINDOWS)) &&
+                wslServerAvailable) ||
+            (data.targetId == static_cast<int>(TargetType::LOCAL_LINUX)) ||
+            ((data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) &&
+                remoteServerAvailable);
 
         bool casePresent = true;
         QStringList paths;
@@ -192,13 +205,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                 m_utilMap[data.openFoamPath] = QMap<QString, bool>();
             }
             log(QString(tr("Server unreachable for case %1.").arg(caseName)));
+        } else if (data.targetId ==
+                   static_cast<int>(TargetType::REMOTE_LINUX)) {
+            m_systemMgr.addCase(caseName, data);
+            casePresent = true;
         } else {
+            // Get the files/folders in the case's top-level folder
+            m_systemMgr.addCase(caseName, data);
             paths = m_systemMgr.getSystem(data.targetId)->processPaths(
                 casePath, PathOperationType::CHECK);
-            if (!paths.isEmpty() && paths[0] == "0") {
 
+            if (!paths.isEmpty() && paths[0] == "0") {
                 // Get files in case
-                m_systemMgr.addCase(caseName, data);
                 paths = m_systemMgr.getSystem(data.targetId)->processPaths(
                     casePath, PathOperationType::LIST);
 
@@ -221,8 +239,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
         // Update navigator
         if (casePresent) {
-            bool isDisabled = m_utilMap[data.openFoamPath].empty() ||
-                              !isServerAvailable;
+            bool isDisabled =
+                ((data.targetId != static_cast<int>(TargetType::REMOTE_LINUX)
+                && (m_utilMap[data.openFoamPath].empty())
+                || !isServerAvailable));
             m_navigator->addCase(caseName, paths, isDisabled);
             if (!isDisabled) {
                 m_navigator->expandCase(caseName);
@@ -247,7 +267,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         data.type = static_cast<EditorType>(settings.value("type").toInt());
         data.fullPath = settings.value("fullPath").toString();
 
-        // Check if the tab's case can be accessed
+        // Check if the case can be accessed
         QString caseName = data.fullPath.split("/")[0];
         CaseData caseData = m_systemMgr.getData(caseName);
         if (m_utilMap[caseData.openFoamPath].empty()) {
@@ -354,22 +374,22 @@ void MainWindow::createActions() {
     exitAction->setShortcuts(QKeySequence::Quit);
     exitAction->setStatusTip(tr("Exit the application"));
     connect(exitAction, &QAction::triggered, this, SLOT(close()));
+    */
 
     // Cut
-    cutAction = new QAction(QIcon(image_dir + "cut.png"), tr("Cut"), this);
-    cutAction->setStatusTip(tr("Cut"));
-    connect(cutAction, &QAction::triggered, this, SLOT(Cut()));
+    m_cutAction = new QAction(QIcon(":/images/cut.png"), tr("Cut"), this);
+    m_cutAction->setStatusTip(tr("Cut"));
+    // connect(m_cutAction, &QAction::triggered, this, SLOT(Cut()));
 
     // Copy
-    copyAction = new QAction(QIcon(image_dir + "copy.png"), tr("Copy"), this);
-    copyAction->setStatusTip(tr("Copy"));
-    //connect(copyAction, &QAction::triggered, this, SLOT(copy()));
+    m_copyAction = new QAction(QIcon(":/images/copy.png"), tr("Copy"), this);
+    m_copyAction->setStatusTip(tr("Copy"));
+    // connect(copyAction, &QAction::triggered, this, SLOT(copy()));
 
     // Paste
-    pasteAction = new QAction(QIcon(image_dir + "paste.png"), tr("Paste"), this);
-    pasteAction->setStatusTip(tr("Paste"));
-    connect(pasteAction, &QAction::triggered, this, SLOT(Paste()));
-    */
+    m_pasteAction = new QAction(QIcon(":/images/paste.png"), tr("Paste"), this);
+    m_pasteAction->setStatusTip(tr("Paste"));
+    // connect(m_pasteAction, &QAction::triggered, this, SLOT(Paste()));
 
     // Preferences
     m_preferencesAction = new QAction(QIcon(":/images/dict.png"),

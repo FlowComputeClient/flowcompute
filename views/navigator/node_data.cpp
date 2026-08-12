@@ -23,7 +23,7 @@ NodeData::NodeData(const QString& name, const QString& fullPath,
 
     setForeground(QBrush(Qt::black));
     setIcon(getIconForType(type));
-    setSizeHint(QSize(0, 28));
+    setSizeHint(QSize(0, 24));
     // setEditable(false);
 
     // Force the expand arrow to appear

@@ -267,7 +267,6 @@ void NewCaseWizard::accept() {
 }
 
 bool NewCaseWizard::createCase(QString newCasePath) {
-
     // Check OpenFOAM version
     bool isESI = false;
     QString versionText = "unknown";
@@ -279,7 +278,7 @@ bool NewCaseWizard::createCase(QString newCasePath) {
         QString digits = match.captured(1);
         int versionNumber = digits.toInt();
 
-        // ESI/Keysight uses YYMM, so the number is always > 100
+        // ESI/Keysight uses YYMM
         if (versionNumber > 100) {
             isESI = true;
             versionText = "v" + digits;

@@ -175,7 +175,7 @@ QStringList RemoteSystem::processPaths(const QString& pathString,
                                        PathOperationType opType) {
     QStringList result;
     if (!m_session || !ssh_is_connected(m_session)) {
-        return QStringList{"SSH session is not established."};
+        return QStringList{"-2"};
     }
 
     // Handle LIST with an empty input string

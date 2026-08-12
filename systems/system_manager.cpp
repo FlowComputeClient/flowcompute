@@ -17,12 +17,19 @@
 
 #include "system_manager.h"
 
+#include <QApplication>
 #include <QCoreApplication>
+#include <QFuture>
+#include <QMetaObject>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QtConcurrent>
 #include <QVersionNumber>
 
+#include "dialogs/login/login_dialog.h"
+
 #include "./wsl_system.h"
+#include "./remote_system.h"
 
 // Check if WSL can be accessed
 bool SystemManager::checkWsl() {
@@ -61,7 +68,8 @@ bool SystemManager::checkWslServer() {
 
     // Access WSL target system
     std::shared_ptr<WslSystem> wslSystem =
-        std::static_pointer_cast<WslSystem>(m_systems[0]);
+        std::static_pointer_cast<WslSystem>(
+            m_systems[static_cast<int>(TargetType::LOCAL_WINDOWS)]);
 
     // Check server version
     QString installVersion = wslSystem->getVersion();
@@ -123,7 +131,18 @@ bool SystemManager::checkWslServer() {
 }
 
 // Check remote server
-bool SystemManager::checkRemoteServer() {
+bool SystemManager::checkRemoteServer(const QString& host, int port) {
+    // Attempt to connect to the host
+    QTcpSocket socket;
+    socket.connectToHost(host, port);
+
+    // Wait three seconds
+    if (socket.waitForConnected(3000)) {
+        socket.disconnectFromHost();
+        return true;
+    }
+
+    // Connection timed out or was refused
     return false;
 }
 
@@ -181,4 +200,72 @@ std::shared_ptr<TargetSystem> SystemManager::getSystem(int systemId) const {
         return nullptr;
     }
     return m_systems[systemId];
+}
+
+QFutureWatcher<std::pair<bool, QString>>*
+    SystemManager::setupConnection() const {
+    // Access the active window
+    QWidget* activeWindow = QApplication::activeWindow();
+
+    // Create the login dialog
+    LoginDialog dialog(m_defaultUser, m_defaultHost, activeWindow);
+    if (dialog.exec() == QDialog::Accepted) {
+        SshCredentials creds = dialog.getCredentials();
+
+        // Attempt to establish connection
+        return sshConnect(creds.userName, creds.hostName, creds.password,
+                          creds.port);
+    }
+    return nullptr;
+}
+
+QFutureWatcher<std::pair<bool, QString>>* SystemManager::sshConnect(
+    const QString& user, const QString& host, const QString& password,
+    int port) const {
+
+    // Access the remote system
+    std::shared_ptr<RemoteSystem> remoteSystem =
+        std::dynamic_pointer_cast<RemoteSystem>(
+            getSystem(static_cast<int>(TargetType::REMOTE_LINUX)));
+
+    // Allocate the future watcher
+    auto* authWatcher = new QFutureWatcher<std::pair<bool, QString>>();
+
+    // Define callback function
+    auto callback =
+        [](const QString& host, const QString& fingerprint) -> bool {
+        bool userAccepted = false;
+
+        // Run on the main GUI thread
+        QMetaObject::invokeMethod(qApp, [host, fingerprint, &userAccepted]() {
+
+            // Set message
+            QString msg = QCoreApplication::translate("SystemManager",
+                  "The authenticity of host '%1' cannot be established.\n"
+                  "SHA1 key fingerprint is: %2\n\n"
+                  "Are you sure you want to continue connecting?")
+                              .arg(host, fingerprint);
+
+            // Wait for reply
+            QMessageBox::StandardButton reply = QMessageBox::warning(nullptr,
+                QCoreApplication::translate("SystemManager", "Unknown Host"),
+                msg, QMessageBox::Yes | QMessageBox::No);
+            userAccepted = (reply == QMessageBox::Yes);
+        }, Qt::BlockingQueuedConnection);
+        return userAccepted;
+    };
+
+    // Run SSH authentication in a background thread
+    QFuture<std::pair<bool, QString>> future = QtConcurrent::run(
+        [host, user, port, password, remoteSystem, callback]() {
+            QString errorMsg;
+            bool success = remoteSystem->establishSession(
+                host, user, port, password, errorMsg, callback);
+            return std::make_pair(success, errorMsg);
+        });
+
+    authWatcher->setFuture(future);
+
+    // Return the watcher
+    return authWatcher;
 }

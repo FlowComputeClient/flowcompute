@@ -50,6 +50,7 @@ class CaseNavigator : public QTreeView {
  signals:
     void createEditor(EditorType type, QString& fileName, const QString& path,
         bool logMessage);
+    void logMessage(QString msg);
 
  private:
     void fetchChildren(NodeData* parentNode);
@@ -70,8 +71,8 @@ class CaseNavigator : public QTreeView {
     void onNodeExpanded(const QModelIndex &index);
 
     // Sets selection
-    void onSelectionChanged(const QItemSelection &selected,
-                            const QItemSelection &deselected);
+    //void onSelectionChanged(const QItemSelection &selected,
+    //                        const QItemSelection &deselected);
 
     // Displays the context menu
     void showContextMenu(const QPoint &pos);

@@ -35,6 +35,9 @@ qt_add_executable(FlowCompute
     resources.qrc
     core_types.h
 
+    dialogs/login/login_dialog.h
+    dialogs/login/login_dialog.cpp
+
     dialogs/preferences/preferences_dialog.h
     dialogs/preferences/preferences_dialog.cpp
 

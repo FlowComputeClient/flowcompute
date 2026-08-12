@@ -61,6 +61,7 @@ void MainWindow::launchNewCaseWizard() {
 void MainWindow::createCase(QString caseName, QString casePath,
         QStringList caseFiles, int targetId, QString openFoamPath,
         QString userName, QString hostName, int port) {
+
     // Add case to map
     m_systemMgr.addCase(caseName, CaseData{casePath, caseFiles, targetId,
         openFoamPath, userName, hostName, port});
@@ -71,12 +72,12 @@ void MainWindow::createCase(QString caseName, QString casePath,
         m_utilMap[openFoamPath] = checkUtilities(path, m_utilities);
     }
 
-    // Update QSettings
-    saveCases();
-
     // Display case in navigator
     m_navigator->addCase(caseName, caseFiles);
     m_navigator->expandCase(caseName);
+
+    // Update QSettings
+    saveCases();
 }
 
 void MainWindow::saveCases() {
@@ -106,6 +107,8 @@ void MainWindow::saveCases() {
             settings.setValue("userName", data.userName);
             settings.setValue("hostName", data.hostName);
             settings.setValue("port", data.port);
+            m_systemMgr.setDefaultHost(data.hostName);
+            m_systemMgr.setDefaultUser(data.userName);
         }
     }
     settings.endArray();
@@ -482,18 +485,26 @@ void MainWindow::deleteFile() {
                    node->fullPath + "/" +  node->name;
     }
 
-    qDebug() << "Deleting " << filePath;
-
     // Delete file
     QStringList result = m_systemMgr.getSystem(caseName)->processPaths(filePath,
         PathOperationType::REMOVE);
-    m_deleteAction->setData(QVariant());
-    m_navigator->removeNode(node);
 
-    // Update settings if a case was deleted
-    if (node->fullPath.isEmpty()) {
-        saveCases();
+    // Check for success
+    if (result[0] == "0") {
+        log(QString(tr("Deleted %1")).arg(filePath));
+
+        // Remove node from navigator
+        m_navigator->removeNode(node);
+
+        // Update settings if a case was deleted
+        if (node->fullPath.isEmpty()) {
+            saveCases();
+        }
+    } else {
+        log(QString(tr("Failed to delete %1")).arg(filePath));
     }
+
+    m_deleteAction->setData(QVariant());
 }
 
 // Set preferences

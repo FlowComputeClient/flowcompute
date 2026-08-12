@@ -17,8 +17,10 @@
 
 #include "views/navigator/case_navigator.h"
 
+#include <QFutureWatcher>
 #include <QMenu>
 #include <QMessageBox>
+#include <QProgressDialog>
 
 #include <algorithm>
 
@@ -41,8 +43,7 @@ CaseNavigator::CaseNavigator(QAction* deleteAction,
     m_renameAction = new QAction(tr("Rename"), this);
     m_renameAction->setShortcut(Qt::Key_F2);
     m_renameAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
-    m_renameAction->setIcon(
-        style()->standardIcon(QStyle::SP_FileDialogDetailedView));
+    m_renameAction->setIcon(QIcon(":/images/rename.png"));
     connect(m_renameAction, &QAction::triggered, this, [this]() {
         QModelIndex index = currentIndex();
         if (index.isValid()) {
@@ -61,13 +62,16 @@ CaseNavigator::CaseNavigator(QAction* deleteAction,
 
     // Configure the context menu
     setContextMenuPolicy(Qt::CustomContextMenu);
+    setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     // Connect signals
     connect(this, &QWidget::customContextMenuRequested,
             this, &CaseNavigator::showContextMenu);
     connect(this, &QTreeView::expanded, this, &CaseNavigator::onNodeExpanded);
+    /*
     connect(selectionModel(), &QItemSelectionModel::selectionChanged,
             this, &CaseNavigator::onSelectionChanged);
+    */
 }
 
 void CaseNavigator::checkCaseFiles(QString caseName) {
@@ -80,9 +84,33 @@ void CaseNavigator::checkCaseFiles(QString caseName) {
                              casePath + "/constant/polyMesh/faces",
                              casePath + "/constant/polyMesh/owner",
                              casePath + "/constant/polyMesh/boundary" };
-    QString meshFileString = meshFiles.join("\n");
+    QString meshFileString = meshFiles.join("\n");    
+
     QStringList results = m_systemMgr.getSystem(caseName)->
         processPaths(meshFileString, PathOperationType::CHECK);
+
+    // Attempt to establish connection
+    if (results[0] == "-2") {
+        // Create progress dialog
+        QProgressDialog* progress = new QProgressDialog(
+            tr("Attempting to connect..."), QString(), 0, 0, this);
+        progress->setWindowModality(Qt::WindowModal);
+        progress->show();
+
+        // Launch connect
+        QFutureWatcher<std::pair<bool, QString>>* watcher =
+            m_systemMgr.setupConnection();
+        connect(watcher, &QFutureWatcher<std::pair<bool, QString>>::finished,
+            this, [this, watcher, progress]() {
+
+                // Remove the progress dialog
+                progress->accept();
+                progress->deleteLater();
+
+                std::pair<bool, QString> result = watcher->result();
+                watcher->deleteLater();
+            });
+    }
 
     if (results.contains("-1"))
         meshFilesPresent = false;
@@ -108,6 +136,7 @@ void CaseNavigator::checkCaseFiles(QString caseName) {
     m_viewResultAction->setEnabled(meshFilesPresent && fieldFilesPresent);
 }
 
+/*
 void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
                                        const QItemSelection &deselected) {
     Q_UNUSED(deselected);
@@ -135,6 +164,7 @@ void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
     }
     checkCaseFiles(caseName);
 }
+*/
 
 // Add a new case to the navigator
 void CaseNavigator::addCase(QString caseName, QStringList caseFiles,
@@ -579,9 +609,6 @@ void CaseNavigator::removeNode(NodeData* node) {
 
 // Rename the selected item
 bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
-
-    qDebug() << "Started renameNode";
-
     // Determine old path and new path
     QString caseName, oldPath, casePath, newPath;
     if (node->fullPath.isEmpty()) {
@@ -591,9 +618,9 @@ bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
     } else {
         caseName = node->fullPath.split('/').first();
         oldPath = m_systemMgr.getData(caseName).casePath + "/" +
-                   node->fullPath + "/" + node->name;
+                    node->fullPath + "/" + node->name;
         newPath = m_systemMgr.getData(caseName).casePath + "/" +
-                  node->fullPath + "/" + newName;
+                    node->fullPath + "/" + newName;
     }
 
     // Perform file rename operation
@@ -603,10 +630,11 @@ bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
     m_renameAction->setData(QVariant());
 
     if (res[0] == "0") {
-        qDebug() << "Renamed " << oldPath << " to " << newPath;
+        emit logMessage(QString(tr("Renamed %1 to %2").arg(oldPath, newPath)));
         return true;
     } else {
-        qDebug() << "Failed to rename " << oldPath << " to " << newPath;
+        emit logMessage(
+            QString(tr("Failed to rename %1 to %2").arg(oldPath, newPath)));
         return false;
     }
 }
