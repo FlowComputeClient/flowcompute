@@ -169,6 +169,8 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
         }
     });
 
+    layout->setSizeConstraint(QLayout::SetMinimumSize);
+
     // Set the page layout
     setLayout(layout);
 }
