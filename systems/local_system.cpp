@@ -68,47 +68,53 @@ QStringList LocalSystem::processPaths(const QString& pathString,
         return QStringList{"Input paths string was empty."};
     }
 
-    // Two-path operations
-    // Handle Two-path operations (RENAME / COPY)
+    // Process the delimited string using Qt string splitting
+    QStringList targetPaths = pathString.split('\n', Qt::SkipEmptyParts);
+
+    // Handle rename and copy
     if (opType == PathOperationType::RENAME ||
         opType == PathOperationType::COPY) {
 
-        // Use Qt::SkipEmptyParts to avoid empty string processing
-        QStringList strList = pathString.split('\n', Qt::SkipEmptyParts);
-
         // Check bounds
-        if (strList.size() < 2) {
+        if (targetPaths.size() < 2) {
             result.append("-1");
-            result.append("Insufficient paths for two-path operation.");
             return result;
         }
 
-        QString sourcePath = strList[0];
-        QString destPath = strList[1];
         std::error_code ec;
-        fs::path pSrc(sourcePath.toStdString());
-        fs::path pDst(destPath.toStdString());
 
         if (opType == PathOperationType::RENAME) {
+            fs::path pSrc(targetPaths[0].toStdString());
+            fs::path pDst(targetPaths[1].toStdString());
             fs::rename(pSrc, pDst, ec);
+
         } else if (opType == PathOperationType::COPY) {
+            // The last element is the destination directory
+            fs::path pDst(targetPaths.last().toStdString());
+
             auto copy_opts = fs::copy_options::recursive |
                              fs::copy_options::overwrite_existing;
-            fs::copy(pSrc, pDst, copy_opts, ec);
+
+            // Iterate through all items except the destination
+            for (int i = 0; i < targetPaths.size() - 1; ++i) {
+                fs::path pSrc(targetPaths[i].toStdString());
+
+                // Append the source filename to the destination directory
+                fs::path targetPath = pDst / pSrc.filename();
+
+                // Perform copy operation
+                fs::copy(pSrc, targetPath, copy_opts, ec);
+            }
         }
 
-        // Capture the error message
+        // Update results to indicate success/failure
         if (!ec) {
             result.append("0");
         } else {
             result.append("-1");
-            result.append(QString::fromStdString(ec.message()));
         }
         return result;
     }
-
-    // Process the delimited string using Qt string splitting
-    QStringList targetPaths = pathString.split('\n', Qt::SkipEmptyParts);
 
     for (const QString& qPath : std::as_const(targetPaths)) {
         std::string targetPath = qPath.toStdString();
@@ -607,8 +613,17 @@ bool LocalSystem::writeData(const QByteArray& data, const QString& filePath) {
 }
 
 bool LocalSystem::writeData(const QString& srcPath, const QString& dstPath) {
-    // Make sure source file exists
-    QFileInfo srcInfo(srcPath);
+    QString actualSrcPath = srcPath;
+    bool makeExecutable = false;
+
+    // Check if the source path ends with '|' and remove it
+    if (actualSrcPath.endsWith('|')) {
+        actualSrcPath.chop(1);
+        makeExecutable = true;
+    }
+
+    // Make sure source file exists using the cleaned path
+    QFileInfo srcInfo(actualSrcPath);
     if (!srcInfo.exists() || !srcInfo.isFile())
         return false;
 
@@ -622,7 +637,16 @@ bool LocalSystem::writeData(const QString& srcPath, const QString& dstPath) {
     if (QFile::exists(dstPath) && !QFile::remove(dstPath))
         return false;
 
-    return QFile::copy(srcPath, dstPath);
+    // Perform the copy operation
+    bool success = QFile::copy(actualSrcPath, dstPath);
+    if (success && makeExecutable) {
+        std::error_code perm_ec;
+        fs::permissions(dstPath.toStdString(),
+            fs::perms::owner_exec | fs::perms::group_exec |
+            fs::perms::others_exec, fs::perm_options::add, perm_ec);
+    }
+
+    return success;
 }
 
 std::pair<QStringList, QStringList>

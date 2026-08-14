@@ -63,6 +63,7 @@ public:
 
     // Add case to the manager
     bool addCase(const QString& caseName, const CaseData& data);
+    void removeCase(const QString& caseName);
 
     // Check if case is present
     bool contains(const QString& caseName) const;

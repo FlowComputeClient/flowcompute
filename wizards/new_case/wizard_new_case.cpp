@@ -64,7 +64,6 @@ bool NewCaseWizard::validateCurrentPage() {
 
     // Validate first page
     if (currentId() == static_cast<int>(WizardPage::Page_Intro)) {
-
         // Read registered fields
         m_caseName = field("caseName").toString();
         m_targetId = static_cast<TargetType>(field("targetSystemId").toInt());
@@ -86,6 +85,9 @@ bool NewCaseWizard::validateCurrentPage() {
         int count = 0;
         QString newName;
         if (m_systemMgr.contains(m_caseName)) {
+
+            qDebug() << "m_systemMgr contains case name";
+
             count = 1;
             while (true) {
                 newName = m_caseName + "_" + QString::number(count++);

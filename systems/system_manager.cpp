@@ -152,6 +152,7 @@ void SystemManager::setSystems(
     m_systems = systems;
 }
 
+// Add a new case to the case map
 bool SystemManager::addCase(const QString& caseName, const CaseData& data) {
     auto it = m_caseMap.find(caseName);
     if (it == m_caseMap.end()) {
@@ -159,6 +160,14 @@ bool SystemManager::addCase(const QString& caseName, const CaseData& data) {
         return true;
     }
     return false;
+}
+
+// Remove a case from the case map
+void SystemManager::removeCase(const QString& caseName) {
+    auto it = m_caseMap.find(caseName);
+    if (it != m_caseMap.end()) {
+        m_caseMap.remove(caseName);
+    }
 }
 
 bool SystemManager::contains(const QString& caseName) const {

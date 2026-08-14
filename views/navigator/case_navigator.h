@@ -19,6 +19,7 @@
 #define VIEWS_NAVIGATOR_CASE_NAVIGATOR_H_
 
 #include <QMouseEvent>
+#include <QPersistentModelIndex>
 #include <QTreeView>
 
 #include "./navigator_model.h"
@@ -32,17 +33,25 @@ class CaseNavigator : public QTreeView {
     CaseNavigator(QAction* deleteAction, QAction* configureMeshAction,
         QAction* runMeshAction, QAction* viewMeshAction,
         QAction* configureSolverAction, QAction* runSolverAction,
-        QAction* viewResultAction, const SystemManager& systemMgr,
+        QAction* viewResultAction, QAction* cutAction, QAction* copyAction,
+        QAction* pasteAction, const SystemManager& systemMgr,
         QWidget *parent = nullptr);
     void addCase(QString caseName, QStringList caseFiles, bool disable=false);
     void expandCase(QString caseName);
     QStringList getCases() const;
     QString getSelectedCase();
     void updatePath(QString path, QStringList children);
+    void addNodes(NodeData* parent, const QList<NodeData*>& children);
     void removeNode(NodeData* node);
     bool renameNode(NodeData* node, const QString& newName);
     void createChildren(NodeData* node, const QString& nodePath,
                         const QStringList& children);
+    void cutCopySelection(bool isCut);
+    void pasteSelection();
+    bool getClipboardCut() { return m_isClipboardCut; }
+    bool isItemCut(const QModelIndex& index) const;
+    QStringList getClipboardPaths() const { return m_clipboardPaths; }
+    NodeData* findNodeByPath(const QString& path) const;
 
  protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
@@ -50,12 +59,16 @@ class CaseNavigator : public QTreeView {
  signals:
     void createEditor(EditorType type, QString& fileName, const QString& path,
         bool logMessage);
-    void logMessage(QString msg);
+    void logMessage(const QString& msg);
+    void requestUpdatePath(const QString& caseName, const QString& subDir);
 
  private:
     void fetchChildren(NodeData* parentNode);
     NodeType checkType(QString name, QString fullPath);
-    void checkCaseFiles(QString caseName);
+    bool checkCaseFiles(QString caseName);
+
+    QStringList m_clipboardPaths;
+    bool m_isClipboardCut = false;
 
     const SystemManager& m_systemMgr;
     NavigatorModel* m_model;
@@ -63,6 +76,7 @@ class CaseNavigator : public QTreeView {
 
     // Menu and actions
     QAction *m_deleteAction, *m_renameAction;
+    QAction *m_cutAction, *m_copyAction, *m_pasteAction;
     QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
     QAction *m_configureSolverAction, *m_runSolverAction, *m_viewResultAction;
 

@@ -36,7 +36,7 @@ bool NavigatorModel::setData(const QModelIndex &index,
             return false;
         }
 
-        // Safely cast the parent to CaseNavigator
+        // Cast the parent to CaseNavigator
         CaseNavigator* navigator = qobject_cast<CaseNavigator*>(parent());
         if (navigator) {
             bool success = navigator->renameNode(node, newName);

@@ -21,14 +21,13 @@
 #include <QLineEdit>
 #include <QSpinBox>
 
-LoginDialog::LoginDialog(const QString& defaultUser,
-                         const QString& defaultHost, QWidget *parent):
-    QDialog(parent) {
-
+LoginDialog::LoginDialog(const QString& defaultUser, const QString& defaultHost,
+                         QWidget *parent): QDialog(parent) {
     // Set appearance and layout
     setWindowTitle(tr("Please Enter Login Credentials"));
     setMinimumWidth(300);
     QFormLayout* layout = new QFormLayout(this);
+    layout->setSpacing(15);
 
     // User name
     m_userNameEdit = new QLineEdit(this);

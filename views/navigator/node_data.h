@@ -47,6 +47,7 @@ class NodeData : public QStandardItem {
 
     enum { Type = QStandardItem::UserType + 1 };
     int type() const override { return Type; }
+    QString getPath() const;
 
  private:
     QIcon getIconForType(NodeType type) const;

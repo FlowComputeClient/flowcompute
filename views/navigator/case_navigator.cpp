@@ -24,20 +24,28 @@
 
 #include <algorithm>
 
+#include "views/navigator/case_navigator_delegate.h"
+
 CaseNavigator::CaseNavigator(QAction* deleteAction,
     QAction* configureMeshAction, QAction* runMeshAction,
     QAction* viewMeshAction, QAction* configureSolverAction,
     QAction* runSolverAction, QAction* viewResultAction,
+    QAction* cutAction, QAction* copyAction, QAction* pasteAction,
     const SystemManager& systemMgr, QWidget *parent):
     m_deleteAction(deleteAction), m_configureMeshAction(configureMeshAction),
     m_runMeshAction(runMeshAction), m_viewMeshAction(viewMeshAction),
     m_configureSolverAction(configureSolverAction),
     m_runSolverAction(runSolverAction), m_viewResultAction(viewResultAction),
-    m_systemMgr(systemMgr), QTreeView(parent) {
+    m_cutAction(cutAction), m_copyAction(copyAction),
+    m_pasteAction(pasteAction), m_systemMgr(systemMgr), QTreeView(parent) {
     // Configure behavior
     setHeaderHidden(true);
     setExpandsOnDoubleClick(true);
-    setSelectionMode(QAbstractItemView::SingleSelection);
+    setSelectionMode(QAbstractItemView::ExtendedSelection);
+
+    // Set delegate to change how items are displayed
+    CaseNavigatorDelegate *delegate = new CaseNavigatorDelegate(this);
+    setItemDelegate(delegate);
 
     // Create action for rename
     m_renameAction = new QAction(tr("Rename"), this);
@@ -74,7 +82,7 @@ CaseNavigator::CaseNavigator(QAction* deleteAction,
     */
 }
 
-void CaseNavigator::checkCaseFiles(QString caseName) {
+bool CaseNavigator::checkCaseFiles(QString caseName) {
     // Get case path
     QString casePath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
 
@@ -91,25 +99,43 @@ void CaseNavigator::checkCaseFiles(QString caseName) {
 
     // Attempt to establish connection
     if (results[0] == "-2") {
-        // Create progress dialog
-        QProgressDialog* progress = new QProgressDialog(
-            tr("Attempting to connect..."), QString(), 0, 0, this);
-        progress->setWindowModality(Qt::WindowModal);
-        progress->show();
-
         // Launch connect
         QFutureWatcher<std::pair<bool, QString>>* watcher =
             m_systemMgr.setupConnection();
-        connect(watcher, &QFutureWatcher<std::pair<bool, QString>>::finished,
-            this, [this, watcher, progress]() {
 
-                // Remove the progress dialog
-                progress->accept();
-                progress->deleteLater();
+        if (watcher != nullptr) {
+            // Create progress dialog
+            QProgressDialog* progress = new QProgressDialog(
+                tr("Attempting to connect..."), QString(), 0, 0, this);
+            progress->setWindowModality(Qt::WindowModal);
+            progress->show();
 
-                std::pair<bool, QString> result = watcher->result();
-                watcher->deleteLater();
-            });
+            connect(watcher,
+                    &QFutureWatcher<std::pair<bool, QString>>::finished,
+                this, [this, watcher, progress, caseName]() {
+
+                    // Remove the progress dialog
+                    progress->accept();
+                    progress->deleteLater();
+
+                    std::pair<bool, QString> result = watcher->result();
+                    if (result.first) {
+                        for (int i = 0; i < m_root->rowCount(); ++i) {
+                            NodeData* node =
+                                static_cast<NodeData*>(m_root->child(i));
+                            if (node) {
+                                if (node->text() == caseName &&
+                                    node->nodeType == NodeType::CaseFolder) {
+                                    fetchChildren(node);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    watcher->deleteLater();
+                });
+        }
+        return false;
     }
 
     if (results.contains("-1"))
@@ -134,6 +160,7 @@ void CaseNavigator::checkCaseFiles(QString caseName) {
     m_configureSolverAction->setEnabled(meshFilesPresent);
     m_runSolverAction->setEnabled(meshFilesPresent && fieldFilesPresent);
     m_viewResultAction->setEnabled(meshFilesPresent && fieldFilesPresent);
+    return true;
 }
 
 /*
@@ -258,11 +285,11 @@ NodeType CaseNavigator::checkType(QString name, QString fullPath) {
 }
 
 void CaseNavigator::expandCase(QString caseName) {
-    if (!m_root) return;
+    if (!m_root)
+        return;
 
     // Iterate through top-level items
     for (int i = 0; i < m_root->rowCount(); ++i) {
-        // Cast the generic QStandardItem back to your NodeData
         NodeData* node = static_cast<NodeData*>(m_root->child(i));
         if (node) {
             // Check if the node matches the criteria
@@ -311,7 +338,8 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
 void CaseNavigator::onNodeExpanded(const QModelIndex &index) {
     // Get node
     NodeData* node = m_model->nodeFromIndex(index);
-    if (!node || !node->isEnabled()) return;
+    if (!node || !node->isEnabled())
+        return;
 
     // Check if the node has a dummy child
     if (node->rowCount() == 1) {
@@ -324,13 +352,21 @@ void CaseNavigator::onNodeExpanded(const QModelIndex &index) {
 
 void CaseNavigator::fetchChildren(NodeData* node) {
     // Remove the dummy child
-    node->removeRow(0);
+    if (node->rowCount() > 0) {
+        node->removeRow(0);
+    }
 
     // Construct the full path
     int pos = node->fullPath.indexOf('/');
-    QString caseName = (pos == -1) ? node->fullPath : node->fullPath.left(pos);
+    QString caseName, nodePath;
+    if (node->fullPath.isEmpty()) {
+        caseName = node->name;
+        nodePath = caseName;
+    } else {
+        caseName = node->fullPath.left(pos);
+        nodePath = node->fullPath + "/" + node->name;
+    }
     QString casePath = m_systemMgr.getData(caseName).casePath;
-    QString nodePath = node->fullPath + "/" + node->name;
     QString fullPath = casePath + "/" + nodePath;
 
     // Access children at the given path
@@ -389,7 +425,7 @@ void CaseNavigator::updatePath(QString path, QStringList children) {
     if (!currentNode)
         return;
 
-    // Traverse down the rest of the path components, creating them if missing
+    // Traverse the rest of the path
     for (int i = 1; i < pathParts.size(); ++i) {
         QString part = pathParts[i];
         bool found = false;
@@ -491,14 +527,12 @@ QString CaseNavigator::getSelectedCase() {
         return node->text();
     }
 
-    // Check selection
-    QModelIndexList selectedIndexes = selectionModel()->selectedIndexes();
-    if (selectedIndexes.isEmpty()) {
-        return QString();
-    }
+    // Get index of current selection
+    QItemSelectionModel* selectionModel = this->selectionModel();
+    QModelIndex selectedIndex = selectionModel->currentIndex();
 
     // Access the selected node
-    NodeData* node = m_model->nodeFromIndex(selectedIndexes.first());
+    NodeData* node = m_model->nodeFromIndex(selectedIndex);
     if (!node)
         return QString();
     if (node->nodeType == NodeType::CaseFolder) {
@@ -553,13 +587,18 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
     m_renameAction->setData(QVariant::fromValue(node));
     contextMenu.addAction(m_renameAction);
 
+    contextMenu.addSeparator();
+
     // Conditionally add folder-specific actions
     switch (node->nodeType) {
     case NodeType::CaseFolder: {
 
         // Check files in case
-        checkCaseFiles(node->name);
-        contextMenu.addSeparator();
+        bool accessCase = checkCaseFiles(node->name);
+        if (!accessCase) {
+            contextMenu.close();
+            return;
+        }
 
         // Mesh actions
         m_configureMeshAction->setData(QVariant::fromValue(node));
@@ -585,9 +624,91 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
         break;
     }
     default:
-        break;
+        contextMenu.addAction(m_cutAction);
+        contextMenu.addAction(m_copyAction);
+        contextMenu.addAction(m_pasteAction);
+        if (m_clipboardPaths.empty()) {
+            m_pasteAction->setDisabled(true);
+        } else {
+            m_pasteAction->setDisabled(false);
+        }
     }
     contextMenu.exec(viewport()->mapToGlobal(pos));
+}
+
+// Add child nodes to a given node
+void CaseNavigator::addNodes(NodeData* parent,
+                             const QList<NodeData*>& children) {
+    if (children.isEmpty())
+        return;
+
+    // Default to the root item if no parent is provided
+    QStandardItem* parentItem = parent ? parent : m_root;
+    if (parentItem->rowCount() == 1) {
+        QStandardItem* firstChild = parentItem->child(0);
+        if (firstChild && firstChild->data(Qt::UserRole + 1).toBool() == true) {
+            parentItem->removeRow(0);
+        }
+    }
+
+    // Sort the incoming list
+    QList<NodeData*> sortedChildren = children;
+    std::sort(sortedChildren.begin(),
+              sortedChildren.end(), [](const NodeData* a, const NodeData* b) {
+                  bool aIsFolder = (a->nodeType == NodeType::Folder);
+                  bool bIsFolder = (b->nodeType == NodeType::Folder);
+
+                  if (aIsFolder && !bIsFolder)
+                      return true;
+                  if (!aIsFolder && bIsFolder)
+                      return false;
+
+                  return QString::compare(a->name, b->name,
+                                          Qt::CaseInsensitive) < 0;
+              });
+
+    // Merge-insert into the parent
+    int insertRow = 0;
+    for (NodeData* child : std::as_const(sortedChildren)) {
+        bool childIsFolder = (child->nodeType == NodeType::Folder);
+        bool duplicateFound = false;
+
+        // Resume searching from the last known insertion point
+        for (; insertRow < parentItem->rowCount(); ++insertRow) {
+            NodeData* existing =
+                static_cast<NodeData*>(parentItem->child(insertRow));
+            if (!existing)
+                continue;
+
+            bool existingIsFolder = (existing->nodeType == NodeType::Folder);
+
+            if (childIsFolder && !existingIsFolder) {
+                break;
+            }
+            if (childIsFolder == existingIsFolder) {
+                // Check comparison
+                int cmp = QString::compare(child->name, existing->name,
+                                           Qt::CaseInsensitive);
+
+                if (cmp == 0) {
+                    duplicateFound = true;
+                    break;
+                } else if (cmp < 0) {
+                    break;
+                }
+            }
+        }
+
+        // Handle duplicates
+        if (duplicateFound) {
+            delete child;
+            continue;
+        }
+
+        // Insert the node and increment the row
+        parentItem->insertRow(insertRow, child);
+        insertRow++;
+    }
 }
 
 void CaseNavigator::removeNode(NodeData* node) {
@@ -639,4 +760,173 @@ bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
     }
 }
 
+// Keep track of items selected for cut
+void CaseNavigator::cutCopySelection(bool isCut) {
+    m_clipboardPaths.clear();
+    m_isClipboardCut = isCut;
 
+    // Add paths of selected nodes to list
+    QModelIndexList selected = selectionModel()->selectedIndexes();
+    for (const QModelIndex& index : std::as_const(selected)) {
+        QString path = m_model->nodeFromIndex(index)->getPath();
+        if (!path.isEmpty()) {
+            m_clipboardPaths.append(path);
+        }
+    }
+    viewport()->update();
+}
+
+// Check if an index has been cut
+bool CaseNavigator::isItemCut(const QModelIndex& index) const {
+    if (!m_isClipboardCut) { return false; }
+
+    // Compare index path to the transient index
+    QString indexPath = m_model->nodeFromIndex(index)->getPath();
+    for (const QString& path : m_clipboardPaths) {
+        if (indexPath == path)
+            return true;
+    }
+    return false;
+}
+
+void CaseNavigator::pasteSelection() {
+    if (m_clipboardPaths.isEmpty())
+        return;
+
+    // Determine full path of destination folder
+    QModelIndex selectedIndex = selectionModel()->currentIndex();
+    if (!selectedIndex.isValid())
+        return;
+
+    NodeData* destNode = m_model->nodeFromIndex(selectedIndex);
+    QString destCase = destNode->fullPath.isEmpty() ?
+                           destNode->name : destNode->fullPath.split("/")[0];
+    QString destNodePath = destNode->fullPath.isEmpty() ?
+                           destCase : destNode->fullPath + "/" + destNode->name;
+    QString destinationDir =
+        m_systemMgr.getData(destCase).casePath + "/" + destNodePath;
+
+    // Create QStringList containing full paths
+    QString caseName, casePath;
+    QStringList fullPaths;
+    for (const QString& relativePath : std::as_const(m_clipboardPaths)) {
+        caseName = relativePath.split("/")[0];
+        casePath = m_systemMgr.getData(caseName).casePath;
+        fullPaths.append(casePath + "/" + relativePath);
+    }
+    fullPaths.append(destinationDir);
+
+    // Perform copy operation
+    QString copyStr = fullPaths.join("\n");
+    auto system = m_systemMgr.getSystem(caseName);
+    QStringList copyResults =
+        system->processPaths(copyStr, PathOperationType::COPY);
+
+    // Delete files due to cut
+    QStringList cutResults;
+    if (m_isClipboardCut) {
+        fullPaths.removeLast();
+        copyStr = fullPaths.join("\n");
+        cutResults = system->processPaths(copyStr, PathOperationType::REMOVE);
+    }
+
+    // Add/remove nodes
+    QList<NodeData*> newNodes;
+    for (int i = 0; i < m_clipboardPaths.size(); i++) {
+        NodeData* originalNode = findNodeByPath(m_clipboardPaths[i]);
+        if (!originalNode)
+            continue;
+
+        if (copyResults[i] == "0") {
+            if (m_isClipboardCut && cutResults[i] == "0") {
+                QStandardItem* parentItem =
+                    originalNode->parent() ? originalNode->parent() : m_root;
+
+                // Remove row without deleting nodes
+                QList<QStandardItem*> taken =
+                    parentItem->takeRow(originalNode->row());
+                if (!taken.isEmpty()) {
+                    NodeData* movedNode = static_cast<NodeData*>(taken.first());
+                    movedNode->fullPath = destNodePath;
+                    newNodes.append(movedNode);
+                }
+            } else if (!m_isClipboardCut) {
+                NodeData* clonedNode =
+                    new NodeData(originalNode->name, destNodePath,
+                                originalNode->nodeType);
+                newNodes.append(clonedNode);
+            }
+        }
+    }
+
+    // Check if the destination's children have already been loaded
+    bool isDestLoaded = true;
+    if (destNode->rowCount() == 1) {
+        QStandardItem* firstChild = destNode->child(0);
+        if (firstChild && firstChild->data(Qt::UserRole + 1).toBool() == true) {
+            isDestLoaded = false;
+        }
+    }
+
+    // Add nodes if the folder has already been loaded
+    if (isDestLoaded) {
+        addNodes(destNode, newNodes);
+    } else {
+        if (!m_isClipboardCut) {
+            qDeleteAll(newNodes);
+        }
+    }
+
+    // For a cut, clear the clipboard and redraw
+    if (m_isClipboardCut) {
+        m_clipboardPaths.clear();
+        m_isClipboardCut = false;
+        viewport()->update();
+    }
+}
+
+NodeData* CaseNavigator::findNodeByPath(const QString& path) const {
+    if (!m_root || path.isEmpty()) return nullptr;
+
+    QStringList parts = path.split('/');
+    NodeData* current = nullptr;
+
+    // Find the top-level node
+    for (int i = 0; i < m_root->rowCount(); ++i) {
+        // Assuming the root only contains valid NodeData case folders
+        NodeData* child = static_cast<NodeData*>(m_root->child(i));
+        if (child && child->text() == parts[0]) {
+            current = child;
+            break;
+        }
+    }
+
+    if (!current)
+        return nullptr;
+
+    // Traverse the rest of the path
+    for (int i = 1; i < parts.size(); ++i) {
+        bool found = false;
+
+        for (int j = 0; j < current->rowCount(); ++j) {
+            QStandardItem* item = current->child(j);
+
+            // Safety check: Skip dummy "Loading..." nodes
+            if (item->data(Qt::UserRole + 1).toBool() == true) {
+                continue;
+            }
+
+            NodeData* child = static_cast<NodeData*>(item);
+            if (child && child->name == parts[i]) {
+                current = child;
+                found = true;
+                break;
+            }
+        }
+
+        // If any part of the path is missing, the node doesn't exist
+        if (!found)
+            return nullptr;
+    }
+    return current;
+}

@@ -36,6 +36,14 @@ NodeData::NodeData(const QString& name, const QString& fullPath,
     }
 }
 
+QString NodeData::getPath() const {
+    if (fullPath.isEmpty()) {
+        return name;
+    } else {
+        return fullPath + "/" + name;
+    }
+}
+
 QIcon NodeData::getIconForType(NodeType type) const {
     switch(type) {
         case NodeType::CaseFolder:  return QIcon(":/images/case_folder.png");

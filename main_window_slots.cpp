@@ -18,9 +18,11 @@
 #include "./main_window.h"
 
 #include <QApplication>
+#include <QClipboard>
 #include <QtConcurrent>
 #include <QFuture>
 #include <QFutureWatcher>
+#include <QGuiApplication>
 #include <QMessageBox>
 #include <QProgressDialog>
 
@@ -185,10 +187,31 @@ void MainWindow::createEditor(EditorType type, QString& fileName,
         m_tabWidget->setCurrentIndex(tabIndex);
         m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
 
+        // Undo/redo actions
         connect(textEditor->document(), &QTextDocument::undoAvailable,
             m_undoAction, &QAction::setEnabled);
         connect(textEditor->document(), &QTextDocument::redoAvailable,
             m_redoAction, &QAction::setEnabled);
+
+        /*
+        // Cut/copy/paste actions
+        connect(textEditor, &QPlainTextEdit::copyAvailable, m_cutAction,
+            &QAction::setEnabled);
+        connect(textEditor, &QPlainTextEdit::copyAvailable, m_copyAction,
+            &QAction::setEnabled);
+        connect(QGuiApplication::clipboard(),
+                &QClipboard::dataChanged, this, [this]() {
+            m_pasteAction->setEnabled(
+                QGuiApplication::clipboard()->mimeData()->hasText());
+        });
+        connect(m_cutAction, &QAction::triggered, textEditor,
+                &QPlainTextEdit::cut);
+        connect(m_copyAction, &QAction::triggered, textEditor,
+                &QPlainTextEdit::copy);
+        connect(m_pasteAction, &QAction::triggered, textEditor,
+                &QPlainTextEdit::paste);
+        */
+
         connect(textEditor, &TextEditor::dirtyStateChanged, this,
             [this, textEditor](bool isDirty) {
                 onDirtyStateChanged(isDirty, textEditor);
@@ -498,12 +521,12 @@ void MainWindow::deleteFile() {
 
         // Update settings if a case was deleted
         if (node->fullPath.isEmpty()) {
+            m_systemMgr.removeCase(caseName);
             saveCases();
         }
     } else {
         log(QString(tr("Failed to delete %1")).arg(filePath));
     }
-
     m_deleteAction->setData(QVariant());
 }
 

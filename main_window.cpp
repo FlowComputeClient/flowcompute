@@ -17,6 +17,7 @@
 
 #include "./main_window.h"
 
+#include <QApplication>
 #include <QGuiApplication>
 #include <QProgressBar>
 #include <QProgressDialog>
@@ -94,15 +95,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_navigatorWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
     m_navigator = new CaseNavigator(m_deleteAction, m_configureMeshAction,
         m_runMeshAction, m_viewMeshAction, m_configureSolverAction,
-        m_runSolverAction, m_viewResultAction, m_systemMgr, this);
+        m_runSolverAction, m_viewResultAction, m_cutAction, m_copyAction,
+        m_pasteAction, m_systemMgr, this);
     m_navigatorWidget->setWidget(m_navigator);
     m_navigatorWidget->setMinimumWidth(200);
     addDockWidget(Qt::LeftDockWidgetArea, m_navigatorWidget);
     setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
 
-    // Connect navigator signal
+    // Connect navigator signals
     connect(m_navigator, &CaseNavigator::createEditor,
             this, &MainWindow::createEditor);
+    connect(m_navigator, &CaseNavigator::logMessage,
+            this, &MainWindow::log);
+    connect(m_navigator, &CaseNavigator::requestUpdatePath,
+            this, &MainWindow::updatePath);
 
     // Create the console
     m_consoleWidget = new QDockWidget(tr("Console"), this);
@@ -378,18 +384,87 @@ void MainWindow::createActions() {
 
     // Cut
     m_cutAction = new QAction(QIcon(":/images/cut.png"), tr("Cut"), this);
+    m_cutAction->setShortcuts(QKeySequence::Cut);
     m_cutAction->setStatusTip(tr("Cut"));
-    // connect(m_cutAction, &QAction::triggered, this, SLOT(Cut()));
+    connect(m_cutAction, &QAction::triggered, this, [this]() {
+        QWidget* focused = QApplication::focusWidget();
+        if (!focused || qobject_cast<QMenu*>(focused)) {
+            if (QWidget* activeWindow = QApplication::activeWindow()) {
+                focused = activeWindow->focusWidget();
+            }
+        }
+
+        if (!focused) return;
+
+        // Check the Case Navigator
+        if (m_navigator == focused || m_navigator->isAncestorOf(focused)) {
+            m_navigator->cutCopySelection(true);
+            return;
+        }
+
+        // Check the TextEditor
+        QWidget* current = focused;
+        while (current) {
+            if (auto* editor = qobject_cast<TextEditor*>(current)) {
+                editor->cut();
+                return;
+            }
+            current = current->parentWidget();
+        }
+        QMetaObject::invokeMethod(focused, "cut");
+    });
 
     // Copy
     m_copyAction = new QAction(QIcon(":/images/copy.png"), tr("Copy"), this);
+    m_copyAction->setShortcuts(QKeySequence::Copy);
     m_copyAction->setStatusTip(tr("Copy"));
-    // connect(copyAction, &QAction::triggered, this, SLOT(copy()));
+    connect(m_copyAction, &QAction::triggered, this, [this]() {
+        QWidget* focused = QApplication::focusWidget();
+        if (!focused) return;
+
+        // Check the Case Navigator
+        if (m_navigator == focused || m_navigator->isAncestorOf(focused)) {
+            m_navigator->cutCopySelection(false);
+            return;
+        }
+
+        // Check the TextEditor
+        QWidget* current = focused;
+        while (current) {
+            if (auto* editor = qobject_cast<TextEditor*>(current)) {
+                editor->copy();
+                return;
+            }
+            current = current->parentWidget();
+        }
+        QMetaObject::invokeMethod(focused, "copy");
+    });
 
     // Paste
     m_pasteAction = new QAction(QIcon(":/images/paste.png"), tr("Paste"), this);
+    m_pasteAction->setShortcuts(QKeySequence::Paste);
     m_pasteAction->setStatusTip(tr("Paste"));
-    // connect(m_pasteAction, &QAction::triggered, this, SLOT(Paste()));
+    connect(m_pasteAction, &QAction::triggered, this, [this]() {
+        QWidget* focused = QApplication::focusWidget();
+        if (!focused) return;
+
+        // Check the Case Navigator
+        if (m_navigator == focused || m_navigator->isAncestorOf(focused)) {
+            m_navigator->pasteSelection();
+            return;
+        }
+
+        // Check the TextEditor
+        QWidget* current = focused;
+        while (current) {
+            if (auto* editor = qobject_cast<TextEditor*>(current)) {
+                editor->paste();
+                return;
+            }
+            current = current->parentWidget();
+        }
+        QMetaObject::invokeMethod(focused, "paste");
+    });
 
     // Preferences
     m_preferencesAction = new QAction(QIcon(":/images/dict.png"),
@@ -509,6 +584,11 @@ void MainWindow::createMenus() {
     editMenu = menuBar()->addMenu(tr("&Edit"));
     editMenu->addAction(m_undoAction);
     editMenu->addAction(m_redoAction);
+    editMenu->addSeparator();
+    editMenu->addAction(m_cutAction);
+    editMenu->addAction(m_copyAction);
+    editMenu->addAction(m_pasteAction);
+    editMenu->addSeparator();
     editMenu->addAction(m_preferencesAction);
     /*
     editMenu->addAction(cutAction);

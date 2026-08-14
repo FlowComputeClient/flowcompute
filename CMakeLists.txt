@@ -226,6 +226,7 @@ qt_add_executable(FlowCompute
 
 
     systems/local_system_mesh.cpp
+    views/navigator/case_navigator_delegate.h views/navigator/case_navigator_delegate.cpp
 )
 
 target_compile_options(FlowCompute PRIVATE

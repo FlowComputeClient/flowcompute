@@ -606,8 +606,17 @@ bool RemoteSystem::writeData(const QByteArray& data, const QString& filePath) {
 }
 
 bool RemoteSystem::writeData(const QString& srcPath, const QString& dstPath) {
+    QString actualSrcPath = srcPath;
+    bool makeExecutable = false;
+
+    // Check if the source path ends with '|' and remove it
+    if (actualSrcPath.endsWith('|')) {
+        actualSrcPath.chop(1);
+        makeExecutable = true;
+    }
+
     // Make sure the local source file exists
-    QFileInfo srcInfo(srcPath);
+    QFileInfo srcInfo(actualSrcPath);
     if (!srcInfo.exists() || !srcInfo.isFile()) {
         return false;
     }
@@ -637,9 +646,10 @@ bool RemoteSystem::writeData(const QString& srcPath, const QString& dstPath) {
         return false;
     }
 
-    // Open the remote file.
+    // Open remote file: 0755 for executable, 0644 otherwise
+    int fileMode = makeExecutable ? 0755 : 0644;
     sftp_file remoteFile = sftp_open(sftp, dstPath.toUtf8().constData(),
-        O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                                     O_WRONLY | O_CREAT | O_TRUNC, fileMode);
 
     if (remoteFile == nullptr) {
         qWarning() << "Failed to open remote file:" << dstPath;
@@ -648,9 +658,9 @@ bool RemoteSystem::writeData(const QString& srcPath, const QString& dstPath) {
     }
 
     // Open the local file for reading
-    QFile localFile(srcPath);
+    QFile localFile(actualSrcPath);
     if (!localFile.open(QIODevice::ReadOnly)) {
-        qWarning() << "Failed to open local file:" << srcPath;
+        qWarning() << "Failed to open local file:" << actualSrcPath;
         sftp_close(remoteFile);
         sftp_free(sftp);
         return false;
@@ -675,6 +685,15 @@ bool RemoteSystem::writeData(const QString& srcPath, const QString& dstPath) {
     localFile.close();
     sftp_close(remoteFile);
     sftp_free(sftp);
+
+    // Make the file executable if necessary
+    if (success && makeExecutable) {
+        QString safeDst = dstPath;
+        safeDst.replace("'", "'\\''");
+        QString chmodCmd = QString("chmod +x '%1'").arg(safeDst);
+        execCommand(chmodCmd);
+    }
+
     return success;
 }
 
