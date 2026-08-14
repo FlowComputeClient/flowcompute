@@ -39,11 +39,11 @@ class InteractivePage : public QWizardPage {
     explicit InteractivePage(QWidget *parent);
 
  protected:
-    void initializePage() override;
     bool validatePage() override;
 
  private:
-    QButtonGroup *m_flowButtonGroup, *m_timeButtonGroup, *m_turbulenceButtonGroup;
+    QButtonGroup *m_flowButtonGroup, *m_timeButtonGroup;
+    QButtonGroup *m_turbulenceButtonGroup;
     QCheckBox *m_heatCheck, *m_radiationCheck, *m_combustionCheck;
     QSlider *m_prioritySlider;
 };

@@ -31,27 +31,25 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
 
     // Create vertical layout
     QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->setSpacing(25);
+    layout->setSpacing(10);
+    layout->addSpacing(10);
 
     // Create question for flow type
-    QVBoxLayout* flowLayout = new QVBoxLayout();
-    flowLayout->setSpacing(10);
     QLabel* flowLabel = new QLabel(tr("<b>1. What best describes the "
                                       "flow in your simulation?</b>"));
-    flowLayout->addWidget(flowLabel);
+    layout->addWidget(flowLabel);
     QRadioButton* incompressibleButton =
         new QRadioButton(tr("Liquid or slow-moving gas with nearly "
                             "constant density (incompressible)"));
-    flowLayout->addWidget(incompressibleButton);
+    layout->addWidget(incompressibleButton);
     QRadioButton* compressibleButton =
         new QRadioButton(tr("Gas whose density changes with pressure, "
                             "speed, or temperature (compressible)"));
-    flowLayout->addWidget(compressibleButton);
+    layout->addWidget(compressibleButton);
     QRadioButton* multiphaseButton =
         new QRadioButton(tr("Interaction of two or more "
                             "fluids or phases (multiphase)"));
-    flowLayout->addWidget(multiphaseButton);
-    layout->addLayout(flowLayout);
+    layout->addWidget(multiphaseButton);
 
     // Create button group
     m_flowButtonGroup = new QButtonGroup(this);
@@ -61,18 +59,16 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     incompressibleButton->setChecked(true);
 
     // Create question for time handling
-    QVBoxLayout* timeLayout = new QVBoxLayout();
-    timeLayout->setSpacing(10);
+    layout->addSpacing(10);
     QLabel* timeLabel = new QLabel(tr("<b>2. How should time be handled "
                                       "in the simulation?</b>"));
-    timeLayout->addWidget(timeLabel);
+    layout->addWidget(timeLabel);
     QRadioButton* steadyButton =
         new QRadioButton(tr("Compute the final, settled flow (steady-state)"));
-    timeLayout->addWidget(steadyButton);
+    layout->addWidget(steadyButton);
     QRadioButton* transientButton =
         new QRadioButton(tr("Compute changes moment-by-moment (transient)"));
-    timeLayout->addWidget(transientButton);
-    layout->addLayout(timeLayout);
+    layout->addWidget(transientButton);
 
     // Create button group
     m_timeButtonGroup = new QButtonGroup(this);
@@ -81,23 +77,21 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     steadyButton->setChecked(true);
 
     // Create question for turbulence
-    QVBoxLayout* turbulenceLayout = new QVBoxLayout();
-    turbulenceLayout->setSpacing(10);
+    layout->addSpacing(10);
     QLabel* turbulenceLabel = new QLabel(tr("<b>3. How should turbulence "
                                             "be modeled?</b>"));
-    turbulenceLayout->addWidget(turbulenceLabel);
+    layout->addWidget(turbulenceLabel);
     QRadioButton* laminarButton =
         new QRadioButton(tr("No turbulence (laminar)"));
-    turbulenceLayout->addWidget(laminarButton);
+    layout->addWidget(laminarButton);
     QRadioButton* rasButton =
         new QRadioButton(tr("Average turbulence (RAS) - "
                             "balance accuracy with computational speed"));
-    turbulenceLayout->addWidget(rasButton);
+    layout->addWidget(rasButton);
     QRadioButton* lesButton =
         new QRadioButton(tr("Detailed turbulence (LES) - "
                             "recommended for advanced transient analysis"));
-    turbulenceLayout->addWidget(lesButton);
-    layout->addLayout(turbulenceLayout);
+    layout->addWidget(lesButton);
 
     // Create button group
     m_turbulenceButtonGroup = new QButtonGroup(this);
@@ -106,22 +100,20 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     m_turbulenceButtonGroup->addButton(lesButton, 2);
     rasButton->setChecked(true);
 
+    /*
     // Create question for physics
-    QVBoxLayout* physicsLayout = new QVBoxLayout();
-    physicsLayout->setSpacing(10);
     QLabel* physicsLabel = new QLabel(tr("<b>4. What other physical effects "
                         "should be included in the simulation?</b>"));
-    physicsLayout->addWidget(physicsLabel);
+    layout->addWidget(physicsLabel);
     m_heatCheck = new QCheckBox(tr("Heat transfer - "
                         "Temperature changes and thermal conduction"));
-    physicsLayout->addWidget(m_heatCheck);
+    layout->addWidget(m_heatCheck);
     m_radiationCheck = new QCheckBox(tr("Radiation - "
                         "Heat transfer by electromagnetic radiation"));
-    physicsLayout->addWidget(m_radiationCheck);
+    layout->addWidget(m_radiationCheck);
     m_combustionCheck = new QCheckBox(tr("Combustion - "
                         "Burning fuels and reacting gases"));
-    physicsLayout->addWidget(m_combustionCheck);
-    layout->addLayout(physicsLayout);
+    layout->addWidget(m_combustionCheck);
 
     // Select priority of computation speed and accuracy
     QVBoxLayout* priorityLayout = new QVBoxLayout();
@@ -149,6 +141,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     priorityLayout->addLayout(labelLayout);
     layout->addLayout(priorityLayout);
     setLayout(layout);
+    */
 
     // LES should only be enabled for transient simulation
     connect(steadyButton, &QRadioButton::toggled, this, [=](bool checked){
@@ -171,23 +164,6 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
             m_combustionCheck->setEnabled(true);
         }
     });
-}
-
-void InteractivePage::initializePage() {
-    // Always call the base class implementation first
-    QWizardPage::initializePage();
-
-    if (wizard()) {
-        // Expand the window by 1 pixel to force a geometry update
-        wizard()->resize(wizard()->width() + 1, wizard()->height() + 1);
-
-        // Schedule the restoration of the original size immediately after
-        QTimer::singleShot(0, wizard(), [this]() {
-            if (wizard()) {
-                wizard()->resize(wizard()->width() - 1, wizard()->height() - 1);
-            }
-        });
-    }
 }
 
 bool InteractivePage::validatePage() {
