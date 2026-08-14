@@ -49,6 +49,11 @@ NewCaseWizard::NewCaseWizard(SystemManager& systemMgr, QWidget *parent):
     setPage(static_cast<int>(WizardPage::Page_Project),
             new ProjectPage(this));
     setOption(QWizard::NoBackButtonOnStartPage);
+
+    // Adjust size for each page
+    connect(this, &QWizard::currentIdChanged, this, [this](int) {
+        adjustSize();
+    });
 }
 
 QStringList NewCaseWizard::processPaths(QString path) {

@@ -17,6 +17,8 @@
 
 #include "page_30_interactive.h"
 
+#include <QTimer>
+
 #include "wizard_new_case.h"
 
 // Introduction page asks for the case name and platform
@@ -146,6 +148,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     labelLayout->addWidget(accurateLabel);
     priorityLayout->addLayout(labelLayout);
     layout->addLayout(priorityLayout);
+    setLayout(layout);
 
     // LES should only be enabled for transient simulation
     connect(steadyButton, &QRadioButton::toggled, this, [=](bool checked){
@@ -168,11 +171,23 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
             m_combustionCheck->setEnabled(true);
         }
     });
+}
 
-    layout->setSizeConstraint(QLayout::SetMinimumSize);
+void InteractivePage::initializePage() {
+    // Always call the base class implementation first
+    QWizardPage::initializePage();
 
-    // Set the page layout
-    setLayout(layout);
+    if (wizard()) {
+        // Expand the window by 1 pixel to force a geometry update
+        wizard()->resize(wizard()->width() + 1, wizard()->height() + 1);
+
+        // Schedule the restoration of the original size immediately after
+        QTimer::singleShot(0, wizard(), [this]() {
+            if (wizard()) {
+                wizard()->resize(wizard()->width() - 1, wizard()->height() - 1);
+            }
+        });
+    }
 }
 
 bool InteractivePage::validatePage() {

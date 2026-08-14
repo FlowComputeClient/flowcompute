@@ -39,6 +39,7 @@ class InteractivePage : public QWizardPage {
     explicit InteractivePage(QWidget *parent);
 
  protected:
+    void initializePage() override;
     bool validatePage() override;
 
  private:
