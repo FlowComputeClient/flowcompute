@@ -28,6 +28,7 @@ class QButtonGroup;
 class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
+class QLabel;
 class QLineEdit;
 class QListWidget;
 class QRadioButton;
