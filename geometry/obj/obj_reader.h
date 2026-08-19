@@ -18,14 +18,7 @@
 #ifndef GEOMETRY_OBJ_OBJ_READER_H_
 #define GEOMETRY_OBJ_OBJ_READER_H_
 
-#include <QBuffer>
-#include <QByteArray>
-#include <QFile>
-#include <QFileInfo>
-#include <QRegularExpression>
-#include <QTextStream>
-
-#include "../graphic_data.h"
+#include "geometry/graphic_data.h"
 
 namespace ObjReader {
 

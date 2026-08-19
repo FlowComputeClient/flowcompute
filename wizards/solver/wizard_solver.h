@@ -18,9 +18,6 @@
 #ifndef WIZARDS_SOLVER_WIZARD_SOLVER_H_
 #define WIZARDS_SOLVER_WIZARD_SOLVER_H_
 
-#include <QFile>
-#include <QList>
-#include <QRegularExpression>
 #include <QWizard>
 
 #include "parser/open_foam_dictionary.h"

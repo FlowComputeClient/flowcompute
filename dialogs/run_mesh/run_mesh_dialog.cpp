@@ -15,14 +15,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "run_mesh_dialog.h"
+#include "dialogs/run_mesh/run_mesh_dialog.h"
 
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QLabel>
-#include <QFormLayout>
-#include <QString>
+#include <QVBoxLayout>
 
 #include "systems/system_manager.h"
 
@@ -34,7 +35,7 @@ RunMeshDialog::RunMeshDialog(const QString& caseName,
     setWindowTitle(tr("Mesh Execution"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
-    // Use a standard vertical layout for stacking the group boxes
+    // Create layout
     QFormLayout* mainLayout = new QFormLayout(this);
     mainLayout->setSpacing(15);
 

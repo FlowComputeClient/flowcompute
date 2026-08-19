@@ -15,19 +15,18 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_60_SIMPLE_H
-#define PAGE_60_SIMPLE_H
+#ifndef WIZARDS_SOLVER_PAGE_60_SIMPLE_H_
+#define WIZARDS_SOLVER_PAGE_60_SIMPLE_H_
 
-#include <QCheckBox>
-#include <QDoubleSpinBox>
-#include <QFormLayout>
 #include <QWizardPage>
-#include <QSpinBox>
-#include <QTableWidget>
-
-#include "parser/fv_solution.h"
 
 class SolverWizard;
+class QCheckBox;
+class QDoubleSpinBox;
+class QSpinBox;
+class QTableWidget;
+
+#include "parser/fv_solution.h"
 
 class SimplePage : public QWizardPage {
     Q_OBJECT
@@ -50,4 +49,4 @@ class SimplePage : public QWizardPage {
     QTableWidget* m_resTable;
 };
 
-#endif  // PAGE_60_SIMPLE_H
+#endif  // WIZARDS_SOLVER_PAGE_60_SIMPLE_H_

@@ -723,6 +723,5 @@ bool WslSystem::checkDistributions() {
     settings.setValue("DISTRIBUTION", selectedDistribution);
     settings.endGroup();
     settings.endGroup();
-
     return true;
 }

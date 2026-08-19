@@ -17,6 +17,8 @@
 
 #include "editors/graphical/result/result_editor.h"
 
+#include <QHBoxLayout>
+
 #include <memory>
 
 ResultEditor::ResultEditor(const QStringList& timeFolders,

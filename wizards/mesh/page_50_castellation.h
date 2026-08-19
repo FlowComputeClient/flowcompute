@@ -15,32 +15,19 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_50_CASTELLATION_H_
-#define PAGE_50_CASTELLATION_H_
+#ifndef WIZARDS_MESH_PAGE_50_CASTELLATION_H_
+#define WIZARDS_MESH_PAGE_50_CASTELLATION_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QDoubleSpinBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QTableWidget>
-#include <QTextEdit>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "parser/snappy_hex_mesh_dict.h"
 
-class MainWindow;
 class MeshWizard;
+class QCheckBox;
+class QComboBox;
+class QDoubleSpinBox;
+class QSpinBox;
+class QTableWidget;
 
 class CastellationPage : public QWizardPage {
     Q_OBJECT
@@ -74,4 +61,4 @@ class CastellationPage : public QWizardPage {
     void onMeshLocationChanged();
 };
 
-#endif  // PAGE_50_CASTELLATION_H_
+#endif  // WIZARDS_MESH_PAGE_50_CASTELLATION_H_

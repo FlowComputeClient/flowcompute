@@ -15,9 +15,20 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_40_boundary.h"
+#include "wizards/solver/page_40_boundary.h"
 
-#include "wizard_solver.h"
+#include <QComboBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QMessageBox>
+#include <QSplitter>
+#include <QStackedWidget>
+#include <QTableWidget>
+
+#include "wizards/solver/wizard_solver.h"
 
 // Introduction page asks for the case name and platform
 BoundaryPage::BoundaryPage(

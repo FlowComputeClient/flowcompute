@@ -15,32 +15,24 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_50_ALGORITHM_H
-#define PAGE_50_ALGORITHM_H
+#ifndef WIZARDS_SOLVER_PAGE_50_ALGORITHM_H_
+#define WIZARDS_SOLVER_PAGE_50_ALGORITHM_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QMetaEnum>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QStackedWidget>
-#include <QTableWidget>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "core_types.h"
 #include "parser/fv_solution.h"
 
 class SolverWizard;
+class QButtonGroup;
+class QCheckBox;
+class QComboBox;
+class QDoubleSpinBox;
+class QLineEdit;
+class QListWidget;
+class QRadioButton;
+class QSpinBox;
+class QStackedWidget;
 
 class AlgorithmPage : public QWizardPage {
     Q_OBJECT
@@ -79,4 +71,4 @@ class AlgorithmPage : public QWizardPage {
     void solverChanged(int);
 };
 
-#endif  // PAGE_50_ALGORITHM_H
+#endif  // WIZARDS_SOLVER_PAGE_50_ALGORITHM_H_

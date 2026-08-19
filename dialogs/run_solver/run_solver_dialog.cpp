@@ -15,15 +15,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "run_solver_dialog.h"
+#include "dialogs/run_solver/run_solver_dialog.h"
 
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDir>
+#include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QLabel>
-#include <QFormLayout>
 #include <QStackedWidget>
-#include <QString>
 
 #include "parser/open_foam_dictionary.h"
 #include "systems/system_manager.h"

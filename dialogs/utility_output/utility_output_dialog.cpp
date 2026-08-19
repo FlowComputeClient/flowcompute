@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "utility_output_dialog.h"
+#include "dialogs/utility_output/utility_output_dialog.h"
 
 #include <QFontDatabase>
 #include <QVBoxLayout>

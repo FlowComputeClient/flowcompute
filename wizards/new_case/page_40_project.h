@@ -18,23 +18,12 @@
 #ifndef PAGE_40_PROJECT_H
 #define PAGE_40_PROJECT_H
 
-#include <QDir>
-#include <QFileDialog>
-#include <QFileSystemModel>
-#include <QGridLayout>
-#include <QLabel>
-#include <QLineEdit>
-#include <QMessageBox>
-#include <QPushButton>
-#include <QSettings>
-#include <QStandardPaths>
-#include <QString>
-#include <QTreeView>
-#include <QTreeWidget>
-#include <QVBoxLayout>
-#include <QWizardPage>
-
 class NewCaseWizard;
+class QLineEdit;
+class QTreeWidget;
+class QTreeWidgetItem;
+
+#include <QWizardPage>
 
 class ProjectPage : public QWizardPage {
     Q_OBJECT

@@ -18,6 +18,11 @@
 #include "editors/graphical/mesh/mesh_left_pane.h"
 
 #include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QHeaderView>
+#include <QLabel>
+#include <QPushButton>
+#include <QTableWidget>
 #include <QVBoxLayout>
 
 #include <vector>

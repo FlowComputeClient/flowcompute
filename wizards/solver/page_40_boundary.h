@@ -15,29 +15,9 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_40_BOUNDARY_H
-#define PAGE_40_BOUNDARY_H
+#ifndef WIZARDS_SOLVER_PAGE_40_BOUNDARY_H_
+#define WIZARDS_SOLVER_PAGE_40_BOUNDARY_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QPushButton>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QSplitter>
-#include <QStackedWidget>
-#include <QTableWidget>
-#include <QTextBrowser>
-#include <QTreeWidget>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "core_types.h"
@@ -45,6 +25,12 @@
 #include "parser/field.h"
 
 class SolverWizard;
+class QComboBox;
+class QFormLayout;
+class QLineEdit;
+class QListWidget;
+class QStackedWidget;
+class QTableWidget;
 
 class BoundaryPage : public QWizardPage {
     Q_OBJECT
@@ -89,4 +75,4 @@ private slots:
     void onPatchTypeChanged(const QString& text);
 };
 
-#endif  // PAGE_40_BOUNDARY_H
+#endif  // WIZARDS_SOLVER_PAGE_40_BOUNDARY_H_

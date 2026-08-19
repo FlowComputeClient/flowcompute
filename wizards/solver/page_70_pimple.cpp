@@ -15,19 +15,21 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_70_pimple.h"
+#include "wizards/solver/page_70_pimple.h"
 
 #include <QCheckBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
 #include <QHeaderView>
 #include <QLineEdit>
+#include <QSpinBox>
 #include <QTableWidget>
 
-#include "wizard_solver.h"
+#include "wizards/solver/wizard_solver.h"
 
 QWidget* centerCB(QCheckBox* box);
 
 PimplePage::PimplePage(QWidget *parent): QWizardPage(parent) {
-
     // Set title
     setTitle(tr("PIMPLE Algorithm Configuration (fvSolution)"));
 
@@ -153,7 +155,7 @@ bool PimplePage::validatePage() {
             }
         }
 
-        // Column 2: Residual Control (Tolerance)
+        // Column 1: Residual Control (Tolerance)
         QWidget* toleranceWidget = m_resTable->cellWidget(i, 2);
         if (toleranceWidget) {
             QLineEdit* le = qobject_cast<QLineEdit*>(toleranceWidget);

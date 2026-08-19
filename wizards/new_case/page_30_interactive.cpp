@@ -17,7 +17,11 @@
 
 #include "page_30_interactive.h"
 
-#include <QTimer>
+#include <QButtonGroup>
+#include <QCheckBox>
+#include <QLabel>
+#include <QRadioButton>
+#include <QVBoxLayout>
 
 #include "wizard_new_case.h"
 
@@ -180,9 +184,11 @@ bool InteractivePage::validatePage() {
         static_cast<TurbulenceConfig>(m_turbulenceButtonGroup->checkedId());
     caseConfig->timeConfig =
         static_cast<TimeConfig>(m_timeButtonGroup->checkedId());
+    /*
     caseConfig->heatConfig = m_heatCheck->isChecked();
     caseConfig->radiationConfig = m_radiationCheck->isChecked();
     caseConfig->combustionConfig = m_combustionCheck->isChecked();
     caseConfig->priorityConfig = m_prioritySlider->value();
+    */
     return true;
 }

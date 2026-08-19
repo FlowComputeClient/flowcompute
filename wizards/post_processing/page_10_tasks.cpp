@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_10_tasks.h"
+#include "wizards/post_processing/page_10_tasks.h"
 
 #include <QFormLayout>
 #include <QGroupBox>

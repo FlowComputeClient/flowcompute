@@ -17,6 +17,17 @@
 
 #include "page_90_parallel.h"
 
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QLabel>
+#include <QMessageBox>
+#include <QSpinBox>
+#include <QStackedWidget>
+#include <QVBoxLayout>
+
 #include "wizard_solver.h"
 
 // Configures decomposeParDict
@@ -144,7 +155,6 @@ ParallelPage::ParallelPage(QWidget *parent): QWizardPage(parent) {
 }
 
 void ParallelPage::initializePage() {
-
     // Access wizard data
     solverWizard = qobject_cast<SolverWizard*>(this->wizard());
     if (!solverWizard) return;

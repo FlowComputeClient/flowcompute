@@ -53,8 +53,7 @@ enum class FieldClass {
     pointVectorField,
     pointSphericalTensorField,
     pointSymmTensorField,
-    pointTensorField,
-    Unknown,
+    pointTensorField
 };
 Q_ENUM_NS(FieldClass)
 

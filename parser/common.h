@@ -111,7 +111,8 @@ QString enumToString(T value, const QString& fallback) {
 }
 
 // Create header for dictionary file
-QString createFoamHeader(const QString& objectName, const QString& foamPath);
+QString createFoamHeader(const QString& objectName, const QString& foamPath,
+                            const QString& className="dictionary");
 
 // Create footer for dictionary file
 QString createFoamFooter();

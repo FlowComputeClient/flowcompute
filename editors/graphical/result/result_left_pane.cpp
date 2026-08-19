@@ -18,12 +18,14 @@
 #include "editors/graphical/result/result_left_pane.h"
 
 #include <QComboBox>
-#include <QFrame>
-#include <QLabel>
+#include <QDoubleSpinBox>
 #include <QHBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QTableWidget>
 #include <QVBoxLayout>
 
-#include "color_bar_widget.h"
+#include "editors/graphical/result/color_bar_widget.h"
 
 ResultLeftPane::ResultLeftPane(const QStringList& timeFolders,
     QString timeFolder, QWidget* parent): m_timeFolders(timeFolders),

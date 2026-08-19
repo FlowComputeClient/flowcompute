@@ -264,7 +264,7 @@ QFutureWatcher<std::pair<bool, QString>>* SystemManager::sshConnect(
         return userAccepted;
     };
 
-    // Run SSH authentication in a background thread
+    // Run SSH authentication
     QFuture<std::pair<bool, QString>> future = QtConcurrent::run(
         [host, user, port, password, remoteSystem, callback]() {
             QString errorMsg;

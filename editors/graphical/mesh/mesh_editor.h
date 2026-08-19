@@ -18,13 +18,8 @@
 #ifndef EDITORS_GRAPHICAL_MESH_MESH_EDITOR_H_
 #define EDITORS_GRAPHICAL_MESH_MESH_EDITOR_H_
 
-#include <QHBoxLayout>
 #include <QVulkanInstance>
 #include <QWidget>
-
-#include <memory>
-#include <string>
-#include <vector>
 
 #include "editors/graphical/mesh/mesh_left_pane.h"
 #include "editors/graphical/vulkan/vulkan_window.h"

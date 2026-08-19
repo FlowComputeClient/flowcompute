@@ -15,7 +15,14 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_20_transient.h"
+#include "wizards/solver/page_20_transient.h"
+
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QSpinBox>
 
 // Introduction page asks for the case name and platform
 TransientPage::TransientPage(
@@ -29,9 +36,7 @@ TransientPage::TransientPage(
     QFormLayout* layout = new QFormLayout(this);
     layout->setSpacing(20);
 
-    // ---------------------------------------------------------
-    // Time Step Adjustment Group
-    // ---------------------------------------------------------
+    // Time-step adjustment group
     QGroupBox* stepBox = new QGroupBox(tr("Time Step Adjustment"), this);
     layout->addRow(stepBox);
     QFormLayout* stepLayout = new QFormLayout(stepBox);

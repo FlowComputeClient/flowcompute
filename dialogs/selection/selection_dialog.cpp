@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "selection_dialog.h"
+#include "dialogs/selection/selection_dialog.h"
 
 #include <QVBoxLayout>
 #include <QLabel>

@@ -15,9 +15,19 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_30_physics.h"
+#include "wizards/solver/page_30_physics.h"
 
-#include "wizard_solver.h"
+#include <QComboBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QTableWidget>
+#include <QTreeWidget>
+
+#include "wizards/solver/wizard_solver.h"
 
 // Configures turbulence and transport properties
 PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
@@ -44,15 +54,15 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
                                            "for the simulation:</b>")));
 
     // Create the tree
-    turbulenceTree = new QTreeWidget(this);
-    turbulenceTree->setHeaderHidden(true);
-    turbulenceTree->setSelectionMode(QAbstractItemView::SingleSelection);
-    turbulenceLayout->addRow(turbulenceTree);
-    connect(turbulenceTree, &QTreeWidget::itemSelectionChanged, this,
+    m_turbulenceTree = new QTreeWidget(this);
+    m_turbulenceTree->setHeaderHidden(true);
+    m_turbulenceTree->setSelectionMode(QAbstractItemView::SingleSelection);
+    turbulenceLayout->addRow(m_turbulenceTree);
+    connect(m_turbulenceTree, &QTreeWidget::itemSelectionChanged, this,
             &PhysicsPage::modelChanged);
 
     // Add the Laminar option to the tree
-    QTreeWidgetItem* laminarCategoryNode = new QTreeWidgetItem(turbulenceTree);
+    QTreeWidgetItem* laminarCategoryNode = new QTreeWidgetItem(m_turbulenceTree);
     laminarCategoryNode->setText(0, "Laminar");
     laminarCategoryNode->setFlags(laminarCategoryNode->flags() &
                                   ~Qt::ItemIsSelectable);
@@ -63,7 +73,7 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
     for (auto catIt = m_turbModels.constBegin();
             catIt != m_turbModels.constEnd(); ++catIt) {
         QString categoryName = catIt.key();
-        QTreeWidgetItem* catNode = new QTreeWidgetItem(turbulenceTree);
+        QTreeWidgetItem* catNode = new QTreeWidgetItem(m_turbulenceTree);
         catNode->setText(0, categoryName);
         catNode->setFlags(catNode->flags() & ~Qt::ItemIsSelectable);
 
@@ -145,18 +155,18 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
 void PhysicsPage::initializePage() {
 
     // Access the parsed structure
-    solverWizard = qobject_cast<SolverWizard*>(this->wizard());    
-    m_cfg = &(solverWizard->getPhysicsConfig());
+    m_solverWizard = qobject_cast<SolverWizard*>(this->wizard());    
+    m_cfg = &(m_solverWizard->getPhysicsConfig());
 
     // Update tree
-    QList<QTreeWidgetItem*> items = turbulenceTree->findItems(
+    QList<QTreeWidgetItem*> items = m_turbulenceTree->findItems(
         m_cfg->model, Qt::MatchExactly | Qt::MatchRecursive, 0);
     if (items.isEmpty()) {
-        items = turbulenceTree->findItems("kOmegaSST",
+        items = m_turbulenceTree->findItems("kOmegaSST",
             Qt::MatchExactly | Qt::MatchRecursive, 0);
     }
     QTreeWidgetItem* targetItem = items.first();
-    turbulenceTree->setCurrentItem(targetItem);
+    m_turbulenceTree->setCurrentItem(targetItem);
     targetItem->setSelected(true);
 
     // Expand parents
@@ -173,7 +183,7 @@ void PhysicsPage::initializePage() {
         static_cast<int>(m_cfg->deltaModel));
 
     // Get transport properties for solver
-    CaseIO::ControlConfig* controlConfig = &(solverWizard->getControlConfig());
+    CaseIO::ControlConfig* controlConfig = &(m_solverWizard->getControlConfig());
     QString solverCategory = controlConfig->solverCategory;
     QString solverName = controlConfig->solver;
     QStringList transportProperties = [&]() -> QStringList {
@@ -255,7 +265,7 @@ bool PhysicsPage::validatePage() {
     if (!m_cfg) return false;
 
     // Set Simulation Type and Model
-    QList<QTreeWidgetItem*> selectedItems = turbulenceTree->selectedItems();
+    QList<QTreeWidgetItem*> selectedItems = m_turbulenceTree->selectedItems();
     if (selectedItems.isEmpty()) {
         QMessageBox::warning(this, tr("Selection Required"),
                              tr("Please select a turbulence model."));
@@ -303,7 +313,7 @@ bool PhysicsPage::validatePage() {
 
 void PhysicsPage::modelChanged() {
 
-    QList<QTreeWidgetItem*> selected = turbulenceTree->selectedItems();
+    QList<QTreeWidgetItem*> selected = m_turbulenceTree->selectedItems();
 
     // Safety check for empty selection
     if (selected.isEmpty()) {

@@ -17,6 +17,9 @@
 
 #include "editors/graphical/result/color_bar_widget.h"
 
+#include <QPainter>
+#include <QLinearGradient>
+
 ColorBarWidget::ColorBarWidget(QWidget *parent) : QWidget(parent) {
     setMinimumSize(80, 200);
 }
@@ -33,7 +36,7 @@ void ColorBarWidget::paintEvent(QPaintEvent *event)  {
     QRect barRect(10, verticalPadding, barWidth, height() -
                     (verticalPadding * 2));
 
-    // Create a vertical gradient (Bottom to Top)
+    // Create a vertical gradient
     QLinearGradient gradient(barRect.bottomLeft(), barRect.topLeft());
 
     // Viridis Color Stops

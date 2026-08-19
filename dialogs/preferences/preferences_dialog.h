@@ -15,14 +15,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PREFERENCES_DIALOG_H_
-#define PREFERENCES_DIALOG_H_
+#ifndef DIALOGS_PREFERENCES_DIALOG_H_
+#define DIALOGS_PREFERENCES_DIALOG_H_
 
-#include <QComboBox>
 #include <QDialog>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QDialogButtonBox>
+
+class QComboBox;
 
 class PreferencesDialog : public QDialog {
     Q_OBJECT
@@ -37,5 +35,5 @@ class PreferencesDialog : public QDialog {
     QComboBox* m_themeCombo;
 };
 
-#endif // PREFERENCES_DIALOG_H_
+#endif  // DIALOGS_PREFERENCES_DIALOG_H_
 

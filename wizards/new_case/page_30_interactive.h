@@ -18,19 +18,12 @@
 #ifndef PAGE_30_INTERACTIVE_H_
 #define PAGE_30_INTERACTIVE_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QLabel>
-#include <QLineEdit>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSlider>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 class NewCaseWizard;
+class QButtonGroup;
+class QCheckBox;
+class QSlider;
 
 class InteractivePage : public QWizardPage {
     Q_OBJECT

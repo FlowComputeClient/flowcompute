@@ -15,6 +15,7 @@
         <file>images/cut.png</file>
         <file>images/delete.png</file>
         <file>images/dict.png</file>
+        <file>images/download.png</file>
         <file>images/field.png</file>
         <file>images/flowcompute.ico</file>
         <file>images/flowcompute.png</file>
@@ -22,18 +23,25 @@
         <file>images/geometry.png</file>
         <file>images/help.png</file>
         <file>images/mesh.png</file>
+        <file>images/new_file.png</file>
+        <file>images/new_folder.png</file>
+        <file>images/new_dict.png</file>
         <file>images/new_case.png</file>
-        <file>images/paste.png</file>		
-        <file>images/postprocess.png</file>		
+        <file>images/open_case.png</file>
+        <file>images/paste.png</file>
+        <file>images/postprocess.png</file>
         <file>images/redo.png</file>
-        <file>images/rename.png</file>		
+        <file>images/refresh.png</file>
+        <file>images/rename.png</file>
         <file>images/run_mesh.png</file>
         <file>images/run_solver.png</file>
         <file>images/save.png</file>
         <file>images/script.png</file>
         <file>images/solver.png</file>
         <file>images/stop_solver.png</file>
+        <file>images/text.png</file>
         <file>images/undo.png</file>
+        <file>images/upload.png</file>
         <file>images/view_mesh.png</file>
         <file>images/view_result.png</file>
         <file>images/viridis_map.png</file>

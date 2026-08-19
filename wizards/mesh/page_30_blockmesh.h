@@ -15,32 +15,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_30_BLOCKMESH_H_
-#define PAGE_30_BLOCKMESH_H_
+#ifndef WIZARDS_MESH_PAGE_30_BLOCKMESH_H_
+#define WIZARDS_MESH_PAGE_30_BLOCKMESH_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QDoubleSpinBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QTableWidget>
-#include <QTextEdit>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
-#include "parser/block_mesh_dict.h"
-
-class MainWindow;
 class MeshWizard;
+class QCheckBox;
+class QDoubleSpinBox;
+class QTableWidget;
+
+#include "parser/block_mesh_dict.h"
 
 class BlockMeshPage2 : public QWizardPage {
     Q_OBJECT
@@ -75,4 +60,4 @@ private:
     }};
 };
 
-#endif  // PAGE_30_BLOCKMESH_H_
+#endif  // WIZARDS_MESH_PAGE_30_BLOCKMESH_H_

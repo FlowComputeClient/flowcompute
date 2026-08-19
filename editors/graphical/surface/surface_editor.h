@@ -18,7 +18,6 @@
 #ifndef EDITORS_GRAPHICAL_SURFACE_SURFACE_EDITOR_H_
 #define EDITORS_GRAPHICAL_SURFACE_SURFACE_EDITOR_H_
 
-#include <QHBoxLayout>
 #include <QVulkanInstance>
 #include <QWidget>
 

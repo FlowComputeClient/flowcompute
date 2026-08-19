@@ -15,30 +15,22 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_10_CONTROL_H
-#define PAGE_10_CONTROL_H
+#ifndef WIZARDS_MESH_PAGE_10_CONTROL_H_
+#define WIZARDS_MESH_PAGE_10_CONTROL_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QTableWidget>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "core_types.h"
 #include "parser/control_dict.h"
 
 class SolverWizard;
+class QCheckBox;
+class QComboBox;
+class QDoubleSpinBox;
+class QDoubleValidator;
+class QIntValidator;
+class QLineEdit;
+class QSpinBox;
 
 class ControlPage : public QWizardPage {
     Q_OBJECT
@@ -54,7 +46,7 @@ class ControlPage : public QWizardPage {
     bool validatePage() override;
 
  private:
-    SolverWizard* solverWizard;
+    SolverWizard* m_solverWizard;
     CaseIO::ControlConfig* m_cfg;
     bool m_isSteadyState = true;
     QString m_caseName;
@@ -77,4 +69,4 @@ class ControlPage : public QWizardPage {
     void solverChanged(int);
 };
 
-#endif  // PAGE_10_CONTROL_H
+#endif  // WIZARDS_MESH_PAGE_10_CONTROL_H_

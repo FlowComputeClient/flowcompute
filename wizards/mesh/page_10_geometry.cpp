@@ -17,7 +17,14 @@
 
 #include "page_10_geometry.h"
 
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDir>
+#include <QGridLayout>
+#include <QGroupBox>
+#include <QLabel>
+#include <QListWidget>
+#include <QMessageBox>
 
 #include "wizard_mesh.h"
 

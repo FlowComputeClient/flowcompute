@@ -15,17 +15,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "wizard_mesh.h"
+#include "wizards/mesh/wizard_mesh.h"
 
 #include <QDir>
 
-#include "page_10_geometry.h"
-#include "page_20_blockmesh.h"
-#include "page_30_blockmesh.h"
-#include "page_40_surface_feature.h"
-#include "page_50_castellation.h"
-#include "page_60_snapcontrol.h"
-#include "page_70_layercontrol.h"
+#include "wizards/mesh/page_10_geometry.h"
+#include "wizards/mesh/page_20_blockmesh.h"
+#include "wizards/mesh/page_30_blockmesh.h"
+#include "wizards/mesh/page_40_surface_feature.h"
+#include "wizards/mesh/page_50_castellation.h"
+#include "wizards/mesh/page_60_snapcontrol.h"
+#include "wizards/mesh/page_70_layercontrol.h"
 
 // Function declarations
 MeshWizard::MeshWizard(const QString& caseName, const SystemManager& systemMgr,

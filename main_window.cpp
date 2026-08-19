@@ -17,11 +17,18 @@
 
 #include "./main_window.h"
 
+#include <QAction>
 #include <QApplication>
+#include <QDockWidget>
+#include <QFile>
+#include <QFileDialog>
 #include <QGuiApplication>
+#include <QMenu>
+#include <QMenuBar>
 #include <QProgressBar>
 #include <QProgressDialog>
 #include <QStatusBar>
+#include <QToolBar>
 
 #include <algorithm>
 #include <memory>
@@ -80,10 +87,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // Update system manager
     m_systemMgr.setSystems(systems);
 
-    // Create actions, menus, and toolbars
+    // Create actions
     createActions();
-    createMenus();
-    createToolBar();
 
     // Create tab widget
     m_tabWidget = new TabWidget(this);
@@ -93,10 +98,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_navigatorWidget = new QDockWidget(tr("Case Navigator"), this);
     m_navigatorWidget->setTitleBarWidget(new QWidget(m_navigatorWidget));
     m_navigatorWidget->setAllowedAreas(Qt::LeftDockWidgetArea);
-    m_navigator = new CaseNavigator(m_deleteAction, m_configureMeshAction,
-        m_runMeshAction, m_viewMeshAction, m_configureSolverAction,
-        m_runSolverAction, m_viewResultAction, m_cutAction, m_copyAction,
-        m_pasteAction, m_systemMgr, this);
+    m_navigator = new CaseNavigator(m_newCaseAction, m_openCaseAction,
+        m_configureMeshAction, m_runMeshAction, m_viewMeshAction,
+        m_configureSolverAction, m_runSolverAction, m_viewResultAction,
+        m_cutAction, m_copyAction, m_pasteAction, m_uploadAction,
+        m_downloadAction, m_systemMgr, this);
     m_navigatorWidget->setWidget(m_navigator);
     m_navigatorWidget->setMinimumWidth(200);
     addDockWidget(Qt::LeftDockWidgetArea, m_navigatorWidget);
@@ -109,6 +115,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             this, &MainWindow::log);
     connect(m_navigator, &CaseNavigator::requestUpdatePath,
             this, &MainWindow::updatePath);
+    connect(m_navigator, &CaseNavigator::updateSettings,
+            this, &MainWindow::saveCases);
+
+    // Get actions from navigator
+    QList<QAction*> actions = m_navigator->getActions();
+    m_newFileAction = actions[0];
+    m_newFolderAction = actions[1];
+    m_newDictAction = actions[2];
+
+    // Create menus and toolbar
+    createMenus();
+    createToolBar();
 
     // Create the console
     m_consoleWidget = new QDockWidget(tr("Console"), this);
@@ -328,11 +346,19 @@ MainWindow::~MainWindow() = default;
 void MainWindow::createActions() {
     // Create new case
     m_newCaseAction = new QAction(QIcon(":/images/new_case.png"),
-                                tr("&New Case Folder"), this);
+                                tr("&New Case..."), this);
     m_newCaseAction->setShortcuts(QKeySequence::New);
     m_newCaseAction->setStatusTip(tr("Create a new case folder"));
     connect(m_newCaseAction, &QAction::triggered, this,
-            &MainWindow::launchNewCaseWizard);
+            &MainWindow::newCase);
+
+    // Open existing case
+    m_openCaseAction = new QAction(QIcon(":/images/open_case.png"),
+                                  tr("&Open Case..."), this);
+    m_openCaseAction->setShortcuts(QKeySequence::Open);
+    m_openCaseAction->setStatusTip(tr("Create a new case folder"));
+    connect(m_openCaseAction, &QAction::triggered, this,
+            &MainWindow::openCase);
 
     // Save file
     m_saveFileAction =
@@ -342,45 +368,29 @@ void MainWindow::createActions() {
     connect(m_saveFileAction, &QAction::triggered, this, &MainWindow::saveFile);
     m_saveFileAction->setDisabled(true);
 
-    // Delete file
-    m_deleteAction = new QAction(QIcon(":/images/delete.png"),
-                                 tr("&Delete"), this);
-    m_deleteAction->setShortcuts(QKeySequence::Delete);
-    m_deleteAction->setStatusTip(tr("Delete"));
-    connect(m_deleteAction, &QAction::triggered, this,
-            &MainWindow::deleteFile);
+    // Upload
+    m_uploadAction = new QAction(QIcon(":/images/upload.png"),
+                                  tr("&Upload..."), this);
+    m_uploadAction->setShortcut(QKeySequence("Ctrl+U"));
+    m_uploadAction->setStatusTip(tr("Upload a file or folder"));
+    m_uploadAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_uploadAction, &QAction::triggered, this,
+            &MainWindow::upload);
 
-    /*
-    // Create new file
-    new_fileAction = new QAction(QIcon(image_dir + "new.png"), tr("New &File"), this);
-    new_fileAction->setShortcuts(QKeySequence::New);
-    new_fileAction->setStatusTip(tr("Create a new file"));
-    connect(new_fileAction, &QAction::triggered, this, SLOT(NewFile()));
-
-    // Open file
-    open_fileAction = new QAction(QIcon(image_dir + "open.png"), tr("&Open..."), this);
-    open_fileAction->setShortcuts(QKeySequence::Open);
-    open_fileAction->setStatusTip(tr("Open an existing project"));
-    connect(open_fileAction, &QAction::triggered, this, SLOT(Open()));
-
-    // Save as
-    save_asAction = new QAction(tr("Save &As..."), this);
-    save_asAction->setShortcuts(QKeySequence::SaveAs);
-    save_asAction->setStatusTip(tr("Save the document under a new name"));
-    connect(save_asAction, &QAction::triggered, this, SLOT(SaveAs()));
-
-    // Print
-    printAction = new QAction(QIcon(image_dir + "print.png"), tr("&Print"), this);
-    printAction->setShortcuts(QKeySequence::Print);
-    printAction->setStatusTip(tr("Send the document to a printer"));
-    connect(printAction, &QAction::triggered, this, SLOT(Print()));
+    // Download
+    m_downloadAction = new QAction(QIcon(":/images/download.png"),
+                                 tr("&Download..."), this);
+    m_downloadAction->setShortcut(QKeySequence("Ctrl+D"));
+    m_downloadAction->setStatusTip(tr("download a file or folder"));
+    m_downloadAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_downloadAction, &QAction::triggered, this,
+            &MainWindow::download);
 
     // Exit
-    exitAction = new QAction(tr("E&xit"), this);
-    exitAction->setShortcuts(QKeySequence::Quit);
-    exitAction->setStatusTip(tr("Exit the application"));
-    connect(exitAction, &QAction::triggered, this, SLOT(close()));
-    */
+    m_exitAction = new QAction(tr("E&xit"), this);
+    m_exitAction->setShortcuts(QKeySequence::Quit);
+    m_exitAction->setStatusTip(tr("Exit the application"));
+    connect(m_exitAction, &QAction::triggered, this, &MainWindow::close);
 
     // Cut
     m_cutAction = new QAction(QIcon(":/images/cut.png"), tr("Cut"), this);
@@ -566,59 +576,44 @@ void MainWindow::createActions() {
 // Assemble actions within main menu
 void MainWindow::createMenus() {
     // Create file menu
-    fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(m_newCaseAction);
-    fileMenu->addAction(m_saveFileAction);
-    /*
-    fileMenu->addAction(new_fileAction);
-    fileMenu->addAction(open_fileAction);
-    fileMenu->addAction(save_asAction);
-    fileMenu->addSeparator();
-    fileMenu->addAction(printAction);
-    fileMenu->addSeparator();
-    fileMenu->addAction(exitAction);
-    */
-    menuBar()->addSeparator();
+    m_fileMenu = menuBar()->addMenu(tr("&File"));
+    m_fileMenu->addAction(m_newCaseAction);
+    m_fileMenu->addAction(m_openCaseAction);
+    m_fileMenu->addSeparator();
+    m_fileMenu->addAction(m_newFileAction);
+    m_fileMenu->addAction(m_newFolderAction);
+    m_fileMenu->addAction(m_newDictAction);
+    m_fileMenu->addAction(m_saveFileAction);
+    m_fileMenu->addSeparator();
+    m_fileMenu->addAction(m_uploadAction);
+    m_fileMenu->addAction(m_downloadAction);
+    m_fileMenu->addSeparator();
+    m_fileMenu->addAction(m_exitAction);
 
     // Create edit menu
-    editMenu = menuBar()->addMenu(tr("&Edit"));
-    editMenu->addAction(m_undoAction);
-    editMenu->addAction(m_redoAction);
-    editMenu->addSeparator();
-    editMenu->addAction(m_cutAction);
-    editMenu->addAction(m_copyAction);
-    editMenu->addAction(m_pasteAction);
-    editMenu->addSeparator();
-    editMenu->addAction(m_preferencesAction);
-    /*
-    editMenu->addAction(cutAction);
-    editMenu->addAction(copyAction);
-    editMenu->addAction(pasteAction);
-    */
-    menuBar()->addSeparator();
+    m_editMenu = menuBar()->addMenu(tr("&Edit"));
+    m_editMenu->addAction(m_undoAction);
+    m_editMenu->addAction(m_redoAction);
+    m_editMenu->addSeparator();
+    m_editMenu->addAction(m_cutAction);
+    m_editMenu->addAction(m_copyAction);
+    m_editMenu->addAction(m_pasteAction);
+    m_editMenu->addSeparator();
+    m_editMenu->addAction(m_preferencesAction);
 
     // Create view menu
-    viewMenu = menuBar()->addMenu(tr("&View"));
-    /*
-    viewMenu->addAction(zoom_inAction);
-    viewMenu->addAction(zoom_outAction);
-    */
-    menuBar()->addSeparator();
+    m_viewMenu = menuBar()->addMenu(tr("&View"));
+    m_viewMenu->addAction(m_zoomInAction);
+    m_viewMenu->addAction(m_zoomOutAction);
 
     // Create mesh menu
-    meshMenu = menuBar()->addMenu(tr("&Mesh"));
-    meshMenu->addAction(m_configureMeshAction);
-    meshMenu->addAction(m_runMeshAction);
-    menuBar()->addSeparator();
+    m_meshMenu = menuBar()->addMenu(tr("&Mesh"));
+    m_meshMenu->addAction(m_configureMeshAction);
+    m_meshMenu->addAction(m_runMeshAction);
 
-    // Create solve menu
-    solveMenu = menuBar()->addMenu(tr("&Solve"));
-    menuBar()->addSeparator();
-
-    // Create post-process menu
-    postProcessMenu = menuBar()->addMenu(tr("&PostProcess"));
-    postProcessMenu->addAction(m_postProcessAction);
-    menuBar()->addSeparator();
+    // Create simulation menu
+    m_simMenu = menuBar()->addMenu(tr("&Simulation"));
+    m_simMenu->addAction(m_postProcessAction);
 
     // Create help menu
     helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -632,7 +627,7 @@ void MainWindow::createToolBar() {
     toolBar->addAction(m_newCaseAction);
     toolBar->addAction(m_saveFileAction);
     /*
-    toolBar->addAction(new_fileAction);
+    toolBar->addAction(m_newFileAction);
     toolBar->addAction(open_fileAction);
 
     toolBar->addAction(printAction);
@@ -679,6 +674,167 @@ void MainWindow::redo() {
         qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
     if (editor)
         editor->redo();
+}
+
+// Upload file or folder
+void MainWindow::upload() {
+    // Access selected node (always a folder or case folder)
+    NodeData* node = m_navigator->nodeFromIndex(m_navigator->currentIndex());
+    if (!node)
+        return;
+
+    // Construct path
+    QString caseName, targetPath, nodePath;
+    if (node->fullPath.isEmpty()) {
+        caseName = node->name;
+        nodePath = "";
+        targetPath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
+    } else {
+        int pos = node->fullPath.indexOf("/");
+        caseName = node->fullPath.left(pos);
+        nodePath = node->fullPath.mid(pos + 1);
+        targetPath = m_systemMgr.getData(caseName).casePath + "/" +
+                   node->fullPath + "/" +  node->name;
+    }
+
+    // Create file selection dialog
+    QFileDialog dialog(this);
+    dialog.setWindowTitle(tr("Select files to upload"));
+    dialog.setDirectory(QDir::homePath());
+    dialog.setFileMode(QFileDialog::ExistingFiles);
+
+    // Launch dialog and upload files
+    if (dialog.exec() == QDialog::Accepted) {
+        auto system = m_systemMgr.getSystem(caseName);
+        QStringList selections = dialog.selectedFiles();
+        for (const QString& path : std::as_const(selections)) {
+            QFileInfo fileInfo(path);
+            QString fileName = fileInfo.fileName();
+            system->writeData(path, targetPath + "/" + fileName);
+        }
+    }
+
+    // Update folder
+    updatePath(caseName, nodePath);
+}
+
+// Download file or folder
+void MainWindow::download() {
+    // Access selected node
+    QVariant data = m_downloadAction->data();
+    NodeData* node = data.value<NodeData*>();
+    if (!node)
+        return;
+
+    // Get download
+    QString localPath = QFileDialog::getExistingDirectory(this,
+        QString(tr("Select folder to receive download")),
+        QDir::homePath());
+    if (localPath.isEmpty())
+        return;
+
+    // Construct path
+    QString caseName, targetPath, basePath;
+    if (node->fullPath.isEmpty()) {
+        caseName = node->name;
+        basePath = m_systemMgr.getData(caseName).casePath;
+        targetPath = basePath + "/" + caseName;
+    } else {
+        int pos = node->fullPath.indexOf("/");
+        caseName = node->fullPath.left(pos);
+        basePath = m_systemMgr.getData(caseName).casePath + "/" +
+                   node->fullPath;
+        targetPath = basePath + "/" + node->name;
+    }
+
+    // Get the base file name
+    QFileInfo fileInfo(targetPath);
+    QString targetFileName = fileInfo.fileName();
+
+    // Perform download depending on node type
+    std::shared_ptr<TargetSystem> system = m_systemMgr.getSystem(caseName);
+    if ((node->nodeType == NodeType::CaseFolder) ||
+        (node->nodeType == NodeType::Folder)) {
+        // Create progress dialog
+        QProgressDialog* progressDialog = new QProgressDialog(
+            tr("Downloading folder..."), QString(), 0, 0, this);
+        progressDialog->setWindowTitle(tr("Operation in progress"));
+        progressDialog->setWindowModality(Qt::WindowModal);
+        progressDialog->setAttribute(Qt::WA_DeleteOnClose);
+        progressDialog->show();
+
+        // Create and configure watcher
+        QFutureWatcher<void>* watcher = new QFutureWatcher<void>(this);
+        connect(watcher, &QFutureWatcher<void>::finished, progressDialog,
+                &QProgressDialog::accept);
+        connect(watcher, &QFutureWatcher<void>::finished, watcher,
+                &QFutureWatcher<void>::deleteLater);
+
+        // Run function concurrently
+        QFuture<void> future = QtConcurrent::run([=, this]() {
+            downloadFolder(system, basePath, node->name, localPath);
+        });
+        watcher->setFuture(future);
+    } else {
+        // Get content of remote file
+        QByteArray fileData = system->getFileContent(targetPath);
+
+        // Write data to local file
+        if (!fileData.isEmpty()) {
+            QFile file(localPath + "/" + targetFileName);
+            if (!file.open(QIODevice::WriteOnly))
+                return;
+            if (file.write(fileData) != fileData.size())
+                return;
+            file.close();
+        }
+    }
+}
+
+void MainWindow::downloadFolder(std::shared_ptr<TargetSystem> system,
+                QString basePath, QString nodeName, QString localPath) {
+    // Compress folder
+    QString cmd =
+        QString("cd %1; tar -czf %2.tar.gz %2/").arg(basePath, nodeName);
+    QString output;
+    if (system->launchShortUtility(cmd, output) == 0) {
+        QString remoteFileName = basePath + "/" + nodeName + ".tar.gz";
+        QString localFilePath =
+            QDir::cleanPath(localPath + "/" + nodeName + ".tar.gz");
+
+        // Download the compressed file
+        QByteArray fileData = system->getFileContent(remoteFileName);
+
+        // Save to local disk
+        if (!fileData.isEmpty()) {
+            QFile file(localFilePath);
+            if (file.open(QIODevice::WriteOnly)) {
+                file.write(fileData);
+                file.close();
+            }
+        }
+
+        // Decompress the downloaded archive
+        QProcess tarProcess;
+        QStringList arguments;
+        arguments << "-xzf" << localFilePath << "-C" << localPath;
+        tarProcess.start("tar", arguments);
+
+        // Wait for the extraction to complete in this background thread
+        if (tarProcess.waitForFinished()) {
+            // Only delete the archive if the extraction was successful
+            if (tarProcess.exitStatus() ==
+                    QProcess::NormalExit && tarProcess.exitCode() == 0) {
+                QFile::remove(localFilePath);
+            } else {
+                qWarning() << tr("Failed to extract tar archive.");
+            }
+        }
+
+        // Remove the archive from the remote server
+        system->launchShortUtility(
+            QString("rm %1").arg(remoteFileName), output);
+    }
 }
 
 // Write text to the log

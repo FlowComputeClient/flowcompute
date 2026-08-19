@@ -53,6 +53,7 @@ QIcon NodeData::getIconForType(NodeType type) const {
         case NodeType::MeshFile:    return QIcon(":/images/mesh.png");
         case NodeType::ScriptFile:  return QIcon(":/images/script.png");
         case NodeType::GeometryFile: return QIcon(":/images/geometry.png");
-        default:                    return QIcon(":/images/folder.png");
+        case NodeType::TextFile: return QIcon(":/images/text.png");
+        default:                    return QIcon(":/images/text.png");
     }
 }

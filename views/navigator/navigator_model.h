@@ -33,6 +33,9 @@ public:
 
     // Get node at the given index
     NodeData* nodeFromIndex(const QModelIndex &index) const;
+
+    // Add node at the given index
+    void insertNode(int row, NodeData* newNode, NodeData* parentNode = nullptr);
 };
 
 #endif  // VIEWS_NAVIGATOR_NAVIGATOR_MODEL_H_

@@ -24,20 +24,24 @@
 
 #include <algorithm>
 
+#include "dialogs/new_dict/new_dict_dialog.h"
 #include "views/navigator/case_navigator_delegate.h"
 
-CaseNavigator::CaseNavigator(QAction* deleteAction,
+CaseNavigator::CaseNavigator(QAction* newCaseAction, QAction* openCaseAction,
     QAction* configureMeshAction, QAction* runMeshAction,
     QAction* viewMeshAction, QAction* configureSolverAction,
-    QAction* runSolverAction, QAction* viewResultAction,
-    QAction* cutAction, QAction* copyAction, QAction* pasteAction,
-    const SystemManager& systemMgr, QWidget *parent):
-    m_deleteAction(deleteAction), m_configureMeshAction(configureMeshAction),
-    m_runMeshAction(runMeshAction), m_viewMeshAction(viewMeshAction),
+    QAction* runSolverAction, QAction* viewResultAction, QAction* cutAction,
+    QAction* copyAction, QAction* pasteAction, QAction* uploadAction,
+    QAction* downloadAction, SystemManager& systemMgr, QWidget *parent):
+    m_newCaseAction(newCaseAction), m_openCaseAction(openCaseAction),
+    m_configureMeshAction(configureMeshAction), m_runMeshAction(runMeshAction),
+    m_viewMeshAction(viewMeshAction),
     m_configureSolverAction(configureSolverAction),
     m_runSolverAction(runSolverAction), m_viewResultAction(viewResultAction),
     m_cutAction(cutAction), m_copyAction(copyAction),
-    m_pasteAction(pasteAction), m_systemMgr(systemMgr), QTreeView(parent) {
+    m_pasteAction(pasteAction), m_uploadAction(uploadAction),
+    m_downloadAction(downloadAction), m_systemMgr(systemMgr),
+    QTreeView(parent) {
     // Configure behavior
     setHeaderHidden(true);
     setExpandsOnDoubleClick(true);
@@ -47,17 +51,8 @@ CaseNavigator::CaseNavigator(QAction* deleteAction,
     CaseNavigatorDelegate *delegate = new CaseNavigatorDelegate(this);
     setItemDelegate(delegate);
 
-    // Create action for rename
-    m_renameAction = new QAction(tr("Rename"), this);
-    m_renameAction->setShortcut(Qt::Key_F2);
-    m_renameAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
-    m_renameAction->setIcon(QIcon(":/images/rename.png"));
-    connect(m_renameAction, &QAction::triggered, this, [this]() {
-        QModelIndex index = currentIndex();
-        if (index.isValid()) {
-            edit(index);
-        }
-    });
+    // Create actions
+    createActions();
 
     // Set proper size for line edit when renaming files
     setStyleSheet(
@@ -76,10 +71,117 @@ CaseNavigator::CaseNavigator(QAction* deleteAction,
     connect(this, &QWidget::customContextMenuRequested,
             this, &CaseNavigator::showContextMenu);
     connect(this, &QTreeView::expanded, this, &CaseNavigator::onNodeExpanded);
-    /*
     connect(selectionModel(), &QItemSelectionModel::selectionChanged,
             this, &CaseNavigator::onSelectionChanged);
-    */
+}
+
+void CaseNavigator::createActions() {
+    // Create new file
+    m_newFileAction = new QAction(QIcon(":/images/new_file.png"),
+                                  tr("New &File"), this);
+    m_newFileAction->setStatusTip(tr("Create a new file"));
+    m_newFileAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_newFileAction, &QAction::triggered, this, [this]() {
+        addNewItem(NewItemType::File);
+    });
+
+    // Create new folder
+    m_newFolderAction = new QAction(QIcon(":/images/new_folder.png"),
+                                    tr("New &Folder"), this);
+    m_newFolderAction->setShortcut(QKeySequence("Ctrl+Shift+N"));
+    m_newFolderAction->setStatusTip(tr("Create a new folder"));
+    m_newFolderAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_newFolderAction, &QAction::triggered, this, [this]() {
+        addNewItem(NewItemType::Folder);
+    });
+
+    // Create new dictionary
+    m_newDictAction = new QAction(QIcon(":/images/new_dict.png"),
+                                  tr("New &Dictionary"), this);
+    m_newDictAction->setShortcut(QKeySequence("Ctrl+Alt+D"));
+    m_newDictAction->setStatusTip(tr("Create new dictionary"));
+    m_newDictAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_newDictAction, &QAction::triggered, this, [this]() {
+        addNewItem(NewItemType::Dictionary);
+    });
+
+    // Create action for rename
+    m_renameAction =
+        new QAction(QIcon(":/images/rename.png"), tr("Rename"), this);
+    m_renameAction->setShortcut(Qt::Key_F2);
+    m_renameAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_renameAction, &QAction::triggered, this, [this]() {
+        QModelIndex index = currentIndex();
+        if (index.isValid()) {
+            edit(index);
+        }
+    });
+
+    // Refresh folder
+    m_refreshAction =
+        new QAction(QIcon(":/images/refresh.png"), tr("Refresh"), this);
+    m_refreshAction->setStatusTip(tr("Refresh folder"));
+    connect(m_refreshAction, &QAction::triggered, this, [this]() {
+        QModelIndex index = currentIndex();
+        if (index.isValid()) {
+            refresh(nodeFromIndex(index));
+        }
+    });
+
+    // Delete file
+    m_deleteAction =
+        new QAction(QIcon(":/images/delete.png"), tr("&Delete"), this);
+    m_deleteAction->setShortcuts(QKeySequence::Delete);
+    m_deleteAction->setStatusTip(tr("Delete"));
+    m_deleteAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_deleteAction, &QAction::triggered, this,
+            &CaseNavigator::deleteFile);
+}
+
+void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
+                                       const QItemSelection &deselected) {
+    // Calculate base selection states
+    bool hasSelection = selectionModel()->hasSelection();
+    bool hasSingleSelection = hasSelection &&
+                              (selectionModel()->selectedIndexes().size() == 1);
+
+    // Calculate node-specific states
+    bool isFolderOrCase = false;
+    bool isCaseFolder = false;
+
+    if (hasSingleSelection) {
+        QModelIndex index = selectionModel()->currentIndex();
+        NodeData* node = m_model->nodeFromIndex(index);
+        if (node) {
+            isCaseFolder = (node->nodeType == NodeType::CaseFolder);
+            isFolderOrCase = isCaseFolder ||
+                             (node->nodeType == NodeType::Folder);
+        }
+    }
+
+    // Apply states directly to universal actions
+    m_deleteAction->setEnabled(hasSelection);
+    m_cutAction->setEnabled(hasSelection);
+    m_copyAction->setEnabled(hasSelection);
+    m_downloadAction->setEnabled(hasSelection);
+
+    // Apply states directly to single-target actions
+    m_renameAction->setEnabled(hasSingleSelection);
+
+    // Apply states directly to creation actions
+    m_newFileAction->setEnabled(isFolderOrCase);
+    m_newFolderAction->setEnabled(isFolderOrCase);
+    m_newDictAction->setEnabled(isFolderOrCase);
+    m_uploadAction->setEnabled(isFolderOrCase);
+    m_refreshAction->setEnabled(isFolderOrCase);
+
+    // Apply states directly to case-specific execution actions
+    m_configureMeshAction->setEnabled(isCaseFolder);
+    m_runMeshAction->setEnabled(isCaseFolder);
+    m_viewMeshAction->setEnabled(isCaseFolder);
+    m_configureSolverAction->setEnabled(isCaseFolder);
+    m_runSolverAction->setEnabled(isCaseFolder);
+    m_viewResultAction->setEnabled(isCaseFolder);
 }
 
 bool CaseNavigator::checkCaseFiles(QString caseName) {
@@ -162,36 +264,6 @@ bool CaseNavigator::checkCaseFiles(QString caseName) {
     m_viewResultAction->setEnabled(meshFilesPresent && fieldFilesPresent);
     return true;
 }
-
-/*
-void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
-                                       const QItemSelection &deselected) {
-    Q_UNUSED(deselected);
-    if (selected.indexes().isEmpty())
-        return;
-
-    // Access the selected node
-    QString caseName;
-    NodeData* node = m_model->nodeFromIndex(selected.indexes().first());
-    if (!node) {
-        return;
-    }
-
-    if (!node->isEnabled()) {
-        QMessageBox::critical(this, tr("Cannot access OpenFOAM"),
-            tr("FlowCompute can't find the installation of OpenFOAM."));
-        return;
-    }
-
-    if (node->nodeType == NodeType::CaseFolder) {
-        caseName = node->text();
-    } else {
-        int pos = node->fullPath.indexOf('/');
-        caseName = (pos == -1) ? node->fullPath : node->fullPath.left(pos);
-    }
-    checkCaseFiles(caseName);
-}
-*/
 
 // Add a new case to the navigator
 void CaseNavigator::addCase(QString caseName, QStringList caseFiles,
@@ -281,7 +353,7 @@ NodeType CaseNavigator::checkType(QString name, QString fullPath) {
         }
     }
     // Fallback
-    return NodeType::DictionaryFile;
+    return NodeType::TextFile;
 }
 
 void CaseNavigator::expandCase(QString caseName) {
@@ -407,7 +479,8 @@ void CaseNavigator::fetchChildren(NodeData* node) {
 }
 
 void CaseNavigator::updatePath(QString path, QStringList children) {
-    if (!m_root || path.isEmpty()) return;
+    if (!m_root || path.isEmpty())
+        return;
 
     // Traverse the tree to find the target node
     QStringList pathParts = path.split('/');
@@ -527,12 +600,8 @@ QString CaseNavigator::getSelectedCase() {
         return node->text();
     }
 
-    // Get index of current selection
-    QItemSelectionModel* selectionModel = this->selectionModel();
-    QModelIndex selectedIndex = selectionModel->currentIndex();
-
     // Access the selected node
-    NodeData* node = m_model->nodeFromIndex(selectedIndex);
+    NodeData* node = m_model->nodeFromIndex(currentIndex());
     if (!node)
         return QString();
     if (node->nodeType == NodeType::CaseFolder) {
@@ -561,42 +630,43 @@ QStringList CaseNavigator::getCases() const {
 }
 
 void CaseNavigator::showContextMenu(const QPoint &pos) {
+    // Create context menu
+    QMenu contextMenu(this);
+
+    // Check index
     QModelIndex index = indexAt(pos);
     if (!index.isValid()) {
+        contextMenu.addActions( { m_newCaseAction, m_openCaseAction });
+        contextMenu.exec(viewport()->mapToGlobal(pos));
         return;
     }
 
     // Access the selected node
     NodeData* node = m_model->nodeFromIndex(index);
-    if (!node)
+    if (!node) {
         return;
+    }
     if (!node->isEnabled()) {
         QMessageBox::critical(this, tr("Cannot access OpenFOAM"),
             tr("FlowCompute can't find the installation of OpenFOAM."));
         return;
     }
 
-    // Create menu
-    QMenu contextMenu(this);
+    // Get the case name
+    QString caseName;
+    if (node->nodeType == NodeType::CaseFolder) {
+        caseName = node->text();
+    } else {
+        int pos = node->fullPath.indexOf('/');
+        caseName = (pos == -1) ? node->fullPath :
+                    node->fullPath.left(pos);
+    }
 
-    // Configure the Delete action
-    m_deleteAction->setData(QVariant::fromValue(node));
-    contextMenu.addAction(m_deleteAction);
-
-    // Configure the Rename action
-    m_renameAction->setData(QVariant::fromValue(node));
-    contextMenu.addAction(m_renameAction);
-
-    contextMenu.addSeparator();
-
-    // Conditionally add folder-specific actions
-    switch (node->nodeType) {
-    case NodeType::CaseFolder: {
-
+    // Add actions for case folders
+    if (node->nodeType == NodeType::CaseFolder) {
         // Check files in case
         bool accessCase = checkCaseFiles(node->name);
         if (!accessCase) {
-            contextMenu.close();
             return;
         }
 
@@ -609,7 +679,6 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
 
         m_viewMeshAction->setData(QVariant::fromValue(node));
         contextMenu.addAction(m_viewMeshAction);
-
         contextMenu.addSeparator();
 
         // Solver actions
@@ -621,17 +690,68 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
 
         m_viewResultAction->setData(QVariant::fromValue(node));
         contextMenu.addAction(m_viewResultAction);
-        break;
+        contextMenu.addSeparator();
     }
-    default:
-        contextMenu.addAction(m_cutAction);
-        contextMenu.addAction(m_copyAction);
+
+    // New File/New Folder/New Dictionary...
+    if ((node->nodeType == NodeType::CaseFolder) ||
+        (node->nodeType == NodeType::Folder)) {
+        // New file action
+        m_newFileAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_newFileAction);
+
+        // New folder action
+        m_newFolderAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_newFolderAction);
+
+        // New dictionary action
+        m_newDictAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_newDictAction);
+
+        contextMenu.addSeparator();
+    }
+
+    // Cut/copy actions
+    if (node->nodeType != NodeType::CaseFolder) {
+        contextMenu.addActions( { m_cutAction, m_copyAction });
+    }
+
+    // Paste action
+    if ((node->nodeType == NodeType::CaseFolder) ||
+        (node->nodeType == NodeType::Folder)) {
         contextMenu.addAction(m_pasteAction);
         if (m_clipboardPaths.empty()) {
             m_pasteAction->setDisabled(true);
         } else {
             m_pasteAction->setDisabled(false);
         }
+    }
+
+    contextMenu.addSeparator();
+
+    // Rename/delete actions
+    contextMenu.addActions( { m_renameAction, m_deleteAction });
+
+    // Upload/download actions - not for local Linux
+    int targetId = m_systemMgr.getData(caseName).targetId;
+    if (targetId != TargetType::LOCAL_LINUX) {
+        // Upload only for folders
+        if ((node->nodeType == NodeType::CaseFolder) ||
+            (node->nodeType == NodeType::Folder)) {
+            // Upload action
+            contextMenu.addAction(m_uploadAction);
+        }
+
+        // Download action
+        contextMenu.addAction(m_downloadAction);
+    }
+
+    // Refresh action
+    if ((node->nodeType == NodeType::CaseFolder) ||
+        (node->nodeType == NodeType::Folder)) {
+        contextMenu.addSeparator();
+        m_refreshAction->setData(QVariant::fromValue(node));
+        contextMenu.addAction(m_refreshAction);
     }
     contextMenu.exec(viewport()->mapToGlobal(pos));
 }
@@ -654,18 +774,18 @@ void CaseNavigator::addNodes(NodeData* parent,
     // Sort the incoming list
     QList<NodeData*> sortedChildren = children;
     std::sort(sortedChildren.begin(),
-              sortedChildren.end(), [](const NodeData* a, const NodeData* b) {
-                  bool aIsFolder = (a->nodeType == NodeType::Folder);
-                  bool bIsFolder = (b->nodeType == NodeType::Folder);
+        sortedChildren.end(), [](const NodeData* a, const NodeData* b) {
+            bool aIsFolder = (a->nodeType == NodeType::Folder);
+            bool bIsFolder = (b->nodeType == NodeType::Folder);
 
-                  if (aIsFolder && !bIsFolder)
-                      return true;
-                  if (!aIsFolder && bIsFolder)
-                      return false;
+            if (aIsFolder && !bIsFolder)
+                return true;
+            if (!aIsFolder && bIsFolder)
+                return false;
 
-                  return QString::compare(a->name, b->name,
-                                          Qt::CaseInsensitive) < 0;
-              });
+            return QString::compare(a->name, b->name,
+                                  Qt::CaseInsensitive) < 0;
+        });
 
     // Merge-insert into the parent
     int insertRow = 0;
@@ -711,6 +831,95 @@ void CaseNavigator::addNodes(NodeData* parent,
     }
 }
 
+void CaseNavigator::addNewItem(NewItemType itemType) {
+    // Access selected node
+    QModelIndex parentIndex = currentIndex();
+    NodeData* parentNode = m_model->nodeFromIndex(parentIndex);
+    if (!parentNode)
+        return;
+
+    // Focus on the parent if the user selected a file
+    if (parentNode->nodeType != NodeType::Folder &&
+        parentNode->nodeType != NodeType::CaseFolder) {
+        parentIndex = parentIndex.parent();
+        parentNode = m_model->nodeFromIndex(parentIndex);
+        if (!parentNode)
+            return;
+    }
+
+    // Refresh children and expand node
+    refresh(parentNode);
+
+    // Construct the paths
+    QString caseName = parentNode->fullPath.isEmpty() ? parentNode->name :
+                           parentNode->fullPath.split("/")[0];
+
+    // Directory where the new item will be placed
+    QString relativePath = parentNode->fullPath.isEmpty() ?
+        parentNode->name : parentNode->fullPath + "/" + parentNode->name;
+
+    QString dictName;
+    QString dictContent;
+    if (itemType == NewItemType::Dictionary) {
+        // Create the New Dictionary dialog
+        CaseData caseData = m_systemMgr.getData(caseName);
+        NewDictDialog dlg(caseName, caseData.openFoamPath, this);
+        if (dlg.exec() != QDialog::Accepted)
+            return;
+
+        // Get the dialog's results
+        dictName = dlg.getFileName();
+        dictContent = dlg.getDictContent();
+    }
+
+    // Create the node to be added
+    NodeData* newNode = nullptr;
+    switch (itemType) {
+    case NewItemType::File:
+        newNode = new NodeData(tr("NewFile"), relativePath, NodeType::TextFile);
+        break;
+    case NewItemType::Folder:
+        newNode = new NodeData(tr("NewFolder"), relativePath, NodeType::Folder);
+        break;
+    case NewItemType::Dictionary:
+        newNode =
+            new NodeData(dictName, relativePath, NodeType::DictionaryFile);
+        break;
+    }
+
+    // Insert node in parent
+    if (!newNode)
+        return;
+    parentNode->insertRow(0, newNode);
+
+    // Get the QModelIndex for the new item
+    QModelIndex newIndex = m_model->index(0, 0, parentIndex);
+    if (newIndex.isValid()) {
+        setCurrentIndex(newIndex);
+
+        // Create dictionary or file/folder
+        if (itemType == NewItemType::Dictionary) {
+            // Write dictionary to file
+            auto system = m_systemMgr.getSystem(caseName);
+            if (!system) {
+                return;
+            }
+
+            // Write the data to the server
+            CaseData caseData = m_systemMgr.getData(caseName);
+            QString absolutePath = caseData.casePath + "/" +
+                                        relativePath + "/" + dictName;
+            if (system->writeData(dictContent.toUtf8(), absolutePath)) {
+                emit logMessage(tr("Created %1").arg(absolutePath));
+            } else {
+                emit logMessage(tr("Failed to create %1").arg(absolutePath));
+            }
+        } else {
+            edit(newIndex);
+        }
+    }
+}
+
 void CaseNavigator::removeNode(NodeData* node) {
     if (!node)
         return;
@@ -730,33 +939,75 @@ void CaseNavigator::removeNode(NodeData* node) {
 
 // Rename the selected item
 bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
-    // Determine old path and new path
-    QString caseName, oldPath, casePath, newPath;
+    // Get case name
+    QString caseName;
     if (node->fullPath.isEmpty()) {
         caseName = node->name;
-        oldPath = caseName;
-        newPath = newName;
     } else {
         caseName = node->fullPath.split('/').first();
-        oldPath = m_systemMgr.getData(caseName).casePath + "/" +
-                    node->fullPath + "/" + node->name;
-        newPath = m_systemMgr.getData(caseName).casePath + "/" +
-                    node->fullPath + "/" + newName;
     }
 
-    // Perform file rename operation
-    QString str = QStringList({oldPath, newPath}).join("\n");
-    QStringList res = m_systemMgr.getSystem(caseName)->processPaths(str,
-                                                PathOperationType::RENAME);
-    m_renameAction->setData(QVariant());
-
-    if (res[0] == "0") {
-        emit logMessage(QString(tr("Renamed %1 to %2").arg(oldPath, newPath)));
-        return true;
-    } else {
-        emit logMessage(
-            QString(tr("Failed to rename %1 to %2").arg(oldPath, newPath)));
+    // Check target system
+    auto system = m_systemMgr.getSystem(caseName);
+    if (!system) {
+        emit logMessage(tr("Failed to connect to %1.").arg(caseName));
         return false;
+    }
+
+    // Create file after New File or New Folder operation
+    if (((node->nodeType == NodeType::TextFile) && (node->name == "NewFile")) ||
+        ((node->nodeType == NodeType::Folder) && (node->name == "NewFolder"))) {
+        // Determine path
+        QString newPath = m_systemMgr.getData(caseName).casePath + "/" +
+                  node->fullPath;
+
+        // Create folder or file
+        bool success = false;
+        if (node->nodeType == NodeType::Folder) {
+            QStringList res = m_systemMgr.getSystem(caseName)->processPaths(
+                newPath + "/" + newName, PathOperationType::CREATE);
+            success = (!res.isEmpty() && res[0] == "0");
+        } else {
+            QString output;
+            QString cmd =
+                QString("cd '%1' && touch '%2'").arg(newPath, newName);
+            success = m_systemMgr.getSystem(caseName)->launchShortUtility(
+                           cmd, output) == 0;
+        }
+
+        if (success) {
+            emit logMessage(tr("Created %1/%2").arg(newPath, newName));
+        } else {
+            emit logMessage(tr("Failed to create %1/%2").arg(newPath, newName));
+        }
+        return success;
+    } else {
+        // Determine old path and new path
+        QString oldPath, newPath;
+        if (node->fullPath.isEmpty()) {
+            caseName = node->name;
+            oldPath = caseName;
+            newPath = newName;
+        } else {
+            caseName = node->fullPath.split('/').first();
+            oldPath = m_systemMgr.getData(caseName).casePath + "/" +
+                        node->fullPath + "/" + node->name;
+            newPath = m_systemMgr.getData(caseName).casePath + "/" +
+                        node->fullPath + "/" + newName;
+        }
+
+        // Perform file rename operation
+        QString str = QStringList({oldPath, newPath}).join("\n");
+        QStringList res = m_systemMgr.getSystem(caseName)->
+                          processPaths(str, PathOperationType::RENAME);
+        if (!res.isEmpty() && res[0] == "0") {
+            emit logMessage(tr("Renamed %1 to %2").arg(oldPath, newPath));
+            return true;
+        } else {
+            emit logMessage(
+                tr("Failed to rename %1 to %2").arg(oldPath, newPath));
+            return false;
+        }
     }
 }
 
@@ -929,4 +1180,129 @@ NodeData* CaseNavigator::findNodeByPath(const QString& path) const {
             return nullptr;
     }
     return current;
+}
+
+// Load node children and expand node
+void CaseNavigator::refresh(NodeData* node) {
+    // Make sure node is a folder or case folder
+    if (!node)
+        return;
+    if ((node->nodeType != NodeType::CaseFolder) &&
+        (node->nodeType != NodeType::Folder)) {
+        node = (NodeData*)(node->parent());
+    }
+
+    // Construct path
+    QString caseName, fullPath, nodePath;
+    if (node->fullPath.isEmpty()) {
+        caseName = node->name;
+        nodePath = node->name;
+    } else {
+        caseName = node->fullPath.split("/")[0];
+        nodePath = node->fullPath + "/" + node->name;
+    }
+    fullPath = m_systemMgr.getData(caseName).casePath + "/" + nodePath;
+
+    // Get list of files
+    QStringList files = m_systemMgr.getSystem(caseName)->processPaths(
+        fullPath, PathOperationType::LIST);
+
+    // Add nodes and expand
+    if (!files.isEmpty()) {
+        updatePath(nodePath, files);
+    }
+}
+
+void CaseNavigator::deleteFile() {
+    // Get Selection
+    QModelIndexList selected = selectionModel()->selectedIndexes();
+    if (selected.isEmpty())
+        return;
+
+    // Warning message
+    QString warningText;
+    if (selected.size() == 1) {
+        NodeData* node = m_model->nodeFromIndex(selected.first());
+        if (node) {
+            warningText = tr("Are you sure you want to permanently "
+                             "delete '%1'?").arg(node->name);
+        }
+    } else {
+        warningText = tr("Are you sure you want to permanently "
+                         "delete these %1 items?").arg(selected.size());
+    }
+
+    // Display warning dialog
+    QMessageBox::StandardButton reply = QMessageBox::warning(
+        this, tr("Confirm Deletion"), warningText,
+        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+    if (reply != QMessageBox::Yes) {
+        return;
+    }
+
+    // Build maps
+    QString relativePath, caseName, fullPath;
+    QMap<QString, QStringList> pathMap;
+    QMap<QString, NodeData*> nodeMap;
+
+    // Iterate through selected indices
+    for (const QModelIndex& index : std::as_const(selected)) {
+        NodeData* node = m_model->nodeFromIndex(index);
+        if (!node)
+            continue;
+
+        relativePath = node->getPath();
+        caseName = relativePath.split("/")[0];
+        fullPath = m_systemMgr.getData(caseName).casePath + "/" + relativePath;
+        pathMap[caseName].append(fullPath);
+        nodeMap[fullPath] = node;
+    }
+
+    // Perform deletions
+    for (auto it = pathMap.keyValueBegin(); it != pathMap.keyValueEnd(); ++it) {
+        caseName = it->first;
+        QStringList filesToDelete = it->second;
+        QString fileStr = filesToDelete.join("\n");
+
+        // Check access
+        auto system = m_systemMgr.getSystem(caseName);
+        if (!system) {
+            emit logMessage(
+                QString(tr("Failed to connect to %1.")).arg(caseName));
+            continue;
+        }
+
+        // Delete files
+        QStringList result =
+            system->processPaths(fileStr, PathOperationType::REMOVE);
+
+        // Ensure results match expected size to prevent out-of-bounds crash
+        if (result.size() != filesToDelete.size()) {
+            emit logMessage(QString(tr("Error: Unexpected response size.")));
+            continue;
+        }
+
+        // Check results
+        for (int i = 0; i < filesToDelete.size(); i++) {
+            QString filePath = filesToDelete[i];
+
+            if (result[i] == "0") {
+                NodeData* currentNode = nodeMap.value(filePath);
+                if (currentNode) {
+                    // Remove node from tree
+                    removeNode(currentNode);
+
+                    // Remove case if needed
+                    if (currentNode->fullPath.isEmpty()) {
+                        m_systemMgr.removeCase(caseName);
+                        emit updateSettings();
+                    }
+                }
+                emit logMessage(QString(tr("Deleted %1")).arg(filePath));
+            } else {
+                emit logMessage(
+                    QString(tr("Failed to delete %1")).arg(filePath));
+            }
+        }
+    }
 }

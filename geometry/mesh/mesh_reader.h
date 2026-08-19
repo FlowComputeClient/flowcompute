@@ -18,14 +18,7 @@
 #ifndef GEOMETRY_MESH_MESH_READER_H_
 #define GEOMETRY_MESH_MESH_READER_H_
 
-#include <QBuffer>
-#include <QByteArray>
-#include <QFile>
-#include <QFileInfo>
-#include <QRegularExpression>
-#include <QTextStream>
-
-#include "../graphic_data.h"
+#include "geometry/graphic_data.h"
 
 namespace MeshReader {
 RenderData readMesh(const QString& fileName, const QByteArray& fileData);

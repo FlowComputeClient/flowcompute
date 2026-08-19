@@ -17,6 +17,10 @@
 
 #include "page_20_tutorial.h"
 
+#include <QLineEdit>
+#include <QTreeWidget>
+#include <QVBoxLayout>
+
 #include "wizard_new_case.h"
 
 TutorialPage::TutorialPage(QWidget *parent): QWizardPage(parent) {

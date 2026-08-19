@@ -15,37 +15,25 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_90_PARALLEL_H
-#define PAGE_90_PARALLEL_H
+#ifndef WIZARDS_SOLVER_PAGE_90_PARALLEL_H_
+#define WIZARDS_SOLVER_PAGE_90_PARALLEL_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QStackedWidget>
-#include <QTableWidget>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "parser/decompose_par_dict.h"
 
 class SolverWizard;
+class QCheckBox;
+class QComboBox;
+class QDoubleSpinBox;
+class QSpinBox;
+class QStackedWidget;
 
 class ParallelPage : public QWizardPage {
     Q_OBJECT
 
  public:
     explicit ParallelPage(QWidget *parent);
-    // int nextId() const override;
 
  protected:
     void initializePage() override;
@@ -67,4 +55,4 @@ class ParallelPage : public QWizardPage {
     void methodChanged(int);
 };
 
-#endif  // PAGE_90_PARALLEL_H
+#endif  // WIZARDS_SOLVER_PAGE_90_PARALLEL_H_

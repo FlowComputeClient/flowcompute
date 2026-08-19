@@ -17,8 +17,10 @@
 
 #include "editors/graphical/mesh/mesh_editor.h"
 
+#include <QHBoxLayout>
 #include <QMessageBox>
 #include <QMetaEnum>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <memory>

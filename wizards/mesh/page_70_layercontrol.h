@@ -15,32 +15,18 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_70_LAYERCONTROL_H_
-#define PAGE_70_LAYERCONTROL_H_
+#ifndef WIZARDS_MESH_PAGE_70_LAYERCONTROL_H_
+#define WIZARDS_MESH_PAGE_70_LAYERCONTROL_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QDoubleSpinBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QTableWidget>
-#include <QTextEdit>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "parser/snappy_hex_mesh_dict.h"
 
-class MainWindow;
 class MeshWizard;
+class QCheckBox;
+class QDoubleSpinBox;
+class QSpinBox;
+class QTableWidget;
 
 class LayerControlPage : public QWizardPage {
     Q_OBJECT
@@ -64,4 +50,4 @@ class LayerControlPage : public QWizardPage {
     QTableWidget* surfaceLayerTable;
 };
 
-#endif  // PAGE_70_LAYERCONTROL_H_
+#endif  // WIZARDS_MESH_PAGE_70_LAYERCONTROL_H_

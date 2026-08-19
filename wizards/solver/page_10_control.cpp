@@ -15,9 +15,20 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_10_control.h"
+#include "wizards/solver/page_10_control.h"
 
-#include "wizard_solver.h"
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QDoubleValidator>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QIntValidator>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QSpinBox>
+
+#include "wizards/solver/wizard_solver.h"
 
 // Introduction page asks for the case name and platform
 ControlPage::ControlPage(const QString& caseName, const QStringList& cases,
@@ -54,9 +65,7 @@ ControlPage::ControlPage(const QString& caseName, const QStringList& cases,
     connect(m_solverCombo, &QComboBox::currentIndexChanged,
             this, &ControlPage::solverChanged);
 
-    // ---------------------------------------------------------
-    // Solution Timing Group
-    // ---------------------------------------------------------
+    // Timing group
     QGroupBox* timingGroup = new QGroupBox(tr("Solution Timing"), this);
     layout->addRow(timingGroup);
     QFormLayout* timingLayout = new QFormLayout(timingGroup);
@@ -101,9 +110,7 @@ ControlPage::ControlPage(const QString& caseName, const QStringList& cases,
     m_deltaTSpin->setValue(1.0);
     timingLayout->addRow(tr("Time step (deltaT): "), m_deltaTSpin);
 
-    // ---------------------------------------------------------
-    // Writing Output Group
-    // ---------------------------------------------------------
+    // Output group
     QGroupBox* writeGroup = new QGroupBox(tr("Writing Output"), this);
     layout->addRow(writeGroup);
     QFormLayout* writeLayout = new QFormLayout(writeGroup);
@@ -158,8 +165,8 @@ ControlPage::ControlPage(const QString& caseName, const QStringList& cases,
 void ControlPage::initializePage() {
 
     // Access wizard data
-    solverWizard = qobject_cast<SolverWizard*>(this->wizard());
-    m_cfg = &(solverWizard->getControlConfig());
+    m_solverWizard = qobject_cast<SolverWizard*>(this->wizard());
+    m_cfg = &(m_solverWizard->getControlConfig());
 
     // Update fields
     m_startFromCombo->setCurrentIndex(static_cast<int>(m_cfg->startFrom));
@@ -193,7 +200,7 @@ void ControlPage::initializePage() {
 bool ControlPage::validatePage() {
 
     // Update wizard's case name
-    solverWizard->setCaseName(m_caseName);
+    m_solverWizard->setCaseName(m_caseName);
 
     if (!m_cfg) return false;
     m_cfg->solverCategory = m_familyCombo->currentText();

@@ -15,28 +15,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_10_GEOMETRY_H
-#define PAGE_10_GEOMETRY_H
+#ifndef WIZARDS_MESH_PAGE_10_GEOMETRY_H_
+#define WIZARDS_MESH_PAGE_10_GEOMETRY_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QTableWidget>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "systems/system_manager.h"
 
 class MeshWizard;
+class QCheckBox;
+class QComboBox;
+class QListWidget;
 
 class GeometryPage : public QWizardPage {
     Q_OBJECT
@@ -67,4 +56,4 @@ class GeometryPage : public QWizardPage {
     void caseChanged(const QString& caseName);
 };
 
-#endif  // PAGE_10_GEOMETRY_H
+#endif  // WIZARDS_MESH_PAGE_10_GEOMETRY_H_

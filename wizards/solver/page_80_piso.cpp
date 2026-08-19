@@ -15,12 +15,15 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_80_piso.h"
+#include "wizards/solver/page_80_piso.h"
 
-#include "wizard_solver.h"
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QSpinBox>
+
+#include "wizards/solver/wizard_solver.h"
 
 PisoPage::PisoPage(QWidget *parent): QWizardPage(parent) {
-
     // Set title
     setTitle(tr("PISO Algorithm Configuration (fvSolution)"));
 

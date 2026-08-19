@@ -15,32 +15,18 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_30_PHYSICS_H
-#define PAGE_30_PHYSICS_H
+#ifndef WIZARDS_SOLVER_PAGE_30_PHYSICS_H_
+#define WIZARDS_SOLVER_PAGE_30_PHYSICS_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QTableWidget>
-#include <QTextBrowser>
-#include <QTreeWidget>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "core_types.h"
 #include "parser/common.h"
 
 class SolverWizard;
+class QComboBox;
+class QTableWidget;
+class QTreeWidget;
 
 class PhysicsPage : public QWizardPage {
     Q_OBJECT
@@ -64,13 +50,13 @@ class PhysicsPage : public QWizardPage {
     bool validatePage() override;
 
  private:
-    SolverWizard* solverWizard;
+    SolverWizard* m_solverWizard;
     CaseIO::PhysicsConfig* m_cfg;
     std::vector<FlowCompute::SolverFamily> m_families;
     FlowCompute::TurbulenceDatabase m_turbModels;
     std::map<QString, FlowCompute::TransportPropertyDef> m_transportProperties;
 
-    QTreeWidget* turbulenceTree;
+    QTreeWidget* m_turbulenceTree;
     QComboBox *m_transportModelCombo, *m_deltaModelCombo;
     QTableWidget* m_propertiesTable;
     QStringList standardProperties;
@@ -84,4 +70,4 @@ class PhysicsPage : public QWizardPage {
     void modelChanged();
 };
 
-#endif  // PAGE_30_PHYSICS_H
+#endif  // WIZARDS_SOLVER_PAGE_30_PHYSICS_H_

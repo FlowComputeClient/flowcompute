@@ -15,13 +15,18 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_60_snapcontrol.h"
+#include "wizards/mesh/page_60_snapcontrol.h"
 
-#include "wizard_mesh.h"
+#include <QCheckBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QSpinBox>
+
+#include "wizards/mesh/wizard_mesh.h"
 
 // Introduction page asks for the case name and platform
 SnapControlPage::SnapControlPage(QWidget *parent): QWizardPage(parent) {
-
     // Set title and style
     setTitle(tr("Snap Control Configuration"));
 

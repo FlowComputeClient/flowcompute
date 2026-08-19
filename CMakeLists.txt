@@ -38,6 +38,9 @@ qt_add_executable(FlowCompute
     dialogs/login/login_dialog.h
     dialogs/login/login_dialog.cpp
 
+    dialogs/new_dict/new_dict_dialog.h
+	dialogs/new_dict/new_dict_dialog.cpp
+
     dialogs/preferences/preferences_dialog.h
     dialogs/preferences/preferences_dialog.cpp
 
@@ -53,36 +56,15 @@ qt_add_executable(FlowCompute
     dialogs/utility_output/utility_output_dialog.h
     dialogs/utility_output/utility_output_dialog.cpp
 
-    editors/tab_bar.h
-    editors/tab_bar.cpp
-    editors/tab_widget.h
-    editors/tab_widget.cpp
-
-    editors/text/text_editor.h
-    editors/text/text_editor.cpp
-    editors/text/tree_sitter_highlighter.h
-    editors/text/tree_sitter_highlighter.cpp
-
     editors/graphical/patch_palette.h
     editors/graphical/patch_palette.cpp
     editors/graphical/table_delegate.h
     editors/graphical/table_delegate.cpp
 
-    editors/graphical/vulkan/vulkan_window.h
-    editors/graphical/vulkan/vulkan_window.cpp
-    editors/graphical/vulkan/vulkan_renderer.h
-    editors/graphical/vulkan/vulkan_renderer.cpp
-    editors/graphical/vulkan/vulkan_renderer_resources.cpp
-
     editors/graphical/mesh/mesh_editor.h
     editors/graphical/mesh/mesh_editor.cpp
     editors/graphical/mesh/mesh_left_pane.h
     editors/graphical/mesh/mesh_left_pane.cpp
-
-    editors/graphical/surface/surface_editor.cpp
-    editors/graphical/surface/surface_editor.h
-    editors/graphical/surface/surface_left_pane.h
-    editors/graphical/surface/surface_left_pane.cpp
 
     editors/graphical/result/result_editor.h
     editors/graphical/result/result_editor.cpp
@@ -90,6 +72,27 @@ qt_add_executable(FlowCompute
     editors/graphical/result/result_left_pane.cpp
     editors/graphical/result/color_bar_widget.h
     editors/graphical/result/color_bar_widget.cpp
+
+    editors/graphical/surface/surface_editor.cpp
+    editors/graphical/surface/surface_editor.h
+    editors/graphical/surface/surface_left_pane.h
+    editors/graphical/surface/surface_left_pane.cpp
+
+    editors/graphical/vulkan/vulkan_window.h
+    editors/graphical/vulkan/vulkan_window.cpp
+    editors/graphical/vulkan/vulkan_renderer.h
+    editors/graphical/vulkan/vulkan_renderer.cpp
+    editors/graphical/vulkan/vulkan_renderer_resources.cpp
+
+    editors/text/text_editor.h
+    editors/text/text_editor.cpp
+    editors/text/tree_sitter_highlighter.h
+    editors/text/tree_sitter_highlighter.cpp
+
+    editors/tab_bar.h
+    editors/tab_bar.cpp
+    editors/tab_widget.h
+    editors/tab_widget.cpp
 
     geometry/graphic_data.h
     geometry/mesh/mesh_reader.h
@@ -114,8 +117,8 @@ qt_add_executable(FlowCompute
     parser/decompose_par_dict.cpp
     parser/field.h
     parser/field.cpp
-    parser/function_object.h 
-	parser/function_object.cpp
+    parser/function_object.h
+    parser/function_object.cpp
     parser/fv_solution.h
     parser/fv_solution.cpp
     parser/snappy_hex_mesh_dict.h
@@ -131,6 +134,7 @@ qt_add_executable(FlowCompute
 
     systems/local_system.h
     systems/local_system.cpp
+    systems/local_system_mesh.cpp
     systems/remote_system.h
     systems/remote_system.cpp
     systems/system_manager.h
@@ -147,6 +151,8 @@ qt_add_executable(FlowCompute
     views/navigator/navigator_model.cpp
     views/navigator/case_navigator.h
     views/navigator/case_navigator.cpp
+    views/navigator/case_navigator_delegate.h
+    views/navigator/case_navigator_delegate.cpp
     views/navigator/node_data.cpp
 
     wizards/mesh/wizard_mesh.h
@@ -171,7 +177,7 @@ qt_add_executable(FlowCompute
     wizards/new_case/page_10_intro.h
     wizards/new_case/page_10_intro.cpp
     wizards/new_case/page_15_remote.h
-    wizards/new_case/page_15_remote.cpp	
+    wizards/new_case/page_15_remote.cpp
     wizards/new_case/page_20_tutorial.h
     wizards/new_case/page_20_tutorial.cpp
     wizards/new_case/page_30_interactive.h
@@ -180,27 +186,32 @@ qt_add_executable(FlowCompute
     wizards/new_case/page_40_project.h
     wizards/new_case/template_strings.h
 
+    wizards/open_case/wizard_open_case.h
+    wizards/open_case/wizard_open_case.cpp
+    wizards/open_case/page_20_casefolder.h
+    wizards/open_case/page_20_casefolder.cpp
+
     wizards/post_processing/forces_dialog.h
     wizards/post_processing/forces_dialog.cpp
     wizards/post_processing/force_coeffs_dialog.h
-    wizards/post_processing/force_coeffs_dialog.cpp	
+    wizards/post_processing/force_coeffs_dialog.cpp
     wizards/post_processing/field_minmax_dialog.h
-    wizards/post_processing/field_minmax_dialog.cpp	
+    wizards/post_processing/field_minmax_dialog.cpp
     wizards/post_processing/page_10_tasks.h
     wizards/post_processing/page_10_tasks.cpp
     wizards/post_processing/page_20_time_region.h
-    wizards/post_processing/page_20_time_region.cpp	
+    wizards/post_processing/page_20_time_region.cpp
     wizards/post_processing/probes_dialog.h
-    wizards/post_processing/probes_dialog.cpp	
+    wizards/post_processing/probes_dialog.cpp
     wizards/post_processing/surfaces_dialog.h
-    wizards/post_processing/surfaces_dialog.cpp		
+    wizards/post_processing/surfaces_dialog.cpp
     wizards/post_processing/add_surface_dialog.h
-    wizards/post_processing/add_surface_dialog.cpp			
+    wizards/post_processing/add_surface_dialog.cpp
     wizards/post_processing/wizard_postprocessing.h
     wizards/post_processing/wizard_postprocessing.cpp
     wizards/post_processing/task_structs.h
     wizards/post_processing/yplus_dialog.h
-    wizards/post_processing/yplus_dialog.cpp		
+    wizards/post_processing/yplus_dialog.cpp
 
     wizards/solver/wizard_solver.h
     wizards/solver/wizard_solver.cpp
@@ -222,11 +233,6 @@ qt_add_executable(FlowCompute
     wizards/solver/page_80_piso.cpp
     wizards/solver/page_90_parallel.cpp
     wizards/solver/page_90_parallel.h
-
-
-
-    systems/local_system_mesh.cpp
-    views/navigator/case_navigator_delegate.h views/navigator/case_navigator_delegate.cpp
 )
 
 target_compile_options(FlowCompute PRIVATE

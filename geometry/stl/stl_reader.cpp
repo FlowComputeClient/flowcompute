@@ -17,12 +17,15 @@
 
 #include "stl_reader.h"
 
+#include <QBuffer>
+#include <QRegularExpression>
+#include <QTextStream>
+
 #include <algorithm>
 #include <cstring>
 #include <limits>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
 static_assert(true);

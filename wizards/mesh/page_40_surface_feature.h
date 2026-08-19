@@ -15,30 +15,13 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_40_SURFACE_FEATURE_H_
-#define PAGE_40_SURFACE_FEATURE_H_
+#ifndef WIZARDS_MESH_PAGE_40_SURFACE_FEATURE_H_
+#define WIZARDS_MESH_PAGE_40_SURFACE_FEATURE_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QDoubleSpinBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QTableWidget>
-#include <QTextEdit>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
-class MainWindow;
 class MeshWizard;
+class QTableWidget;
 
 class SurfaceFeaturePage : public QWizardPage {
     Q_OBJECT
@@ -56,4 +39,4 @@ class SurfaceFeaturePage : public QWizardPage {
     QTableWidget* m_featureTable;
 };
 
-#endif  // PAGE_40_SURFACE_FEATURE_H_
+#endif  // WIZARDS_MESH_PAGE_40_SURFACE_FEATURE_H_

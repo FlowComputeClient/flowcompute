@@ -16,6 +16,19 @@
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
 #include "page_30_blockmesh.h"
+
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QTableWidget>
+#include <QVBoxLayout>
+
 #include "wizard_mesh.h"
 
 // Define canonical faces (sorted)

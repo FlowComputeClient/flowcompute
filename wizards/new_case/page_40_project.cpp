@@ -17,6 +17,14 @@
 
 #include "page_40_project.h"
 
+#include <QFileDialog>
+#include <QGridLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QStandardPaths>
+#include <QTreeWidget>
+
 #include "wizard_new_case.h"
 
 // Asks for initial geometry file and project location

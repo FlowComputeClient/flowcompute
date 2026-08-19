@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef SELECTION_DIALOG_H_
-#define SELECTION_DIALOG_H_
+#ifndef DIALOGS_SELECTION_SELECTION_DIALOG_H_
+#define DIALOGS_SELECTION_SELECTION_DIALOG_H_
 
 #include <QDialog>
 
@@ -37,4 +37,4 @@ class SelectionDialog : public QDialog {
     QButtonGroup* m_buttonGroup;
 };
 
-#endif // SELECTION_DIALOG_H_
+#endif  // DIALOGS_SELECTION_SELECTION_DIALOG_H_

@@ -15,10 +15,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_40_surface_feature.h"
-#include "page_10_geometry.h"
+#include "wizards/mesh/page_40_surface_feature.h"
 
-#include "wizard_mesh.h"
+#include <QCheckBox>
+#include <QDoubleSpinBox>
+#include <QHeaderView>
+#include <QTableWidget>
+#include <QVBoxLayout>
+
+#include "wizards/mesh/page_10_geometry.h"
+#include "wizards/mesh/wizard_mesh.h"
 
 QWidget* centerCheckBox(QCheckBox* box);
 

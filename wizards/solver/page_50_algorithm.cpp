@@ -15,16 +15,29 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_50_algorithm.h"
+#include "wizards/solver/page_50_algorithm.h"
 
+#include <QButtonGroup>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QRadioButton>
+#include <QSpinBox>
 #include <QSplitter>
+#include <QStackedWidget>
+#include <QVBoxLayout>
 
-#include "page_10_control.h"
+#include "wizards/solver/page_10_control.h"
 
-#include "wizard_solver.h"
-#include "page_60_simple.h"
-#include "page_70_pimple.h"
-#include "page_80_piso.h"
+#include "wizards/solver/wizard_solver.h"
+#include "wizards/solver/page_60_simple.h"
+#include "wizards/solver/page_70_pimple.h"
+#include "wizards/solver/page_80_piso.h"
 
 // Introduction page asks for the case name and platform
 AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {

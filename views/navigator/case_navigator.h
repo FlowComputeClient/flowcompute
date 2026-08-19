@@ -26,15 +26,19 @@
 #include "./node_data.h"
 #include "systems/system_manager.h"
 
+// Identifies the nature of the item to be added
+enum class NewItemType { File, Folder, Dictionary };
+
 class CaseNavigator : public QTreeView {
     Q_OBJECT
 
  public:
-    CaseNavigator(QAction* deleteAction, QAction* configureMeshAction,
-        QAction* runMeshAction, QAction* viewMeshAction,
-        QAction* configureSolverAction, QAction* runSolverAction,
-        QAction* viewResultAction, QAction* cutAction, QAction* copyAction,
-        QAction* pasteAction, const SystemManager& systemMgr,
+    CaseNavigator(QAction* newCaseAction, QAction* openCaseAction,
+        QAction* configureMeshAction, QAction* runMeshAction,
+        QAction* viewMeshAction, QAction* configureSolverAction,
+        QAction* runSolverAction, QAction* viewResultAction, QAction* cutAction,
+        QAction* copyAction, QAction* pasteAction, QAction* uploadAction,
+        QAction* downloadAction, SystemManager& systemMgr,
         QWidget *parent = nullptr);
     void addCase(QString caseName, QStringList caseFiles, bool disable=false);
     void expandCase(QString caseName);
@@ -52,6 +56,12 @@ class CaseNavigator : public QTreeView {
     bool isItemCut(const QModelIndex& index) const;
     QStringList getClipboardPaths() const { return m_clipboardPaths; }
     NodeData* findNodeByPath(const QString& path) const;
+    void addNewItem(NewItemType type);
+    NodeData* nodeFromIndex(const QModelIndex &index) {
+        return m_model->nodeFromIndex(index); }
+
+    QList<QAction*> getActions() {
+        return {m_newFileAction, m_newFolderAction, m_newDictAction}; }
 
  protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
@@ -61,21 +71,27 @@ class CaseNavigator : public QTreeView {
         bool logMessage);
     void logMessage(const QString& msg);
     void requestUpdatePath(const QString& caseName, const QString& subDir);
+    void updateSettings();
 
  private:
+    void createActions();
     void fetchChildren(NodeData* parentNode);
     NodeType checkType(QString name, QString fullPath);
     bool checkCaseFiles(QString caseName);
+    void refresh(NodeData* node);
 
     QStringList m_clipboardPaths;
     bool m_isClipboardCut = false;
 
-    const SystemManager& m_systemMgr;
+    SystemManager& m_systemMgr;
     NavigatorModel* m_model;
     QStandardItem* m_root;
 
     // Menu and actions
-    QAction *m_deleteAction, *m_renameAction;
+    QAction *m_newCaseAction, *m_openCaseAction;
+    QAction *m_newFileAction, *m_newFolderAction, *m_newDictAction;
+    QAction *m_deleteAction, *m_renameAction, *m_uploadAction;
+    QAction *m_downloadAction, *m_refreshAction;
     QAction *m_cutAction, *m_copyAction, *m_pasteAction;
     QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
     QAction *m_configureSolverAction, *m_runSolverAction, *m_viewResultAction;
@@ -85,11 +101,14 @@ class CaseNavigator : public QTreeView {
     void onNodeExpanded(const QModelIndex &index);
 
     // Sets selection
-    //void onSelectionChanged(const QItemSelection &selected,
-    //                        const QItemSelection &deselected);
+    void onSelectionChanged(const QItemSelection &selected,
+                           const QItemSelection &deselected);
 
     // Displays the context menu
     void showContextMenu(const QPoint &pos);
+
+    // Deletes selected files
+    void deleteFile();
 };
 
 #endif  // VIEWS_NAVIGATOR_CASE_NAVIGATOR_H_

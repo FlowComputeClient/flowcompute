@@ -18,16 +18,9 @@
 #ifndef PAGE_20_TUTORIAL_H_
 #define PAGE_20_TUTORIAL_H_
 
-#include <QButtonGroup>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QLabel>
-#include <QLineEdit>
-#include <QRadioButton>
-#include <QStringList>
-#include <QTreeWidget>
-#include <QVariant>
-#include <QVBoxLayout>
+class QLineEdit;
+class QTreeWidget;
+
 #include <QWizardPage>
 
 class NewCaseWizard;

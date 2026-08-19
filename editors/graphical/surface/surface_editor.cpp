@@ -17,6 +17,8 @@
 
 #include "editors/graphical/surface/surface_editor.h"
 
+#include <QHBoxLayout>
+
 #include <algorithm>
 #include <string>
 #include <vector>

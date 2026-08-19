@@ -18,10 +18,8 @@
 #ifndef EDITORS_GRAPHICAL_RESULT_COLOR_BAR_WIDGET_H_
 #define EDITORS_GRAPHICAL_RESULT_COLOR_BAR_WIDGET_H_
 
-#include <QPainter>
-#include <QLinearGradient>
 #include <QPaintEvent>
-#include <QFrame>
+#include <QWidget>
 
 class ColorBarWidget : public QWidget {
  public:

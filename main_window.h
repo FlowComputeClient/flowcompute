@@ -18,19 +18,9 @@
 #ifndef MAIN_WINDOW_H_
 #define MAIN_WINDOW_H_
 
-#include <QAction>
-#include <QCoreApplication>
-#include <QDockWidget>
 #include <QFont>
 #include <QMainWindow>
-#include <QMenu>
-#include <QMenuBar>
-#include <QProgressDialog>
-#include <QStandardPaths>
-#include <QToolBar>
-#include <QVersionNumber>
 #include <QVulkanInstance>
-#include <QWindow>
 
 #include <map>
 #include <memory>
@@ -51,6 +41,10 @@ struct TabData {
     EditorType type;
 };
 
+class QAction;
+class QDockWidget;
+class QMenu;
+class QToolBar;
 class WslSystem;
 
 class MainWindow : public QMainWindow {
@@ -93,15 +87,17 @@ class MainWindow : public QMainWindow {
     Console* m_console;
     TabWidget* m_tabWidget;
     QDockWidget *m_navigatorWidget, *m_consoleWidget;
-    QMenu *fileMenu, *editMenu, *viewMenu, *meshMenu, *solveMenu,
-        *postProcessMenu, *helpMenu;
+    QMenu *m_fileMenu, *m_editMenu, *m_viewMenu, *m_meshMenu, *m_simMenu,
+        *helpMenu;
     QToolBar *toolBar;
 
     // Actions
+    QAction *m_uploadAction, *m_downloadAction, *m_openCaseAction;
+    QAction *m_newFileAction, *m_newFolderAction, *m_newDictAction;
     QAction *m_newCaseAction, *m_saveFileAction, *m_preferencesAction;
     QAction *m_deleteAction, *m_undoAction, *m_redoAction;
     QAction *m_cutAction, *m_copyAction, *m_pasteAction;
-    QAction *m_zoomInAction, *m_zoomOutAction;
+    QAction *m_zoomInAction, *m_zoomOutAction, *m_exitAction;
     QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
     QAction *m_configureSolverAction, *m_runSolverAction, *m_stopSolverAction;
     QAction *m_viewResultAction, *m_postProcessAction;
@@ -130,18 +126,11 @@ class MainWindow : public QMainWindow {
         "reconstructPar", "topoSet" };
     QVulkanInstance m_vulkanInstance;
 
-    /*
-    QAction *newFileAction;
-    QAction *openFileAction;
-    QAction *saveAsAction;
-    QAction *printAction;
-    QAction *exitAction;
-    */
-
  private slots:
-
-    // Create new case
-    void launchNewCaseWizard();
+    // Case-related functions
+    void newCase();
+    void openCase();
+    QString checkOpenFoam(int targetId);
     void createCase(QString caseName, QString casePath, QStringList caseFiles,
         int systemId, QString openFoamPath, QString userName, QString hostName,
         int port);
@@ -151,9 +140,12 @@ class MainWindow : public QMainWindow {
     void createEditor(EditorType type, QString& fileName,
                       const QString& fullPath, bool logMessage);
     void saveFile();
-    void deleteFile();
     void undo();
     void redo();
+    void upload();
+    void download();
+    void downloadFolder(std::shared_ptr<TargetSystem> system, QString basePath,
+                        QString nodeName, QString localPath);
     void onDirtyStateChanged(bool isDirty, QWidget* widget);
 
     // Surface editor slots

@@ -21,7 +21,6 @@
 #include <QCoreApplication>
 #include <QIcon>
 #include <QStandardItem>
-#include <QString>
 
 // Keep this exactly as it is!
 enum class NodeType {
@@ -32,7 +31,8 @@ enum class NodeType {
     FieldFile,
     MeshFile,
     ScriptFile,
-    GeometryFile
+    GeometryFile,
+    TextFile
 };
 
 class NodeData : public QStandardItem {

@@ -18,13 +18,12 @@
 #ifndef EDITORS_GRAPHICAL_RESULT_RESULT_EDITOR_H_
 #define EDITORS_GRAPHICAL_RESULT_RESULT_EDITOR_H_
 
-#include <QHBoxLayout>
 #include <QVulkanInstance>
 #include <QWidget>
 
-#include "../vulkan/vulkan_window.h"
-#include "./geometry/graphic_data.h"
-#include "result_left_pane.h"
+#include "editors/graphical/result/result_left_pane.h"
+#include "editors/graphical/vulkan/vulkan_window.h"
+#include "geometry/graphic_data.h"
 
 class ResultEditor : public QWidget {
     Q_OBJECT

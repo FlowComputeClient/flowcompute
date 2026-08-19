@@ -15,13 +15,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_60_simple.h"
+#include "wizards/solver/page_60_simple.h"
 
+#include <QCheckBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
 #include <QHeaderView>
+#include <QLineEdit>
+#include <QSpinBox>
 #include <QTableWidget>
-#include <qlineedit.h>
 
-#include "wizard_solver.h"
+#include "wizards/solver/wizard_solver.h"
 
 QWidget* centerCheck(QCheckBox* box);
 

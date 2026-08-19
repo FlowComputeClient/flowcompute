@@ -15,9 +15,19 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_70_layercontrol.h"
+#include "wizards/mesh/page_70_layercontrol.h"
 
-#include "wizard_mesh.h"
+#include <QCheckBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QLabel>
+#include <QSpinBox>
+#include <QTableWidget>
+#include <QVBoxLayout>
+
+#include "wizards/mesh/wizard_mesh.h"
 
 QWidget* centerBox(QCheckBox* box);
 
@@ -223,7 +233,6 @@ QWidget* centerBox(QCheckBox* box) {
 }
 
 bool LayerControlPage::validatePage() {
-
     // Update struct from global geometry widgets
     m_cfg->relativeSizes = relativeSizesCheck->isChecked();
     m_cfg->expansionRatio = expansionRatioSpin->value();
@@ -260,6 +269,5 @@ bool LayerControlPage::validatePage() {
     m_cfg->nSmoothThickness = thicknessSmoothingSpin->value();
     m_cfg->nSmoothSurfaceNormals = surfaceSmoothingSpin->value();
     m_cfg->nSmoothNormals = internalSmoothingSpin->value();
-
     return true;
 }

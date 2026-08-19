@@ -17,8 +17,14 @@
 
 #include "editors/graphical/surface/surface_left_pane.h"
 
-#include <QStyleOption>
+#include <QDoubleSpinBox>
+#include <QHeaderView>
+#include <QLabel>
 #include <QPainter>
+#include <QPushButton>
+#include <QStyleOption>
+#include <QTableWidget>
+#include <QVBoxLayout>
 
 #include <string>
 #include <vector>

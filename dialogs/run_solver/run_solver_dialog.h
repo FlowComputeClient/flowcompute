@@ -18,14 +18,11 @@
 #ifndef DIALOGS_RUN_SOLVER_RUN_SOLVER_DIALOG_H_
 #define DIALOGS_RUN_SOLVER_RUN_SOLVER_DIALOG_H_
 
-#include <QCheckBox>
-#include <QComboBox>
 #include <QDialog>
-#include <QFormLayout>
-#include <QWidget>
-#include <QDialogButtonBox>
 
 class SystemManager;
+class QCheckBox;
+class QComboBox;
 class QStackedWidget;
 
 class RunSolverDialog : public QDialog {

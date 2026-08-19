@@ -20,6 +20,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QtConcurrent>
+#include <QFileDialog>
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QGuiApplication>
@@ -34,6 +35,7 @@
 #include "dialogs/preferences/preferences_dialog.h"
 #include "dialogs/run_mesh/run_mesh_dialog.h"
 #include "dialogs/run_solver/run_solver_dialog.h"
+#include "dialogs/selection/selection_dialog.h"
 #include "editors/graphical/surface/surface_editor.h"
 #include "editors/graphical/mesh/mesh_editor.h"
 #include "editors/graphical/result/result_editor.h"
@@ -43,11 +45,12 @@
 #include "parser/decompose_par_dict.h"
 #include "wizards/mesh/wizard_mesh.h"
 #include "wizards/new_case/wizard_new_case.h"
+#include "wizards/open_case/wizard_open_case.h"
 #include "wizards/post_processing/wizard_postprocessing.h"
 #include "wizards/solver/wizard_solver.h"
 
 // Launch new case wizard
-void MainWindow::launchNewCaseWizard() {
+void MainWindow::newCase() {
     auto* wizard = new NewCaseWizard(m_systemMgr, this);
     wizard->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -59,11 +62,76 @@ void MainWindow::launchNewCaseWizard() {
     wizard->exec();
 }
 
+// Open an existing case
+void MainWindow::openCase() {
+    // Define case location options
+    QStringList caseLocations;
+#if defined(Q_OS_WIN)
+    caseLocations.append("Windows Subsystem for Linux (WSL)");
+#elif defined(Q_OS_LINUX)
+    caseLocations.append("Local");
+#endif
+    caseLocations.append("Remote");
+
+    // Location selection dialog
+    SelectionDialog selectionDialog(tr("Open Case"),
+        tr("Select the location of the case:"), caseLocations, this);
+
+    if (selectionDialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    int selection = selectionDialog.getSelectedIndex();
+    if (selection < 0)
+        return;
+
+    // Convert index to enumerated type
+    TargetType targetType = TargetType::REMOTE_LINUX;
+    if (selection == 0) {
+#if defined(Q_OS_WIN)
+        targetType = TargetType::LOCAL_WINDOWS;
+#elif defined(Q_OS_LINUX)
+        targetType = TargetType::LOCAL_LINUX;
+#endif
+    }
+
+    // Get OpenFOAM path
+    QString openFoamPath = checkOpenFoam(static_cast<int>(targetType));
+
+    // Create wizard to open the new case
+    OpenCaseWizard wizard(targetType, m_systemMgr, openFoamPath, this);
+
+    // Connect the wizard's signals
+    connect(&wizard, &OpenCaseWizard::requestCaseCreation,
+            this, &MainWindow::createCase);
+    connect(&wizard, &OpenCaseWizard::logMessage,
+            this, &MainWindow::log);
+
+    // Launch the wizard
+    wizard.exec();
+}
+
+QString MainWindow::checkOpenFoam(int targetId) {
+    // Determine OpenFOAM installation
+    QStringList ofList = m_systemMgr.getSystem(targetId)->findOpenFoam();
+    if(ofList.empty()) {
+        QMessageBox::critical(this, tr("Missing OpenFOAM"),
+                              tr("No OpenFOAM installations detected..."));
+        return "";
+    } else if (ofList.size() > 1) {
+        SelectionDialog dlg(tr("Multiple OpenFOAM Installations Detected"),
+                tr("Select one of the following:"), ofList, this);
+        dlg.exec();
+        return dlg.getSelectedItem();
+    } else {
+        return ofList[0];
+    }
+}
+
 // Create new case folder
 void MainWindow::createCase(QString caseName, QString casePath,
         QStringList caseFiles, int targetId, QString openFoamPath,
         QString userName, QString hostName, int port) {
-
     // Add case to map
     m_systemMgr.addCase(caseName, CaseData{casePath, caseFiles, targetId,
         openFoamPath, userName, hostName, port});
@@ -490,46 +558,6 @@ void MainWindow::saveFile() {
     }
 }
 
-void MainWindow::deleteFile() {
-    // Access node
-    QVariant data = m_deleteAction->data();
-    NodeData* node = data.value<NodeData*>();
-    if (!node)
-        return;
-
-    // Construct path to delete
-    QString caseName, filePath;
-    if (node->fullPath.isEmpty()) {
-        caseName = node->name;
-        filePath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
-    } else {
-        caseName = node->fullPath.split('/').first();
-        filePath = m_systemMgr.getData(caseName).casePath + "/" +
-                   node->fullPath + "/" +  node->name;
-    }
-
-    // Delete file
-    QStringList result = m_systemMgr.getSystem(caseName)->processPaths(filePath,
-        PathOperationType::REMOVE);
-
-    // Check for success
-    if (result[0] == "0") {
-        log(QString(tr("Deleted %1")).arg(filePath));
-
-        // Remove node from navigator
-        m_navigator->removeNode(node);
-
-        // Update settings if a case was deleted
-        if (node->fullPath.isEmpty()) {
-            m_systemMgr.removeCase(caseName);
-            saveCases();
-        }
-    } else {
-        log(QString(tr("Failed to delete %1")).arg(filePath));
-    }
-    m_deleteAction->setData(QVariant());
-}
-
 // Set preferences
 void MainWindow::launchPreferencesDialog() {
     // Create preferences dialog
@@ -744,14 +772,14 @@ void MainWindow::launchMeshExecutionDialog() {
 
     // Launch dialog if any config files are present
     if (results.contains("0")) {
-        auto* dialog = new RunMeshDialog(caseName, m_systemMgr,
-                                         results, isFoundation, this);
-        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        RunMeshDialog dialog(caseName, m_systemMgr, results,
+                             isFoundation, this);
+        dialog.setAttribute(Qt::WA_DeleteOnClose);
 
         // Connect signal
-        connect(dialog, &RunMeshDialog::requestRunMesh, this,
+        connect(&dialog, &RunMeshDialog::requestRunMesh, this,
                 &MainWindow::runMesh);
-        dialog->exec();
+        dialog.exec();
     } else {
         QMessageBox::information(this, tr("Mesh Configuration Files Absent"),
             tr("The selected case doesn't have files for blockMesh, "
@@ -926,14 +954,13 @@ void MainWindow::launchSolverExecutionDialog() {
     bool isFoundation = foundationRegex.match(dirName).hasMatch();
 
     // Create dialog
-    auto* dialog = new RunSolverDialog(caseName, isFoundation,
-                                       m_systemMgr, this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    RunSolverDialog dialog(caseName, isFoundation, m_systemMgr, this);
+    dialog.setAttribute(Qt::WA_DeleteOnClose);
 
     // Connect signal
-    connect(dialog, &RunSolverDialog::requestRunSolver, this,
+    connect(&dialog, &RunSolverDialog::requestRunSolver, this,
             &MainWindow::runSolver);
-    dialog->exec();
+    dialog.exec();
 }
 
 // Run the simulation

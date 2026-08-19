@@ -99,7 +99,7 @@ QStringList LocalSystem::processPaths(const QString& pathString,
             for (int i = 0; i < targetPaths.size() - 1; ++i) {
                 fs::path pSrc(targetPaths[i].toStdString());
 
-                // Append the source filename to the destination directory
+                // Append the source filename to the destination
                 fs::path targetPath = pDst / pSrc.filename();
 
                 // Perform copy operation
@@ -280,6 +280,7 @@ QStringList LocalSystem::findOpenFoam() {
     return ofList;
 }
 
+// Get list of tutorial paths
 QStringList LocalSystem::getTutorials(const QString& base_path) {
     QStringList result;
     fs::path target_path = fs::path(base_path.toStdString()) / "tutorials";
@@ -319,7 +320,7 @@ bool extractGzGeometry(const std::string& gzFilePath,
         return false;
     }
 
-    // Verify Magic Bytes (0x1F, 0x8B) and Deflate compression method (0x08)
+    // Check Magic Bytes (0x1F, 0x8B) and compression method (0x08)
     if (header[0] != 0x1F || header[1] != 0x8B || header[2] != 0x08) {
         return false;
     }
@@ -599,8 +600,16 @@ QStringList LocalSystem::copyTutorialFolders(const QString& tutPath,
 }
 
 bool LocalSystem::writeData(const QByteArray& data, const QString& filePath) {
+    // Check if the destination path ends with '|' and remove it
+    QString dstPath = filePath;
+    bool makeExecutable = false;
+    if (dstPath.endsWith('|')) {
+        dstPath.chop(1);
+        makeExecutable = true;
+    }
+
     // Create and open the file
-    QFile file(filePath);
+    QFile file(dstPath);
     if (!file.open(QIODevice::WriteOnly)) {
         qWarning() << "Failed to open file for writing: " << file.errorString();
         return false;
@@ -609,6 +618,14 @@ bool LocalSystem::writeData(const QByteArray& data, const QString& filePath) {
     // Write data to the file and close it
     file.write(data);
     file.close();
+
+    // Make executable if necessary
+    if (makeExecutable) {
+        std::error_code perm_ec;
+        fs::permissions(dstPath.toStdString(),
+            fs::perms::owner_exec | fs::perms::group_exec |
+                fs::perms::others_exec, fs::perm_options::add, perm_ec);
+    }
     return true;
 }
 

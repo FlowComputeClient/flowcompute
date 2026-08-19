@@ -17,6 +17,7 @@
 
 #include "editors/tab_widget.h"
 
+#include <QMainWindow>
 #include <QMessageBox>
 #include <QStringBuilder>
 

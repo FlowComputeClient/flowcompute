@@ -15,10 +15,21 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "page_50_castellation.h"
-#include "page_10_geometry.h"
+#include "wizards/mesh/page_50_castellation.h"
 
-#include "wizard_mesh.h"
+#include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHeaderView>
+#include <QLabel>
+#include <QSpinBox>
+#include <QTableWidget>
+#include <QVBoxLayout>
+
+#include "wizards/mesh/page_10_geometry.h"
+#include "wizards/mesh/wizard_mesh.h"
 
 // Introduction page asks for the case name and platform
 CastellationPage::CastellationPage(QWidget *parent): QWizardPage(parent) {
@@ -206,7 +217,6 @@ void CastellationPage::updateSurfaceRefinement() {
 
     // Update the table
     for (int i=0; i<surfaceNames.size(); ++i) {
-
         QString surfaceName = surfaceNames[i];
 
         // Column 0: Filename (Read-only)
@@ -329,7 +339,8 @@ QVector3D CastellationPage::computeExternalPoint() {
 }
 
 bool CastellationPage::validatePage() {
-    if (!m_cfg) return false;
+    if (!m_cfg)
+        return false;
 
     // Global Settings
     if (meshRegionBox->currentText() == tr("Custom coordinates")) {

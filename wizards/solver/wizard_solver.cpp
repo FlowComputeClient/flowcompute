@@ -17,7 +17,10 @@
 
 #include "wizards/solver/wizard_solver.h"
 
+#include <QFile>
+#include <QList>
 #include <QMessageBox>
+#include <QRegularExpression>
 
 #include "parser/boundary.h"
 #include "parser/transport_properties.h"

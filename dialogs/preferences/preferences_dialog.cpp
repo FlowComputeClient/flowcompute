@@ -17,10 +17,11 @@
 
 #include "preferences_dialog.h"
 
+#include <QComboBox>
+#include <QDialogButtonBox>
 #include <QFormLayout>
 
 PreferencesDialog::PreferencesDialog(QWidget* parent): QDialog(parent) {
-
     setWindowTitle(tr("Preferences"));
     setMinimumWidth(300);
 

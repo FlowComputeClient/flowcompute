@@ -15,17 +15,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_80_PISO_H
-#define PAGE_80_PISO_H
+#ifndef WIZARDS_SOLVER_PAGE_80_PISO_H_
+#define WIZARDS_SOLVER_PAGE_80_PISO_H_
 
-#include <QDoubleSpinBox>
-#include <QFormLayout>
 #include <QWizardPage>
-#include <QSpinBox>
 
 #include "parser/fv_solution.h"
 
 class SolverWizard;
+class QDoubleSpinBox;
+class QSpinBox;
 
 class PisoPage : public QWizardPage {
     Q_OBJECT
@@ -47,4 +46,4 @@ class PisoPage : public QWizardPage {
         *m_pRefCellSpin;
 };
 
-#endif // PAGE_80_PISO_H
+#endif  // WIZARDS_SOLVER_PAGE_80_PISO_H_

@@ -27,12 +27,6 @@ class QTextEdit;
 class QPushButton;
 class QVBoxLayout;
 
-// A clean struct to pass data into the dialog
-struct SummaryItem {
-    QString text;
-    bool isSuccess;
-};
-
 class UtilityOutputDialog : public QDialog {
     Q_OBJECT
 

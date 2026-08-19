@@ -60,6 +60,7 @@ LoginDialog::LoginDialog(const QString& defaultUser, const QString& defaultHost,
     connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
 
+// Access credentials
 SshCredentials LoginDialog::getCredentials() {
     SshCredentials cred;
     cred.userName = m_userNameEdit->text();

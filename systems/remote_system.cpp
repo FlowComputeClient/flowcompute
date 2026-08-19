@@ -192,34 +192,49 @@ QStringList RemoteSystem::processPaths(const QString& pathString,
         return QStringList{"Input paths string was empty."};
     }
 
+    // Process the delimited string using Qt string splitting
+    QStringList targetPaths = pathString.split('\n', Qt::SkipEmptyParts);
+
     // Rename or Copy operations
     if (opType == PathOperationType::RENAME ||
         opType == PathOperationType::COPY) {
 
-        QStringList strList = pathString.split('\n', Qt::SkipEmptyParts);
-        if (strList.size() < 2) {
+        if (targetPaths.size() < 2) {
             return QStringList{"-1", "Insufficient paths provided."};
         }
 
-        QString srcPath = strList[0];
-        QString dstPath = strList[1];
-
-        // Sanitize inputs for remote execution
-        srcPath.replace("'", "'\\''");
-        dstPath.replace("'", "'\\''");
-
         QString cmd;
+
         if (opType == PathOperationType::RENAME) {
+            QString srcPath = targetPaths[0];
+            QString dstPath = targetPaths[1];
+
+            // Sanitize inputs for remote execution
+            srcPath.replace("'", "'\\''");
+            dstPath.replace("'", "'\\''");
+
             cmd = QString("SRC='%1'; DST='%2'; "
-                          "mv \"$SRC\" \"$DST\" 2>/dev/null; "
-                          "if [ $? -eq 0 ]; then echo '0'; else echo '-1'; fi")
-                      .arg(srcPath, dstPath);
+                  "mv \"$SRC\" \"$DST\" 2>/dev/null; "
+                  "if [ $? -eq 0 ]; then echo '0'; else echo '-1'; fi")
+                    .arg(srcPath, dstPath);
+
         } else if (opType == PathOperationType::COPY) {
-            // -r for recursive directory copying, -f to force overwrite
-            cmd = QString("SRC='%1'; DST='%2'; "
-                          "cp -rf \"$SRC\" \"$DST\" 2>/dev/null; "
-                          "if [ $? -eq 0 ]; then echo '0'; else echo '-1'; fi")
-                      .arg(srcPath, dstPath);
+            QString dstPath = targetPaths.last();
+            dstPath.replace("'", "'\\''");
+
+            QStringList escapedSources;
+            for (int i = 0; i < targetPaths.size() - 1; ++i) {
+                QString src = targetPaths.at(i);
+                src.replace("'", "'\\''");
+                escapedSources.append(QString("'%1'").arg(src));
+            }
+
+            // Loop through sources
+            cmd = QString("DST='%1'; "
+                  "for SRC in %2; do "
+                  "  cp -rf \"$SRC\" \"$DST\" 2>/dev/null; "
+                  "  if [ $? -eq 0 ]; then echo '0'; else echo '-1'; fi; "
+                  "done").arg(dstPath, escapedSources.join(" "));
         }
 
         QStringList cmdResult =
@@ -227,13 +242,14 @@ QStringList RemoteSystem::processPaths(const QString& pathString,
 
         // Return early
         if (!cmdResult.isEmpty()) {
-            return QStringList{cmdResult.first()};
+            if (opType == PathOperationType::RENAME) {
+                return QStringList{cmdResult.first()};
+            } else if (opType == PathOperationType::COPY) {
+                return cmdResult;
+            }
         }
         return QStringList{"-1"};
     }
-
-    // Process the delimited string using Qt string splitting
-    QStringList targetPaths = pathString.split('\n', Qt::SkipEmptyParts);
 
     for (const QString& qPath : std::as_const(targetPaths)) {
         QString safePath = qPath;
@@ -326,7 +342,7 @@ int RemoteSystem::launchShortUtility(const QString& cmd, QString& output) {
         return -2;
     }
 
-    // Read the merged standard output and error from the channel
+    // Read the merged standard output and error
     char buffer[1024];
     int nbytes;
     while ((nbytes =
@@ -406,11 +422,11 @@ void RemoteSystem::processAllrunScript(const QString& scriptPath,
         return;
     }
 
-    // Line continuation removal[cite: 14]
+    // Line continuation removal
     QRegularExpression continuationRegex(R"(\\[ \t]*\r?\n\s*)");
     content.replace(continuationRegex, " ");
 
-    // Find the base "tutorials" folder using string manipulation[cite: 14]
+    // Find the base tutorials folder
     int tutIndex = originalTutorialPath.lastIndexOf("/tutorials");
     if (tutIndex == -1) {
         emit logMessage("Could not deduce base 'tutorials' directory from: "
@@ -525,17 +541,17 @@ QStringList RemoteSystem::copyTutorialFolders(const QString& tutPath,
         return result;
     }
 
-    // Capture the copied items to build the return list[cite: 14]
+    // Capture the copied items to build the return list
     QStringList copiedItems = setupOutput.split('\n', Qt::SkipEmptyParts);
     for (const QString& item : std::as_const(copiedItems)) {
         result.append(item.trimmed());
     }
 
-    // 2. Parse both scripts to auto-resolve geometry dependencies[cite: 14]
+    // Parse both scripts to auto-resolve geometry dependencies
     processAllrunScript(projPath + "/Allrun", projPath, tutPath);
     processAllrunScript(projPath + "/Allrun.pre", projPath, tutPath);
 
-    // 3. Perform final system and constant checks[cite: 14]
+    // Perform final system and constant checks
     QString checkCmd = QString(
        "PROJ='%1'; "
        "if [ ! -d \"$PROJ/system\" ]; then echo 'WARN_NO_SYSTEM'; fi; "
@@ -557,13 +573,21 @@ QStringList RemoteSystem::copyTutorialFolders(const QString& tutPath,
 }
 
 bool RemoteSystem::writeData(const QByteArray& data, const QString& filePath) {
+    // Check if the source path ends with '|' and remove it
+    QString destPath = filePath;
+    bool makeExecutable = false;
+    if (destPath.endsWith('|')) {
+        destPath.chop(1);
+        makeExecutable = true;
+    }
+
     // Ensure the session is valid
     if (!m_session || !ssh_is_connected(m_session)) {
         qWarning() << "SSH session is not established.";
         return false;
     }
 
-    // 1. Allocate and initialize a new SFTP session
+    // Allocate and initialize a new SFTP session
     sftp_session sftp = sftp_new(m_session);
     if (sftp == nullptr) {
         qWarning() << "Error allocating SFTP session:"
@@ -579,11 +603,12 @@ bool RemoteSystem::writeData(const QByteArray& data, const QString& filePath) {
     }
 
     // Open the remote file for writing
-    sftp_file file = sftp_open(sftp, filePath.toUtf8().constData(),
-        O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int fileMode = makeExecutable ? 0755 : 0644;
+    sftp_file file = sftp_open(sftp, destPath.toUtf8().constData(),
+        O_WRONLY | O_CREAT | O_TRUNC, fileMode);
 
     if (file == nullptr) {
-        qWarning() << "Failed to open remote file for writing:" << filePath;
+        qWarning() << "Failed to open remote file for writing:" << destPath;
         sftp_free(sftp);
         return false;
     }
@@ -601,6 +626,13 @@ bool RemoteSystem::writeData(const QByteArray& data, const QString& filePath) {
     if (written != static_cast<ssize_t>(length)) {
         qWarning() << "Failed to write all bytes to the remote file.";
         return false;
+    }
+
+    // Make the file executable if necessary
+    if (makeExecutable) {
+        destPath.replace("'", "'\\''");
+        QString chmodCmd = QString("chmod +x '%1'").arg(destPath);
+        execCommand(chmodCmd);
     }
     return true;
 }
@@ -649,7 +681,7 @@ bool RemoteSystem::writeData(const QString& srcPath, const QString& dstPath) {
     // Open remote file: 0755 for executable, 0644 otherwise
     int fileMode = makeExecutable ? 0755 : 0644;
     sftp_file remoteFile = sftp_open(sftp, dstPath.toUtf8().constData(),
-                                     O_WRONLY | O_CREAT | O_TRUNC, fileMode);
+                             O_WRONLY | O_CREAT | O_TRUNC, fileMode);
 
     if (remoteFile == nullptr) {
         qWarning() << "Failed to open remote file:" << dstPath;

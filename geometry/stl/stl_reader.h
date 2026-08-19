@@ -18,16 +18,7 @@
 #ifndef GEOMETRY_STL_STL_READER_H_
 #define GEOMETRY_STL_STL_READER_H_
 
-#include <QBuffer>
-#include <QByteArray>
-#include <QFile>
-#include <QFileInfo>
-#include <QRegularExpression>
-#include <QTextStream>
-
-#include <utility>
-
-#include "../graphic_data.h"
+#include "geometry/graphic_data.h"
 
 namespace StlReader {
 

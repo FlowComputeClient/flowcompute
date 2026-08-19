@@ -18,13 +18,11 @@
 #ifndef DIALOGS_RUN_MESH_RUN_MESH_DIALOG_H_
 #define DIALOGS_RUN_MESH_RUN_MESH_DIALOG_H_
 
-#include <QCheckBox>
-#include <QComboBox>
 #include <QDialog>
-#include <QWidget>
-#include <QDialogButtonBox>
 
 class SystemManager;
+class QCheckBox;
+class QComboBox;
 
 class RunMeshDialog : public QDialog {
     Q_OBJECT

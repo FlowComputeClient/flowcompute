@@ -17,7 +17,10 @@
 
 #include "wizard_new_case.h"
 
+#include <QDir>
 #include <QFile>
+#include <QMessageBox>
+#include <QRegularExpression>
 
 #include "page_10_intro.h"
 #include "page_15_remote.h"
@@ -79,8 +82,8 @@ bool NewCaseWizard::validateCurrentPage() {
             if(!m_systemMgr.checkWslServer()) {
                 QString title = tr("Server Installation Failure");
                 QString msg = tr("Failed to install the WSL server in "
-                    "~/config/flowcompute.\n"
-                    "Please make sure this directory is accessible.");
+                                 "~/config/flowcompute.\n"
+                                 "Please make sure this directory is accessible.");
                 QMessageBox::critical(nullptr, title, msg);
                 return false;
             }
@@ -108,7 +111,7 @@ bool NewCaseWizard::validateCurrentPage() {
             QString msg = tr("There is already a case named '%1'.\n"
                              "Create '%2' instead?").arg(m_caseName, newName);
             reply = QMessageBox::question(this, tr("Existing Case Detected"),
-                msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+                                          msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 
             // Fail validation if the response is no
             if (reply == QMessageBox::No) {
@@ -131,7 +134,6 @@ bool NewCaseWizard::validateCurrentPage() {
 }
 
 bool NewCaseWizard::checkOpenFoam() {
-
     // Determine OpenFOAM installation
     QStringList ofList = m_systemMgr.getSystem(m_targetId)->findOpenFoam();
     if(ofList.empty()) {
@@ -162,7 +164,7 @@ void NewCaseWizard::accept() {
     // Check if case folder already exists
     QString checkPath = casePath + "/" + m_caseName;
     QStringList results = m_system->processPaths(checkPath,
-        PathOperationType::CHECK);
+                                                 PathOperationType::CHECK);
     QString result = results[0];
 
     // Handle existing case
@@ -173,16 +175,16 @@ void NewCaseWizard::accept() {
         int count = 1;
         while (!uniqueCase) {
             QStringList testList = {
-                checkPath + "_" + QString::number(count),
-                checkPath + "_" + QString::number(count + 1),
-                checkPath + "_" + QString::number(count + 2),
-                checkPath + "_" + QString::number(count + 3),
-                checkPath + "_" + QString::number(count + 4)};
+                 checkPath + "_" + QString::number(count),
+                 checkPath + "_" + QString::number(count + 1),
+                 checkPath + "_" + QString::number(count + 2),
+                 checkPath + "_" + QString::number(count + 3),
+                 checkPath + "_" + QString::number(count + 4)};
             QString testCase = testList.join('\n');
 
             // Check if any paths already exist
             results = m_system->processPaths(testCase,
-                PathOperationType::CHECK);
+                                             PathOperationType::CHECK);
             for (int i=0; i<5; i++) {
                 if (results[i] == "-1") {
                     result = QString::number(count + i);
@@ -197,10 +199,10 @@ void NewCaseWizard::accept() {
         QString msg =
             tr("The folder '%1' already exists in the selected directory.\n"
                "Create '%2' instead?").arg(m_caseName,
-                    m_caseName + "_" + result);
+                     m_caseName + "_" + result);
 
         reply = QMessageBox::question(this, tr("Existing Case Detected"), msg,
-            QMessageBox::Yes | QMessageBox::No);
+                                      QMessageBox::Yes | QMessageBox::No);
 
         // End wizard if the response is no
         if (reply == QMessageBox::No) {
@@ -290,7 +292,6 @@ bool NewCaseWizard::createCase(QString newCasePath) {
             isESI = true;
             versionText = "v" + digits;
         } else {
-            // Foundation uses sequential major versions (e.g., 11, 12, 13)
             isESI = false;
             versionText = digits;
         }
@@ -307,7 +308,7 @@ bool NewCaseWizard::createCase(QString newCasePath) {
                            newCasePath + "/system", newCasePath + "/0.orig" };
     QString newDirStr = newDirs.join("\n");
     QStringList results = m_system->processPaths(newDirStr,
-        PathOperationType::CREATE);
+                                                 PathOperationType::CREATE);
 
     if (!results.contains("-1")) {
         createCaseFiles(newCasePath, versionText, websiteText);
@@ -441,7 +442,7 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
         templateFile.setFileName(":/template/" + fileName);
         if (!templateFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
             QMessageBox::critical(this, tr("Resource Error"),
-                tr("Failed to load %1 file.").arg(fileName));
+                                  tr("Failed to load %1 file.").arg(fileName));
             continue;
         }
         fileText = QString::fromUtf8(templateFile.readAll());

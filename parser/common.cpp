@@ -8,7 +8,7 @@
 #include "common.h"
 
 QString CaseIO::createFoamHeader(const QString& objectName,
-                         const QString& foamPath) {
+                    const QString& foamPath, const QString& className) {
     QString headerStr;
     QTextStream out(&headerStr);
 
@@ -70,7 +70,7 @@ QString CaseIO::createFoamHeader(const QString& objectName,
     out << "{\n";
     out << "    version     2.0;\n";
     out << "    format      ascii;\n";
-    out << "    class       dictionary;\n";
+    out << "    class       " << className << ";\n";
     out << "    object      " << objectName << ";\n";
     out << "}\n";
     out << "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * "

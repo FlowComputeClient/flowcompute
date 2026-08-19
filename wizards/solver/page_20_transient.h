@@ -15,30 +15,19 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_20_TRANSIENT_H
-#define PAGE_20_TRANSIENT_H
+#ifndef WIZARDS_SOLVER_PAGE_20_TRANSIENT_H_
+#define WIZARDS_SOLVER_PAGE_20_TRANSIENT_H_
 
-#include <QButtonGroup>
-#include <QCheckBox>
-#include <QComboBox>
-#include <QFormLayout>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QListWidget>
-#include <QMessageBox>
-#include <QRadioButton>
-#include <QSpinBox>
-#include <QTableWidget>
-#include <QVBoxLayout>
 #include <QWizardPage>
 
 #include "core_types.h"
 #include "parser/control_dict.h"
 
 class SolverWizard;
+class QCheckBox;
+class QComboBox;
+class QDoubleSpinBox;
+class QSpinBox;
 
 class TransientPage : public QWizardPage {
     Q_OBJECT
@@ -52,7 +41,7 @@ class TransientPage : public QWizardPage {
     // bool validatePage() override;
 
  private:
-    SolverWizard* solverWizard;
+    SolverWizard* m_solverWizard;
     CaseIO::ControlConfig* m_cfg;
 
     std::vector<FlowCompute::SolverFamily> m_families;
@@ -63,4 +52,4 @@ class TransientPage : public QWizardPage {
     QSpinBox* purgeWriteBox;
 };
 
-#endif  // PAGE_20_TRANSIENT_H
+#endif  // WIZARDS_SOLVER_PAGE_20_TRANSIENT_H_

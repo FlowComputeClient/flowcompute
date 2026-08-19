@@ -18,17 +18,9 @@
 #ifndef EDITORS_TAB_WIDGET_H_
 #define EDITORS_TAB_WIDGET_H_
 
-#include <QDebug>
-#include <QFile>
-#include <QMainWindow>
-#include <QMap>
-#include <QModelIndex>
-#include <QString>
-#include <QTabBar>
 #include <QTabWidget>
-#include <QTextStream>
 
-QT_FORWARD_DECLARE_CLASS(MainWindow);
+class QMainWindow;
 
 class TabWidget : public QTabWidget {
     Q_OBJECT
