@@ -77,9 +77,8 @@ void MainWindow::openCase() {
     SelectionDialog selectionDialog(tr("Open Case"),
         tr("Select the location of the case:"), caseLocations, this);
 
-    if (selectionDialog.exec() != QDialog::Accepted) {
+    if (selectionDialog.exec() != QDialog::Accepted)
         return;
-    }
 
     int selection = selectionDialog.getSelectedIndex();
     if (selection < 0)

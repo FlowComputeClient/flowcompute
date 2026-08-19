@@ -134,6 +134,7 @@ void CaseNavigator::createActions() {
     m_deleteAction->setShortcuts(QKeySequence::Delete);
     m_deleteAction->setStatusTip(tr("Delete"));
     m_deleteAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+    addAction(m_deleteAction);
     connect(m_deleteAction, &QAction::triggered, this,
             &CaseNavigator::deleteFile);
 }
@@ -386,6 +387,7 @@ void CaseNavigator::mouseDoubleClickEvent(QMouseEvent *event) {
             if ((node->nodeType == NodeType::DictionaryFile) ||
                 (node->nodeType == NodeType::ScriptFile) ||
                 (node->nodeType == NodeType::FieldFile) ||
+                (node->nodeType == NodeType::TextFile) ||
                 (node->nodeType == NodeType::MeshFile)) {
                 // Create editor for file
                 emit createEditor(EditorType::TEXT, node->name,
@@ -658,8 +660,7 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
         caseName = node->text();
     } else {
         int pos = node->fullPath.indexOf('/');
-        caseName = (pos == -1) ? node->fullPath :
-                    node->fullPath.left(pos);
+        caseName = (pos == -1) ? node->fullPath : node->fullPath.left(pos);
     }
 
     // Add actions for case folders
@@ -696,17 +697,9 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
     // New File/New Folder/New Dictionary...
     if ((node->nodeType == NodeType::CaseFolder) ||
         (node->nodeType == NodeType::Folder)) {
-        // New file action
-        m_newFileAction->setData(QVariant::fromValue(node));
-        contextMenu.addAction(m_newFileAction);
-
-        // New folder action
-        m_newFolderAction->setData(QVariant::fromValue(node));
-        contextMenu.addAction(m_newFolderAction);
-
-        // New dictionary action
-        m_newDictAction->setData(QVariant::fromValue(node));
-        contextMenu.addAction(m_newDictAction);
+        // New file/folder/dictionary actions
+        contextMenu.addActions( { m_newFileAction, m_newFolderAction,
+                               m_newDictAction } );
 
         contextMenu.addSeparator();
     }
@@ -750,7 +743,6 @@ void CaseNavigator::showContextMenu(const QPoint &pos) {
     if ((node->nodeType == NodeType::CaseFolder) ||
         (node->nodeType == NodeType::Folder)) {
         contextMenu.addSeparator();
-        m_refreshAction->setData(QVariant::fromValue(node));
         contextMenu.addAction(m_refreshAction);
     }
     contextMenu.exec(viewport()->mapToGlobal(pos));
@@ -809,7 +801,6 @@ void CaseNavigator::addNodes(NodeData* parent,
                 // Check comparison
                 int cmp = QString::compare(child->name, existing->name,
                                            Qt::CaseInsensitive);
-
                 if (cmp == 0) {
                     duplicateFound = true;
                     break;

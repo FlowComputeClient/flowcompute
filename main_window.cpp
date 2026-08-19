@@ -123,6 +123,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_newFileAction = actions[0];
     m_newFolderAction = actions[1];
     m_newDictAction = actions[2];
+    m_deleteAction = actions[3];
 
     // Create menus and toolbar
     createMenus();
@@ -518,8 +519,8 @@ void MainWindow::createActions() {
             &MainWindow::launchMeshConfigurationWizard);
 
     // Launch mesh execution dialog
-    m_runMeshAction =
-        new QAction(QIcon(":/images/run_mesh.png"), tr("Run M&esh"), this);
+    m_runMeshAction = new QAction(QIcon(":/images/run_mesh.png"),
+                                  tr("Run M&esh Utilities"), this);
     m_runMeshAction->setStatusTip(tr("Run mesh utilities"));
     connect(m_runMeshAction, &QAction::triggered, this,
             &MainWindow::launchMeshExecutionDialog);
@@ -540,14 +541,14 @@ void MainWindow::createActions() {
 
     // Launch solver execution dialog
     m_runSolverAction = new QAction(QIcon(":/images/run_solver.png"),
-                                  tr("&Run solver"), this);
+                                  tr("&Run Simulation"), this);
     m_configureSolverAction->setStatusTip(tr("Launch solver"));
     connect(m_runSolverAction, &QAction::triggered, this,
             &MainWindow::launchSolverExecutionDialog);
 
     // Stop solver
     m_stopSolverAction = new QAction(QIcon(":/images/stop_solver.png"),
-                                   tr("&Halt solver execution"), this);
+                                   tr("&Halt Simulation"), this);
     m_stopSolverAction->setStatusTip(tr("Stop solver"));
     m_stopSolverAction->setEnabled(false);
     connect(m_stopSolverAction, &QAction::triggered, this,
@@ -598,6 +599,7 @@ void MainWindow::createMenus() {
     m_editMenu->addAction(m_cutAction);
     m_editMenu->addAction(m_copyAction);
     m_editMenu->addAction(m_pasteAction);
+    m_editMenu->addAction(m_deleteAction);
     m_editMenu->addSeparator();
     m_editMenu->addAction(m_preferencesAction);
 
@@ -720,9 +722,8 @@ void MainWindow::upload() {
 
 // Download file or folder
 void MainWindow::download() {
-    // Access selected node
-    QVariant data = m_downloadAction->data();
-    NodeData* node = data.value<NodeData*>();
+    // Access selected node (always a folder or case folder)
+    NodeData* node = m_navigator->nodeFromIndex(m_navigator->currentIndex());
     if (!node)
         return;
 

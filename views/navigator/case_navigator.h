@@ -60,8 +60,8 @@ class CaseNavigator : public QTreeView {
     NodeData* nodeFromIndex(const QModelIndex &index) {
         return m_model->nodeFromIndex(index); }
 
-    QList<QAction*> getActions() {
-        return {m_newFileAction, m_newFolderAction, m_newDictAction}; }
+    QList<QAction*> getActions() { return {m_newFileAction, m_newFolderAction,
+                                            m_newDictAction, m_deleteAction}; }
 
  protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override;
