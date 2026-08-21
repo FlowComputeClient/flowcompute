@@ -12,6 +12,7 @@ edit_uri: edit/main/docs/
 # Theme configuration
 theme:
   name: material
+  favicon: images/favicon.ico
   features:
     - navigation.tabs
     - navigation.top
@@ -44,10 +45,10 @@ plugins:
 
 # Markdown extensions
 markdown_extensions:
-  - admonition # Allows for warning/info callouts
-  - pymdownx.details # Collapsible sections
-  - pymdownx.superfences # Advanced code blocks
-  - pymdownx.tabbed: # Tabbed code blocks (great for Windows vs. Linux instructions)
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
       alternate_style: true 
   - tables
   - attr_list
