@@ -1,7 +1,7 @@
 # Project information
 site_name: FlowCompute
 site_description: An open-source, cross-platform graphical desktop client for OpenFOAM
-site_author: FlowCompute Client Team
+site_author: FlowCompute-dev
 site_url: https://flowcomputeclient.github.io/flowcompute/
 
 # Repository integration
@@ -56,6 +56,8 @@ markdown_extensions:
 # Navigation structure
 nav:
   - Home: index.md
+  - Downloads: downloads.md
+  - Source Code: https://github.com/FlowComputeClient/flowcompute  
   - Blog: blog/index.md
   - User Guide:
       - Installation: user-guide/installation.md

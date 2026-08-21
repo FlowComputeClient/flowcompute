@@ -12,11 +12,11 @@ The client streamlines case management by generating dictionary files based on u
 
 Important features include:
 
-- **High-performance rendering** - Utilizing a custom Vulkan rendering pipeline, the interface will accurately display STL surfaces, OpenFOAM meshes, and computed results (scalar only).
-- **Configuration wizards** - Easily generate case files, mesh configuration files, and simulation files.
-- **Text editors** - Natively edit and update dictionary files with syntax coloring and error checking.
-- **Utility access** - Instantly launch OpenFOAM utilities using traditional dialogs and buttons.
-- **Data validation** - Automatically ensure that dictionary files are formatted correctly.
+* **High-performance rendering** - Utilizing a custom Vulkan rendering pipeline, the interface will accurately display STL surfaces, OpenFOAM meshes, and computed results (scalar only).
+* **Configuration wizards** - Easily generate case files, mesh configuration files, and simulation files.
+* **Text editors** - Natively edit and update dictionary files with syntax coloring and error checking.
+* **Utility access** - Instantly launch OpenFOAM utilities using traditional dialogs and buttons.
+* **Data validation** - Automatically ensure that dictionary files are formatted correctly.
 
 ---
 &copy; 2026 FlowCompute LLC &dash; All rights reserved
