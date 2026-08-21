@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(FlowCompute VERSION 1.0 LANGUAGES CXX C)
+project(FlowCompute VERSION 0.9.0 LANGUAGES CXX C)
 
 include(GNUInstallDirs)
 
@@ -16,9 +16,7 @@ add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 qt_standard_project_setup()
 
-# Third party libraries
-add_library(miniz OBJECT third_party/miniz/miniz.c)
-target_include_directories(miniz PUBLIC third_party/miniz)
+find_package(ZLIB REQUIRED)
 
 add_library(tree_sitter OBJECT third_party/tree_sitter/src/lib.c)
 target_include_directories(tree_sitter PUBLIC third_party/tree_sitter/include)
@@ -32,6 +30,7 @@ qt_add_executable(FlowCompute
     main_window.cpp
     main_window.h
     main_window_slots.cpp
+    app_icon.rc
     resources.qrc
     core_types.h
 
@@ -246,16 +245,17 @@ target_include_directories(FlowCompute PRIVATE
 
 target_link_libraries(FlowCompute PRIVATE
     Qt::Core Qt::Widgets Qt::Network Qt::Concurrent
-    miniz tree_sitter
+    tree_sitter
 )
 
+# Access libssh and zlib
 if(WIN32)
     find_package(libssh REQUIRED)
-    target_link_libraries(FlowCompute PRIVATE ssh)
+    target_link_libraries(FlowCompute PRIVATE ssh ZLIB::ZLIB)
 elseif(UNIX)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBSSH REQUIRED IMPORTED_TARGET libssh)
-    target_link_libraries(FlowCompute PRIVATE PkgConfig::LIBSSH)
+    target_link_libraries(FlowCompute PRIVATE PkgConfig::LIBSSH ZLIB::ZLIB)
 endif()
 
 # Find the Vulkan shader compiler
@@ -317,3 +317,29 @@ qt_generate_deploy_app_script(
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
 install(SCRIPT ${deploy_script})
+
+install(FILES
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/z.dll"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/ssh.dll"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/libcrypto-3-x64.dll"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/legacy.dll"
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(PROGRAMS
+    "${CMAKE_SOURCE_DIR}/server/wsl_server"
+    DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# IFW configuration
+set(CPACK_GENERATOR "IFW")
+set(CPACK_PACKAGE_NAME "FlowCompute")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "FlowCompute")
+set(CPACK_PACKAGE_VERSION "0.9.0")
+set(CPACK_PACKAGE_VENDOR "FlowCompute Project")
+set(CPACK_IFW_ROOT "C:/QtInstaller/Tools/QtInstallerFramework/4.11")
+set(CPACK_IFW_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/images/flowcompute.ico")
+
+include(CPack)
+include(CPackIFW)

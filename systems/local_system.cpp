@@ -31,7 +31,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "miniz.h"
+#include <zlib.h>
 
 QStringList LocalSystem::processPaths(const QString& pathString,
                                       PathOperationType opType) {
@@ -359,12 +359,12 @@ bool extractGzGeometry(const std::string& gzFilePath,
     std::ofstream outFile(outFilePath, std::ios::binary);
     if (!outFile.is_open()) return false;
 
-    // Initialize miniz stream for Raw Deflate decompression
-    mz_stream stream;
+    // Initialize zlib stream for Raw Deflate decompression
+    z_stream stream;
     std::memset(&stream, 0, sizeof(stream));
 
-    // Passing negative window bits tells miniz to bypass zlib header parsing
-    if (mz_inflateInit2(&stream, -MZ_DEFAULT_WINDOW_BITS) != MZ_OK) {
+    // Passing negative window bits tells zlib to bypass zlib header parsing
+    if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) {
         return false;
     }
 
@@ -374,23 +374,23 @@ bool extractGzGeometry(const std::string& gzFilePath,
     std::vector<unsigned char> outBuffer(bufferSize);
 
     bool success = false;
-    int status = MZ_OK;
+    int status = Z_OK;
 
     while (inFile.good() || stream.avail_in > 0) {
         // Read next chunk from file
         if (stream.avail_in == 0 && inFile.good()) {
             inFile.read(reinterpret_cast<char*>(inBuffer.data()), bufferSize);
-            stream.avail_in = static_cast<mz_uint32>(inFile.gcount());
+            stream.avail_in = static_cast<uInt>(inFile.gcount());
             stream.next_in = inBuffer.data();
             if (stream.avail_in == 0) break;
         }
 
         // Set up output buffer pointer and available space
-        stream.avail_out = static_cast<mz_uint32>(bufferSize);
+        stream.avail_out = static_cast<uInt>(bufferSize);
         stream.next_out = outBuffer.data();
 
         // Perform inflation
-        status = mz_inflate(&stream, MZ_NO_FLUSH);
+        status = inflate(&stream, Z_NO_FLUSH);
 
         // Write decompressed bytes to disk
         size_t bytesDecompressed = bufferSize - stream.avail_out;
@@ -401,15 +401,14 @@ bool extractGzGeometry(const std::string& gzFilePath,
         }
 
         // Check completion or error states
-        if (status == MZ_STREAM_END) {
+        if (status == Z_STREAM_END) {
             success = true;
             break;
-        } else if (status != MZ_OK && status != MZ_BUF_ERROR) {
+        } else if (status != Z_OK && status != Z_BUF_ERROR) {
             break;
         }
     }
-
-    mz_inflateEnd(&stream);
+    inflateEnd(&stream);
     return success;
 }
 

@@ -76,7 +76,7 @@ CaseNavigator::CaseNavigator(QAction* newCaseAction, QAction* openCaseAction,
 }
 
 void CaseNavigator::createActions() {
-    // Create new file
+    // New file
     m_newFileAction = new QAction(QIcon(":/images/new_file.png"),
                                   tr("New &File"), this);
     m_newFileAction->setStatusTip(tr("Create a new file"));
@@ -85,9 +85,9 @@ void CaseNavigator::createActions() {
         addNewItem(NewItemType::File);
     });
 
-    // Create new folder
+    // New folder
     m_newFolderAction = new QAction(QIcon(":/images/new_folder.png"),
-                                    tr("New &Folder"), this);
+                                    tr("New F&older"), this);
     m_newFolderAction->setShortcut(QKeySequence("Ctrl+Shift+N"));
     m_newFolderAction->setStatusTip(tr("Create a new folder"));
     m_newFolderAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
@@ -95,9 +95,9 @@ void CaseNavigator::createActions() {
         addNewItem(NewItemType::Folder);
     });
 
-    // Create new dictionary
+    // New dictionary
     m_newDictAction = new QAction(QIcon(":/images/new_dict.png"),
-                                  tr("New &Dictionary"), this);
+                                  tr("New Dictionar&y"), this);
     m_newDictAction->setShortcut(QKeySequence("Ctrl+Alt+D"));
     m_newDictAction->setStatusTip(tr("Create new dictionary"));
     m_newDictAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
@@ -105,9 +105,9 @@ void CaseNavigator::createActions() {
         addNewItem(NewItemType::Dictionary);
     });
 
-    // Create action for rename
+    // Rename
     m_renameAction =
-        new QAction(QIcon(":/images/rename.png"), tr("Rename"), this);
+        new QAction(QIcon(":/images/rename.png"), tr("&Rename"), this);
     m_renameAction->setShortcut(Qt::Key_F2);
     m_renameAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     connect(m_renameAction, &QAction::triggered, this, [this]() {
@@ -117,9 +117,9 @@ void CaseNavigator::createActions() {
         }
     });
 
-    // Refresh folder
+    // Refresh
     m_refreshAction =
-        new QAction(QIcon(":/images/refresh.png"), tr("Refresh"), this);
+        new QAction(QIcon(":/images/refresh.png"), tr("Refres&h"), this);
     m_refreshAction->setStatusTip(tr("Refresh folder"));
     connect(m_refreshAction, &QAction::triggered, this, [this]() {
         QModelIndex index = currentIndex();
@@ -128,7 +128,7 @@ void CaseNavigator::createActions() {
         }
     });
 
-    // Delete file
+    // Delete
     m_deleteAction =
         new QAction(QIcon(":/images/delete.png"), tr("&Delete"), this);
     m_deleteAction->setShortcuts(QKeySequence::Delete);

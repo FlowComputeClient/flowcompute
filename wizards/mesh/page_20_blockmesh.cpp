@@ -100,11 +100,11 @@ BlockMeshPage1::BlockMeshPage1(const SystemManager& systemMgr,
     // Target cell size
     targetCellSizeSpin = new QDoubleSpinBox(cellBox);
     targetCellSizeSpin->setDecimals(6);
-    targetCellSizeSpin->setMinimum(0.0001);
+    targetCellSizeSpin->setRange(0.0001, 1e9);
     targetCellSizeSpin->setValue(0.1);
     cellLayout->addRow(tr("Estimated cell dimension:"), targetCellSizeSpin);
     connect(targetCellSizeSpin, &QDoubleSpinBox::editingFinished,
-            this, &BlockMeshPage1::updateCellCount);
+            this, &BlockMeshPage1::onTargetCellSizeEdited);
 
     // Display actual cell sizes
     QHBoxLayout* sizesLayout = new QHBoxLayout;
@@ -170,7 +170,6 @@ void BlockMeshPage1::initializePage() {
 }
 
 void BlockMeshPage1::setBoundingBox() {
-
     // Get data from Geometry Page
     GeometryPage* geometryPage = qobject_cast<GeometryPage*>(wizard()->page(0));
     QString caseName = geometryPage->getCaseName();
@@ -226,25 +225,23 @@ void BlockMeshPage1::setBoundingBox() {
     double diffY = m_rawGeomBox.max.y() - m_rawGeomBox.min.y();
     double diffZ = m_rawGeomBox.max.z() - m_rawGeomBox.min.z();
     double maxDim = std::max({diffX, diffY, diffZ});
-    double defaultSize = maxDim / 20.0;
 
-    // Set default cell size
-    targetCellSizeSpin->blockSignals(true);
-    targetCellSizeSpin->setValue(defaultSize);
-    targetCellSizeSpin->blockSignals(false);
+    // Set the initial cell size
+    m_baseCellSize = maxDim / 20.0;
 
     // Run scale update
     onScaleFactorChanged(m_scaleFactorCombo->currentText());
 }
 
+// Update the number of cells in each dimension
 void BlockMeshPage1::updateCellCount() {
-
     std::array<double, 3> diff = {
         dimSpin[1]->value() - dimSpin[0]->value(),
         dimSpin[3]->value() - dimSpin[2]->value(),
         dimSpin[5]->value() - dimSpin[4]->value() };
 
-    if (diff[0] <= 0 || diff[1] <= 0 || diff[2] <= 0) return;
+    if (diff[0] <= 0 || diff[1] <= 0 || diff[2] <= 0)
+        return;
 
     // Compute cell counts
     std::array<int, 3> cellCounts;
@@ -262,7 +259,7 @@ void BlockMeshPage1::updateCellCount() {
         actualSizeEdits[i]->setText(QString::number(actualSizes[i]));
     }
 
-    // Update cell count total
+    // Update total number of cells
     long long totalCells =
         static_cast<long long>(cellCounts[0]) * cellCounts[1] * cellCounts[2];
     cellCountTotalEdit->setText(QLocale().toString(totalCells));
@@ -278,7 +275,6 @@ void BlockMeshPage1::updateCellCount() {
 }
 
 bool BlockMeshPage1::validatePage() {
-
     // Validate domain bounds
     for (int i = 0; i < 3; ++i) {
         double minVal = dimSpin[2 * i]->value();
@@ -317,25 +313,30 @@ bool BlockMeshPage1::validatePage() {
     return true;
 }
 
-void BlockMeshPage1::onScaleFactorChanged(const QString& text) {
+void BlockMeshPage1::onTargetCellSizeEdited() {
+    double currentScale = getCurrentScaleFactor(m_scaleFactorCombo->currentText());
+    if (currentScale <= 0.0) currentScale = 1.0; // Safety fallback
 
+    // Update the absolute base size based on the user's manual input
+    m_baseCellSize = targetCellSizeSpin->value() * currentScale;
+
+    // Chain the cell count update
+    updateCellCount();
+}
+
+void BlockMeshPage1::onScaleFactorChanged(const QString& text) {
     // Pass the text directly instead of relying on the GUI state
     double scale = getCurrentScaleFactor(text);
 
     // Abort if the user is in an intermediate typing state (like "0.")
     if (scale <= 0.0) return;
 
-    double scaleRatio = m_previousScaleFactor / scale;
+    // Calculate the UI value directly from the raw base size
+    double scaledCellSize = m_baseCellSize / scale;
 
-    // Read directly from the widget instead of a detached member variable
-    double currentCellSize = targetCellSizeSpin->value();
-
-    if (currentCellSize > 0.0) {
-        currentCellSize *= scaleRatio;
-        targetCellSizeSpin->blockSignals(true);
-        targetCellSizeSpin->setValue(currentCellSize);
-        targetCellSizeSpin->blockSignals(false);
-    }
+    targetCellSizeSpin->blockSignals(true);
+    targetCellSizeSpin->setValue(scaledCellSize);
+    targetCellSizeSpin->blockSignals(false);
 
     m_previousScaleFactor = scale;
 
@@ -377,7 +378,6 @@ void BlockMeshPage1::onScaleFactorChanged(const QString& text) {
     for (int i = 0; i < 6; ++i) {
         dimSpin[i]->blockSignals(false);
     }
-
     updateCellCount();
 }
 
@@ -392,7 +392,7 @@ void BlockMeshPage1::fitBoundsPressed() {
 }
 
 double BlockMeshPage1::getCurrentScaleFactor(const QString& text) const {
-    // 1. Try to find a perfectly matching dropdown item first
+    // Try to find a perfectly matching dropdown item first
     int index = m_scaleFactorCombo->findText(text);
     if (index != -1) {
         return m_scaleFactorCombo->itemData(index).toDouble();

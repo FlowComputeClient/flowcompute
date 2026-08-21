@@ -1,6 +1,3 @@
-# This file is used to ignore files which are generated
-# ----------------------------------------------------------------------------
-
 *~
 *.autosave
 *.a
@@ -32,43 +29,12 @@ qrc_*.cpp
 Thumbs.db
 *.res
 *.rc
-/.qmake.cache
-/.qmake.stash
-**/.qmlls.ini
 compile_commands.json
 
 # qtcreator generated files
 *.pro.user*
 *.qbs.user*
 CMakeLists.txt.user*
-
-# xemacs temporary files
-*.flc
-
-# Vim temporary files
-.*.swp
-
-# Visual Studio generated files
-*.ib_pdb_index
-*.idb
-*.ilk
-*.pdb
-*.sln
-*.suo
-*.vcproj
-*vcproj.*.*.user
-*.ncb
-*.sdf
-*.opensdf
-*.vcxproj
-*vcxproj.*
-
-# MinGW generated files
-*.Debug
-*.Release
-
-# Python byte code
-*.pyc
 
 # Binaries
 # --------
@@ -82,4 +48,7 @@ CMakeLists.txt.user*
 .rcc/
 .uic/
 /build*/
+out/
+bin/
+site/
 /.qtcreator/

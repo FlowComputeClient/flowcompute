@@ -51,7 +51,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 #else
     setWindowIcon(QIcon(":/images/flowcompute.png"));
 #endif
-    setWindowTitle("FlowCompute 0.8.0 - Visual CFD Made Simple");
+    setWindowTitle("FlowCompute 0.9.0 - Visual CFD Made Simple");
 
     // Set font
     int regularId =
@@ -225,18 +225,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         bool casePresent = true;
         QStringList paths;
         QString casePath = data.casePath + "/" + caseName + "/";
+        m_systemMgr.addCase(caseName, data);
         if (!isServerAvailable) {
+            qDebug() << "SERVER NOT AVAILABLE for case " << caseName;
             if (!m_utilMap.contains(data.openFoamPath)) {
                 m_utilMap[data.openFoamPath] = QMap<QString, bool>();
             }
             log(QString(tr("Server unreachable for case %1.").arg(caseName)));
         } else if (data.targetId ==
                    static_cast<int>(TargetType::REMOTE_LINUX)) {
-            m_systemMgr.addCase(caseName, data);
             casePresent = true;
         } else {
             // Get the files/folders in the case's top-level folder
-            m_systemMgr.addCase(caseName, data);
             paths = m_systemMgr.getSystem(data.targetId)->processPaths(
                 casePath, PathOperationType::CHECK);
 
@@ -347,7 +347,7 @@ MainWindow::~MainWindow() = default;
 void MainWindow::createActions() {
     // Create new case
     m_newCaseAction = new QAction(QIcon(":/images/new_case.png"),
-                                tr("&New Case..."), this);
+                                tr("New Case..."), this);
     m_newCaseAction->setShortcuts(QKeySequence::New);
     m_newCaseAction->setStatusTip(tr("Create a new case folder"));
     connect(m_newCaseAction, &QAction::triggered, this,
@@ -355,7 +355,7 @@ void MainWindow::createActions() {
 
     // Open existing case
     m_openCaseAction = new QAction(QIcon(":/images/open_case.png"),
-                                  tr("&Open Case..."), this);
+                                  tr("Open Case..."), this);
     m_openCaseAction->setShortcuts(QKeySequence::Open);
     m_openCaseAction->setStatusTip(tr("Create a new case folder"));
     connect(m_openCaseAction, &QAction::triggered, this,
@@ -363,7 +363,7 @@ void MainWindow::createActions() {
 
     // Save file
     m_saveFileAction =
-        new QAction(QIcon(":/images/save.png"), tr("&Save"), this);
+        new QAction(QIcon(":/images/save.png"), tr("Save"), this);
     m_saveFileAction->setShortcuts(QKeySequence::Save);
     m_saveFileAction->setStatusTip(tr("Save the file"));
     connect(m_saveFileAction, &QAction::triggered, this, &MainWindow::saveFile);
@@ -371,7 +371,7 @@ void MainWindow::createActions() {
 
     // Upload
     m_uploadAction = new QAction(QIcon(":/images/upload.png"),
-                                  tr("&Upload..."), this);
+                                  tr("Uplo&ad..."), this);
     m_uploadAction->setShortcut(QKeySequence("Ctrl+U"));
     m_uploadAction->setStatusTip(tr("Upload a file or folder"));
     m_uploadAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
@@ -380,7 +380,7 @@ void MainWindow::createActions() {
 
     // Download
     m_downloadAction = new QAction(QIcon(":/images/download.png"),
-                                 tr("&Download..."), this);
+                                 tr("Do&wnload..."), this);
     m_downloadAction->setShortcut(QKeySequence("Ctrl+D"));
     m_downloadAction->setStatusTip(tr("download a file or folder"));
     m_downloadAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
@@ -394,7 +394,7 @@ void MainWindow::createActions() {
     connect(m_exitAction, &QAction::triggered, this, &MainWindow::close);
 
     // Cut
-    m_cutAction = new QAction(QIcon(":/images/cut.png"), tr("Cut"), this);
+    m_cutAction = new QAction(QIcon(":/images/cut.png"), tr("Cu&t"), this);
     m_cutAction->setShortcuts(QKeySequence::Cut);
     m_cutAction->setStatusTip(tr("Cut"));
     connect(m_cutAction, &QAction::triggered, this, [this]() {
@@ -426,7 +426,7 @@ void MainWindow::createActions() {
     });
 
     // Copy
-    m_copyAction = new QAction(QIcon(":/images/copy.png"), tr("Copy"), this);
+    m_copyAction = new QAction(QIcon(":/images/copy.png"), tr("&Copy"), this);
     m_copyAction->setShortcuts(QKeySequence::Copy);
     m_copyAction->setStatusTip(tr("Copy"));
     connect(m_copyAction, &QAction::triggered, this, [this]() {
@@ -452,7 +452,8 @@ void MainWindow::createActions() {
     });
 
     // Paste
-    m_pasteAction = new QAction(QIcon(":/images/paste.png"), tr("Paste"), this);
+    m_pasteAction =
+        new QAction(QIcon(":/images/paste.png"), tr("&Paste"), this);
     m_pasteAction->setShortcuts(QKeySequence::Paste);
     m_pasteAction->setStatusTip(tr("Paste"));
     connect(m_pasteAction, &QAction::triggered, this, [this]() {
@@ -520,7 +521,7 @@ void MainWindow::createActions() {
 
     // Launch mesh execution dialog
     m_runMeshAction = new QAction(QIcon(":/images/run_mesh.png"),
-                                  tr("Run M&esh Utilities"), this);
+                                  tr("Run Mesh &Utilities"), this);
     m_runMeshAction->setStatusTip(tr("Run mesh utilities"));
     connect(m_runMeshAction, &QAction::triggered, this,
             &MainWindow::launchMeshExecutionDialog);
@@ -534,14 +535,14 @@ void MainWindow::createActions() {
 
     // Launch solver configuration dialog
     m_configureSolverAction = new QAction(QIcon(":/images/solver.png"),
-                               tr("&Solver Configuration"), this);
+                               tr("Configure &Simulation"), this);
     m_configureSolverAction->setStatusTip(tr("Configure simulation"));
     connect(m_configureSolverAction, &QAction::triggered, this,
             &MainWindow::launchSolverConfigurationWizard);
 
     // Launch solver execution dialog
     m_runSolverAction = new QAction(QIcon(":/images/run_solver.png"),
-                                  tr("&Run Simulation"), this);
+                                  tr("Ru&n Simulation"), this);
     m_configureSolverAction->setStatusTip(tr("Launch solver"));
     connect(m_runSolverAction, &QAction::triggered, this,
             &MainWindow::launchSolverExecutionDialog);
@@ -556,7 +557,7 @@ void MainWindow::createActions() {
 
     // View result
     m_viewResultAction = new QAction(
-        QIcon(":/images/view_result.png"), tr("View &Result"), this);
+        QIcon(":/images/view_result.png"), tr("View R&esult"), this);
     m_viewResultAction->setStatusTip(tr("View result"));
     connect(m_viewResultAction, &QAction::triggered, this,
             &MainWindow::viewResult);

@@ -1,0 +1,61 @@
+# Project information
+site_name: FlowCompute
+site_description: An open-source, cross-platform graphical desktop client for OpenFOAM
+site_author: FlowCompute Client Team
+site_url: https://flowcomputeclient.github.io/flowcompute/
+
+# Repository integration
+repo_name: FlowComputeClient/flowcompute
+repo_url: https://github.com/FlowComputeClient/flowcompute
+edit_uri: edit/main/docs/
+
+# Theme configuration
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+# Plugins
+plugins:
+  - search
+  - blog:
+      blog_dir: blog
+      post_date_format: full
+      post_url_format: "{date}-{slug}"
+
+# Markdown extensions
+markdown_extensions:
+  - admonition # Allows for warning/info callouts
+  - pymdownx.details # Collapsible sections
+  - pymdownx.superfences # Advanced code blocks
+  - pymdownx.tabbed: # Tabbed code blocks (great for Windows vs. Linux instructions)
+      alternate_style: true 
+  - tables
+  - attr_list
+
+# Navigation structure
+nav:
+  - Home: index.md
+  - Blog: blog/index.md
+  - User Guide:
+      - Installation: user-guide/installation.md
+      - Interface Overview: user-guide/interface.md

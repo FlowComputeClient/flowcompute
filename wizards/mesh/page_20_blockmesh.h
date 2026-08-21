@@ -56,11 +56,13 @@ private:
     std::array<QLineEdit*, 3> cellCountEdits, actualSizeEdits;
     QLineEdit *cellCountTotalEdit, *maxAspectRatioEdit;
 
+    double m_baseCellSize;
     double m_previousScaleFactor = 1.0;
     double getCurrentScaleFactor(const QString& text) const;
 
 private slots:
     void fitBoundsPressed();
+    void onTargetCellSizeEdited();
     void onScaleFactorChanged(const QString& text);
 };
 
