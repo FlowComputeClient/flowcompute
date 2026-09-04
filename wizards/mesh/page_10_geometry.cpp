@@ -30,17 +30,15 @@
 
 // Introduction page asks for the case name and platform
 GeometryPage::GeometryPage(const QString& caseName,
-    const SystemManager& systemMgr, QWidget *parent):
-    m_caseName(caseName), m_systemMgr(systemMgr), QWizardPage(parent) {
+                           const SystemManager& systemMgr, QWidget *parent):
+    QWizardPage(parent), m_caseName(caseName), m_systemMgr(systemMgr) {
 
-    // Set title and style
     setTitle(tr("Overall Mesh Configuration"));
 
-    // Create a grid layout with two columns
     QGridLayout* layout = new QGridLayout(this);
     layout->setSpacing(20);
 
-    // Get selected case
+    // Case selection
     layout->addWidget(new QLabel(tr("Select the OpenFOAM case:")), 0, 0);
     m_caseCombo = new QComboBox(this);
     m_caseCombo->addItems(m_systemMgr.getCases());
@@ -49,51 +47,67 @@ GeometryPage::GeometryPage(const QString& caseName,
     connect(m_caseCombo, &QComboBox::currentTextChanged, this,
             &GeometryPage::caseChanged);
 
-    // Select one or more geometry files
+    // Geometry selection
     layout->addWidget(new QLabel(tr("Select one or more geometry files:")), 1,
                       0, Qt::AlignTop);
     m_geometryList = new QListWidget(this);
     m_geometryList->setMaximumHeight(100);
     layout->addWidget(m_geometryList, 1, 1);
 
-    // Select meshing stages
+    // Meshing Stages
     QGroupBox* stageBox = new QGroupBox(tr("Mesh Stage Selection"), this);
     layout->addWidget(stageBox, 2, 0, 1, 2);
-    QVBoxLayout* stageLayout = new QVBoxLayout(stageBox);
 
-    // Create description label
+    QVBoxLayout* stageLayout = new QVBoxLayout(stageBox);
+    stageLayout->setContentsMargins(10, 20, 10, 10);
+    stageLayout->setSpacing(10);
     stageLayout->addWidget(new QLabel(tr("Select meshing stages:")));
 
-    // Create checkable label
+    // Nested layout to indent only the checkboxes by 20 pixels
+    QVBoxLayout* checkLayout = new QVBoxLayout();
+    checkLayout->setContentsMargins(20, 10, 0, 10);
+    checkLayout->setSpacing(15);
+    stageLayout->addLayout(checkLayout);
+
     m_blockMeshCheck = new QCheckBox(tr("Create base mesh (blockMesh)"), this);
-    stageLayout->addWidget(m_blockMeshCheck);
     m_blockMeshCheck->setChecked(true);
+    checkLayout->addWidget(m_blockMeshCheck);
+
     m_extractCheck = new QCheckBox(tr("Extract surface features "
                                       "(surfaceFeatureExtract)"), this);
-    stageLayout->addWidget(m_extractCheck);
     m_extractCheck->setChecked(true);
+    checkLayout->addWidget(m_extractCheck);
+
+    // Fixed the missing opening parenthesis
     m_castellatedCheck = new QCheckBox(tr("Run castellated mesh "
-                                          "snappyHexMesh - phase 1)"), this);
-    stageLayout->addWidget(m_castellatedCheck);
+                                          "(snappyHexMesh - phase 1)"), this);
     m_castellatedCheck->setChecked(true);
+    checkLayout->addWidget(m_castellatedCheck);
+
     m_snapCheck = new QCheckBox(tr("Run surface snapping "
                                    "(snappyHexMesh - phase 2)"), this);
-    stageLayout->addWidget(m_snapCheck);
     m_snapCheck->setChecked(true);
+    checkLayout->addWidget(m_snapCheck);
+
     m_layersCheck = new QCheckBox(tr("Run boundary layer addition "
                                      "(snappyHexMesh - phase 3)"), this);
-    stageLayout->addWidget(m_layersCheck);
     m_layersCheck->setChecked(true);
+    checkLayout->addWidget(m_layersCheck);
 
-    // Register case name
+    // Add stretch to the bottom
+    layout->setRowStretch(3, 1);
+
+    // Registration
     registerField("caseName", m_caseCombo, "currentText");
+}
 
-    // Set the page layout
-    setLayout(layout);
+GeometryPage::~GeometryPage() {
+    if (m_caseCombo) {
+        m_caseCombo->blockSignals(true);
+    }
 }
 
 void GeometryPage::initializePage() {
-
     // Get cases
     meshWizard = qobject_cast<MeshWizard*>(this->wizard());
 
@@ -103,7 +117,6 @@ void GeometryPage::initializePage() {
 
 // Populate list of geometry files based on selected case
 void GeometryPage::caseChanged(const QString& caseName) {
-
     // Clear list widget
     m_geometryList->clear();
 
@@ -147,12 +160,16 @@ void GeometryPage::caseChanged(const QString& caseName) {
 
 bool GeometryPage::validatePage() {
 
+    qDebug() << "validate: 0";
+
     // Update wizard
     meshWizard->m_runBlockMesh = m_blockMeshCheck->isChecked();
     meshWizard->m_runExtract = m_extractCheck->isChecked();
     meshWizard->m_runCastellated = m_castellatedCheck->isChecked();
     meshWizard->m_runSnap = m_snapCheck->isChecked();
     meshWizard->m_runLayers = m_layersCheck->isChecked();
+
+    qDebug() << "validate: 1";
 
     // Set case name
     m_caseName = m_caseCombo->currentText();
@@ -172,6 +189,8 @@ bool GeometryPage::validatePage() {
     } else {
         m_geometryFiles.sort();
     }
+
+    qDebug() << "validate: 2";
 
     return meshWizard->loadParseFiles();
 }

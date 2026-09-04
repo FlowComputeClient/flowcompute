@@ -28,17 +28,14 @@
 #include <QProgressDialog>
 
 #include <memory>
-#include <string>
-#include <vector>
 #include <utility>
 
-#include "dialogs/preferences/preferences_dialog.h"
 #include "dialogs/run_mesh/run_mesh_dialog.h"
 #include "dialogs/run_solver/run_solver_dialog.h"
 #include "dialogs/selection/selection_dialog.h"
 #include "editors/graphical/surface/surface_editor.h"
 #include "editors/graphical/mesh/mesh_editor.h"
-#include "editors/graphical/result/result_editor.h"
+// #include "editors/graphical/result/result_editor.h"
 #include "geometry/stl/stl_reader.h"
 #include "geometry/obj/obj_reader.h"
 #include "parser/boundary.h"
@@ -51,15 +48,14 @@
 
 // Launch new case wizard
 void MainWindow::newCase() {
-    auto* wizard = new NewCaseWizard(m_systemMgr, this);
-    wizard->setAttribute(Qt::WA_DeleteOnClose);
+    NewCaseWizard wizard(m_systemMgr, this);
 
-    // Connect the wizard's signal to create a new case
-    connect(wizard, &NewCaseWizard::requestCaseCreation,
+    // Connect case-creation signal
+    connect(&wizard, &NewCaseWizard::requestCaseCreation,
             this, &MainWindow::createCase);
 
     // Open it modally
-    wizard->exec();
+    wizard.exec();
 }
 
 // Open an existing case
@@ -110,6 +106,161 @@ void MainWindow::openCase() {
     wizard.exec();
 }
 
+// Respond when a file/folder is renamed
+void MainWindow::renameFile(const QString& filePath, const QString& newName) {
+    // Get filename
+    int lastSlash = filePath.lastIndexOf('/');
+    bool isCase = lastSlash == -1;
+
+    // Update the caseMap if necessary   
+    QString newPath;
+    if (isCase) {
+        m_systemMgr.renameCase(filePath, newName);
+        newPath = newName;
+    } else {
+        newPath = filePath.left(lastSlash) + "/" + newName;
+    }
+
+    // Access QSettings
+    QSettings settings;
+    settings.beginGroup("Tabs");
+    QStringList tabOrder = settings.value("tabOrder").toStringList();
+
+    // Iterate through tabs
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        const QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
+
+        // Match tabs belonging to the renamed case
+        if (tabPath.startsWith(filePath + "/") || tabPath == filePath) {
+
+            // Update path in tab widget
+            QString newTabPath = newPath + tabPath.mid(filePath.size());
+            m_tabWidget->tabBar()->setTabData(i, newTabPath);
+
+            // Update tab that displays the case name and (mesh) or (result)
+            QString tabText = m_tabWidget->tabText(i);
+            if (isCase && (tabText.startsWith(filePath + " ("))) {
+                QString newTabText = newName + tabText.mid(filePath.size());
+                m_tabWidget->setTabText(i, newTabText);
+            }
+
+            // Update tab for a renamed file
+            if (!isCase && (tabPath == filePath)) {
+                m_tabWidget->setTabText(i, newName);
+            }
+
+            // Update tabMap
+            auto it = m_tabMap.find(tabPath);
+            if (it != m_tabMap.end()) {
+                TabData tabData = it.value();
+                m_tabMap.erase(it);
+                m_tabMap.insert(newTabPath, tabData);
+
+                // Write the data to the new subgroup
+                settings.beginGroup(newTabPath);
+                settings.setValue("type", static_cast<int>(tabData.type));
+                settings.endGroup();
+            }
+
+            // Update the order list in memory
+            int orderIndex = tabOrder.indexOf(tabPath);
+            if (orderIndex != -1) {
+                tabOrder.replace(orderIndex, newTabPath);
+            }
+
+            // Remove the old subgroup
+            settings.remove(tabPath);
+        }
+    }
+
+    // Save the tab order list to disk
+    if (tabOrder.isEmpty()) {
+        settings.remove("tabOrder");
+    } else {
+        settings.setValue("tabOrder", tabOrder);
+    }
+    settings.endGroup();
+
+    // Update flags if needed
+    if (!isCase) {
+        m_systemMgr.updateFlags(filePath.split("/")[0]);
+    }
+}
+
+// Respond when a file/folder is removed
+void MainWindow::removeFile(const QString& filePath, bool isCase) {
+    // Destroy tabs containing files in the deleted case
+    for (int i = m_tabWidget->count() - 1; i >= 0; --i) {
+        QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
+        if (tabPath.startsWith(filePath + "/") || tabPath == filePath) {
+            // Tells the tabwidget to destroy tab - updates settings
+            m_tabWidget->destroyTab(i, true);
+        }
+    }
+
+    // Remove case from system manager and QSettings
+    if (isCase) {
+        m_systemMgr.removeCase(filePath);
+    } else {
+        QString caseName = filePath.split("/")[0];
+        m_systemMgr.updateFlags(caseName);
+    }
+}
+
+void MainWindow::cutPasteFile(const QString& oldPath, const QString& newPath) {
+    // Access QSettings
+    QSettings settings;
+    settings.beginGroup("Tabs");
+    QStringList tabOrder = settings.value("tabOrder").toStringList();
+
+    // Iterate through tabs
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        const QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
+
+        // Match tabs belonging to the old path
+        if (tabPath.startsWith(oldPath + "/") || tabPath == oldPath) {
+
+            // Update path in tab widget
+            QString newTabPath = newPath + tabPath.mid(oldPath.size());
+            m_tabWidget->tabBar()->setTabData(i, newTabPath);
+
+            // Update tabMap
+            auto it = m_tabMap.find(tabPath);
+            if (it != m_tabMap.end()) {
+                TabData tabData = it.value();
+                m_tabMap.erase(it);
+                m_tabMap.insert(newTabPath, tabData);
+
+                // Write the data to the new subgroup
+                settings.beginGroup(newTabPath);
+                settings.setValue("type", static_cast<int>(tabData.type));
+                settings.endGroup();
+            }
+
+            // Update the order list in memory
+            int orderIndex = tabOrder.indexOf(tabPath);
+            if (orderIndex != -1) {
+                tabOrder.replace(orderIndex, newTabPath);
+            }
+
+            // Remove the old subgroup
+            settings.remove(tabPath);
+        }
+    }
+
+    // Save the tab order list to disk
+    if (tabOrder.isEmpty()) {
+        settings.remove("tabOrder");
+    } else {
+        settings.setValue("tabOrder", tabOrder);
+    }
+    settings.endGroup();
+
+    // Update flags for the old and new cases
+    m_systemMgr.updateFlags(oldPath.split("/")[0]);
+    m_systemMgr.updateFlags(newPath.split("/")[0]);
+}
+
 QString MainWindow::checkOpenFoam(int targetId) {
     // Determine OpenFOAM installation
     QStringList ofList = m_systemMgr.getSystem(targetId)->findOpenFoam();
@@ -128,12 +279,18 @@ QString MainWindow::checkOpenFoam(int targetId) {
 }
 
 // Create new case folder
-void MainWindow::createCase(QString caseName, QString casePath,
-        QStringList caseFiles, int targetId, QString openFoamPath,
-        QString userName, QString hostName, int port) {
+void MainWindow::createCase(const QString& caseName, const QString& casePath,
+    const QStringList& caseFiles, int targetId, const QString& openFoamPath,
+    CaseFlags flag, const QString& userName, const QString& hostName, int port)
+    {
     // Add case to map
     m_systemMgr.addCase(caseName, CaseData{casePath, caseFiles, targetId,
-        openFoamPath, userName, hostName, port});
+        openFoamPath, flag, userName, hostName, port});
+
+    // Update flags
+    if (flag == CaseFlag::NotChecked) {
+        flag = m_systemMgr.updateFlags(caseName, casePath);
+    }
 
     // Update utility map if necessary
     if (!m_utilMap.contains(openFoamPath)) {
@@ -146,353 +303,550 @@ void MainWindow::createCase(QString caseName, QString casePath,
     m_navigator->expandCase(caseName);
 
     // Update QSettings
-    saveCases();
+    QSettings settings;
+    settings.beginGroup("Cases");
+
+    // Get the order
+    QStringList caseOrder = settings.value("caseOrder").toStringList();
+    if (!caseOrder.contains(caseName)) {
+        caseOrder.append(caseName);
+        settings.setValue("caseOrder", caseOrder);
+    }
+
+    // Write the new case data into a new group
+    settings.beginGroup(caseName);
+    settings.setValue("casePath", casePath);
+    settings.setValue("targetSystemId", targetId);
+    settings.setValue("openFoamPath", openFoamPath);
+
+    if (targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
+        settings.setValue("userName", userName);
+        settings.setValue("hostName", hostName);
+        settings.setValue("port", port);
+    }
+
+    settings.endGroup();
+    settings.endGroup();
 }
 
-void MainWindow::saveCases() {
-    // Access settings
+// Respond to changing tab
+void MainWindow::tabChanged(int index) {
+    if (m_currentEditor) {
+        m_currentEditor->disconnect(m_cutAction);
+        m_currentEditor->disconnect(m_copyAction);
+        m_currentEditor->document()->disconnect(m_undoAction);
+        m_currentEditor->document()->disconnect(m_redoAction);
+        m_currentEditor = nullptr;
+    }
+
+    // Default states for non-text tabs
+    m_undoAction->setEnabled(false);
+    m_redoAction->setEnabled(false);
+    m_cutAction->setEnabled(false);
+    m_copyAction->setEnabled(false);
+
+    if (index < 0)
+        return;
+
+    QString tabPath = m_tabWidget->tabBar()->tabData(index).toString();
+    if (!m_tabMap.contains(tabPath))
+        return;
+
+    QWidget* currentWidget = m_tabWidget->widget(index);
+    if (!currentWidget) return;
+
+    // Perform operations based on the type
+    if (TextWidget* textWidget = qobject_cast<TextWidget*>(currentWidget)) {
+        m_currentEditor = textWidget;
+
+        // Access statistics
+        QString caseName = tabPath.split("/")[0];
+        QString fullPath =
+            m_systemMgr.getData(caseName).casePath + "/" + tabPath;
+        auto newStats = m_systemMgr.getSystem(caseName)->getFileStats(fullPath);
+
+        // Compare new and old statistics
+        auto oldStats = m_tabMap[tabPath].stats;
+        if (newStats.has_value()) {
+            if (oldStats.has_value()) {
+                if ((newStats->mtime > oldStats->mtime) ||
+                    (newStats->size != oldStats->size))
+                    textWidget->showBanner();
+            } else {
+                m_tabMap[tabPath].stats = newStats;
+            }
+        }
+
+        // Sync UI state for the text editor
+        m_undoAction->setEnabled(textWidget->document()->isUndoAvailable());
+        m_redoAction->setEnabled(textWidget->document()->isRedoAvailable());
+
+        bool hasSelection = textWidget->editor()->textCursor().hasSelection();
+        m_cutAction->setEnabled(hasSelection);
+        m_copyAction->setEnabled(hasSelection);
+
+        // Connect state-change signals
+        connect(textWidget->document(), &QTextDocument::undoAvailable,
+                m_undoAction, &QAction::setEnabled);
+        connect(textWidget->document(), &QTextDocument::redoAvailable,
+                m_redoAction, &QAction::setEnabled);
+
+        connect(textWidget->editor(), &TextEditor::copyAvailable,
+                m_cutAction, &QAction::setEnabled);
+        connect(textWidget->editor(), &TextEditor::copyAvailable,
+                m_copyAction, &QAction::setEnabled);
+    }
+}
+
+// Respond when a tab is closed
+void MainWindow::tabClosed(const QString& tabPath) {
+    // Remove tab from tab map
+    m_tabMap.remove(tabPath);
+
+    // Update settings
     QSettings settings;
+    settings.beginGroup("Tabs");
 
-    // Save cases to settings
-    settings.remove("Cases");
-    settings.beginWriteArray("Cases");
-    QStringList cases = m_navigator->getCases();
-
-    // Iterate through cases
-    for (int i = 0; i < cases.size(); ++i) {
-        settings.setArrayIndex(i);
-        QString caseName = cases.at(i);
-        CaseData data = m_systemMgr.getData(caseName);
-
-        // Save values to settings
-        settings.setValue("caseName", caseName);
-        settings.setValue("casePath", data.casePath);
-        settings.setValue("caseFiles", data.caseFiles);
-        settings.setValue("targetSystemId", data.targetId);
-        settings.setValue("openFoamPath", data.openFoamPath);
-
-        // Save credentials if necessary
-        if (data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
-            settings.setValue("userName", data.userName);
-            settings.setValue("hostName", data.hostName);
-            settings.setValue("port", data.port);
-            m_systemMgr.setDefaultHost(data.hostName);
-            m_systemMgr.setDefaultUser(data.userName);
+    // Remove tab from order list
+    QStringList tabOrder = settings.value("tabOrder").toStringList();
+    if (tabOrder.removeOne(tabPath)) {
+        if (tabOrder.isEmpty()) {
+            settings.remove("tabOrder");
+        } else {
+            settings.setValue("tabOrder", tabOrder);
         }
     }
-    settings.endArray();
+
+    // Remove the tab subgroup
+    settings.remove(tabPath);
+    settings.endGroup();
 }
 
-// Create an editor for the given file
-void MainWindow::createEditor(EditorType type, QString& fileName,
-        const QString& fullPath, bool logMessage) {
-    // Check for existing editor
+// Respond when the user presses the Reload button to update editor
+void MainWindow::updateTab() {
+    // Determine the target widget
+    TextWidget* targetWidget = qobject_cast<TextWidget*>(sender());
+
+    // Default to the active tab
+    if (!targetWidget)
+        targetWidget = qobject_cast<TextWidget*>(m_tabWidget->currentWidget());
+    if (!targetWidget)
+        return;
+
+    // Prevent silent overwriting of local changes
+    if (targetWidget->editor()->document()->isModified()) {
+        QMessageBox::StandardButton reply = QMessageBox::warning(this,
+             tr("Unsaved Changes"),
+             tr("This file has unsaved local changes. Reloading will discard"
+                " them.\n\nDo you want to proceed?"),
+             QMessageBox::Yes | QMessageBox::No);
+        if (reply == QMessageBox::No) {
+            return;
+        }
+    }
+
+    // Find the widget in the tab map
+    int tabIndex = m_tabWidget->indexOf(targetWidget);
+    if (tabIndex == -1) {
+        return;
+    }
+
+    // Extract the fullPath safely
+    QString fullPath = m_tabWidget->tabBar()->tabData(tabIndex).toString();
+    QString caseName = fullPath.split("/")[0];
+
+    // Reconstruct the correct server path
+    CaseData caseData = m_systemMgr.getData(caseName);
+    QString serverPath = caseData.casePath + "/" + fullPath;
+
+    // Fetch data and update UI
+    auto newData =
+        m_systemMgr.getSystem(caseName)->getFileContentAndStats(serverPath);
+    if (newData.has_value()) {
+        m_tabMap[fullPath].stats = newData->stats;
+        targetWidget->editor()->setTextData(newData->content);
+
+        // Reset modified state since it now matches the server perfectly
+        targetWidget->editor()->document()->setModified(false);
+        targetWidget->hideBanner();
+    } else {
+        log(tr("Failed to reload file: %1").arg(fullPath));
+    }
+}
+
+// Update the QSettings with tab data
+void updateTabSettings(const QString& tabPath, const TabData& tabData) {
+    QSettings settings;
+    settings.beginGroup("Tabs");
+
+    // Update the tab list
+    QStringList tabOrder = settings.value("tabOrder").toStringList();
+    if (!tabOrder.contains(tabPath)) {
+        tabOrder.append(tabPath);
+        settings.setValue("tabOrder", tabOrder);
+    }
+
+    // Write tab data
+    settings.beginGroup(tabPath);
+    settings.setValue("type", static_cast<int>(tabData.type));
+    settings.endGroup();
+    settings.endGroup();
+}
+
+// Check if there's already an editor open
+bool MainWindow::checkExistingEditor(const QString& fullPath) {
+    QString tabPath;
     for (int i = 0; i < m_tabWidget->count(); ++i) {
-        QString tabName = m_tabWidget->tabText(i);
-        EditorType tabType = m_tabMap[tabName].type;
-        QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
-        if (tabName.startsWith(fileName) && tabPath == fullPath &&
-            type == tabType) {
+        tabPath = m_tabWidget->tabBar()->tabData(i).toString();
+        if (tabPath == fullPath) {
+            m_tabWidget->setCurrentIndex(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+// Create text editor
+void MainWindow::createTextEditor(const QString& fileName,
+                                  const QString& fullPath, bool logMessage) {
+    // Check existing editor
+    if (checkExistingEditor(fullPath))
+        return;
+
+    // Get case data
+    QString caseName = fullPath.split('/').first();
+    CaseData caseData = m_systemMgr.getData(caseName);
+    QString casePath = caseData.casePath + "/" + caseName;
+    QString path = caseData.casePath + "/" + fullPath;
+
+    // Access data - remove tab if file isn't present
+    std::optional<FileDataAndStats> data =
+        m_systemMgr.getSystem(caseName)->getFileContentAndStats(path);
+    if (!data) {
+        log(tr("Failed to load file: %1").arg(fullPath));
+        tabClosed(fullPath);
+        return;
+    }
+
+    // Update tab map and settings
+    TabData tabData;
+    tabData.type = EditorType::TEXT;
+    tabData.stats = data.value().stats;
+    m_tabMap.insert(fullPath, tabData);
+    updateTabSettings(fullPath, tabData);
+
+    // Update log
+    if (logMessage)
+        m_console->appendPlainText(tr("Opening %1\n").arg(path));
+
+    // Create editor
+    TextWidget* textWidget = new TextWidget(this);
+    textWidget->editor()->setFont(m_font);
+    textWidget->editor()->setTextData(data.value().content);
+    textWidget->editor()->applyTheme(m_textTheme);
+
+    // Update tab widget
+    int tabIndex = m_tabWidget->addTab(textWidget, fileName);
+    m_tabWidget->setCurrentIndex(tabIndex);
+    m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+
+    connect(textWidget, &TextWidget::reloadRequested, this,
+            &MainWindow::updateTab);
+    connect(textWidget->editor(), &TextEditor::dirtyStateChanged, this,
+        [this, textWidget](bool isDirty) {
+            onDirtyStateChanged(isDirty, textWidget);
+        });
+    connect(this, &MainWindow::textThemeChanged,
+            textWidget->editor(), &TextEditor::applyTheme);
+}
+
+// Open editor to display surfaces
+void MainWindow::createSurfaceEditor(const QString& fileName,
+                                  const QString& fullPath, bool logMessage) {
+    // Check existing editor
+    if (checkExistingEditor(fileName))
+        return;
+
+    // Get case data
+    QString caseName = fullPath.split('/').first();
+    CaseData caseData = m_systemMgr.getData(caseName);
+    QString casePath = caseData.casePath + "/" + caseName;
+    QString path = caseData.casePath + "/" + fullPath;
+    QString openFoamPath = caseData.openFoamPath;
+
+    // Read model data
+    bool isBinary = false;
+    RenderData model;
+
+    // Access data - remove tab if file isn't present
+    std::optional<QByteArray> data =
+        m_systemMgr.getSystem(caseName)->getFileContent(path);
+    if (!data) {
+        log(tr("Failed to load file: %1").arg(fullPath));
+        tabClosed(fullPath);
+        return;
+    }
+
+    // Display warning if geometry file is empty
+    if (data.value().isEmpty()) {
+        QMessageBox::warning(this, tr("Empty Geometry"), tr("The file '%1' "
+            "contains no geometry data and cannot be rendered.").arg(fileName));
+        log(tr("Failed to open empty geometry file: %1").arg(fullPath));
+        return;
+    }
+
+    // Open geometry file
+    if (fileName.endsWith(".stl", Qt::CaseInsensitive)) {
+        std::pair<RenderData, bool> res =
+            StlReader::readStlFile(fileName, data.value());
+        model = res.first;
+        isBinary = res.second;
+    } else if (fileName.endsWith(".obj", Qt::CaseInsensitive)) {
+        model = ObjReader::readObjFile(fileName, data.value());
+    }
+    std::shared_ptr<RenderData> modelData =
+        std::make_shared<RenderData>(std::move(model));
+
+    // Update tab map and settings
+    TabData tabData;
+    tabData.type = EditorType::SURFACE;
+    m_tabMap.insert(fullPath, tabData);
+    updateTabSettings(fullPath, tabData);
+
+    // Update log
+    if (logMessage)
+        m_console->appendPlainText(tr("Reading %1\n").arg(path));
+
+    // Create new surface editor
+    SurfaceEditor* surfaceEditor = new SurfaceEditor(m_systemMgr, caseName,
+        path, modelData, &m_vulkanInstance, isBinary, this);
+    surfaceEditor->applyTheme(m_graphicalTheme);
+    int tabIndex = m_tabWidget->addTab(surfaceEditor, fileName);
+    m_tabWidget->setCurrentIndex(tabIndex);
+    m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+
+    // Action default configurations
+    m_undoAction->setDisabled(true);
+    m_redoAction->setDisabled(true);
+    m_saveFileAction->setDisabled(true);
+
+    connect(surfaceEditor, &SurfaceEditor::surfacePatchRequested,
+            this, &MainWindow::runSurfacePatch);
+    connect(surfaceEditor, &SurfaceEditor::surfaceCheckRequested,
+            this, &MainWindow::runSurfaceCheck);
+    connect(surfaceEditor, &SurfaceEditor::surfaceScaleRequested,
+            this, &MainWindow::runSurfaceScale);
+    connect(this, &MainWindow::graphicalThemeChanged,
+            surfaceEditor, &SurfaceEditor::applyTheme);
+}
+
+// Open editor to display meshes
+void MainWindow::createMeshEditor(const QString& caseName, bool logMessage) {
+    // Check existing editor
+    QString fullPath = caseName + "/__mesh__";
+    if (checkExistingEditor(fullPath))
+        return;
+
+    // Get case data
+    CaseData caseData = m_systemMgr.getData(caseName);
+    QString casePath = caseData.casePath + "/" + caseName;
+    QString openFoamPath = caseData.openFoamPath;
+
+    // Update tab map and settings
+    TabData tabData;
+    tabData.type = EditorType::MESH;
+    m_tabMap.insert(fullPath, tabData);
+    updateTabSettings(fullPath, tabData);
+
+    // Update log
+    if (logMessage)
+        m_console->appendPlainText(tr("Opening %1 (mesh)\n").arg(caseName));
+
+    // Create progress dialog
+    auto* progress =
+        new QProgressDialog("Loading mesh...", QString(), 0, 0, this);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumWidth(300);
+    progress->setAttribute(Qt::WA_DeleteOnClose);
+    progress->show();
+
+    // Create future watcher
+    using RenderDataPtr = std::shared_ptr<RenderData>;
+    auto* watcher = new QFutureWatcher<RenderDataPtr>(this);
+    connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
+    [this, watcher, progress, casePath, caseName, fullPath]() {
+        if (!progress)
+            return;
+
+        // Delete the watcher
+        watcher->deleteLater();
+
+        // Get mesh data
+        progress->close();
+        RenderDataPtr renderData = watcher->result();
+        if (!renderData)
+            return;
+
+        // Create mesh editor
+        auto* meshEditor = new MeshEditor(
+            renderData, casePath, m_systemMgr.getSystem(caseName),
+            m_solverFamilies, m_turbulenceModels, m_fieldData,
+            m_boundaryConditions, &m_vulkanInstance, this);
+        meshEditor->applyTheme(m_graphicalTheme);
+
+        connect(meshEditor, &MeshEditor::updatePath, this,
+                &MainWindow::updatePath);
+        connect(meshEditor, &MeshEditor::meshPatchRequested, this,
+                &MainWindow::runMeshPatch);
+        connect(meshEditor, &MeshEditor::meshCheckRequested, this,
+                &MainWindow::runMeshCheck);
+        connect(meshEditor, &MeshEditor::meshRenumberRequested, this,
+                &MainWindow::runMeshRenumber);
+        connect(this, &MainWindow::graphicalThemeChanged,
+                meshEditor, &MeshEditor::applyTheme);
+
+        QString tabTitle = caseName + " (mesh)";
+        int tabIndex = m_tabWidget->addTab(meshEditor, tabTitle);
+        m_tabWidget->setCurrentIndex(tabIndex);
+        m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+
+        m_undoAction->setDisabled(true);
+        m_redoAction->setDisabled(true);
+        m_saveFileAction->setDisabled(true);
+    });
+
+    // Set future to get mesh data
+    QFuture<std::shared_ptr<RenderData>> future =
+        QtConcurrent::run([this, caseName, casePath]() {
+        return std::make_shared<RenderData>(
+            m_systemMgr.getSystem(caseName)->getMeshData(casePath)
+        );
+    });
+    watcher->setFuture(future);
+}
+
+// Open editor to display results
+void MainWindow::createResultEditor(const QString& caseName, bool logMessage) {
+    // Check existing editor
+    for (int i = 0; i < m_tabWidget->count(); ++i) {
+        if (m_tabWidget->tabBar()->tabData(i).toString() ==
+            caseName + " (results)") {
             m_tabWidget->setCurrentIndex(i);
             return;
         }
     }
 
-    // Get case name
-    QString caseName, timeFolder;
-    if ((type != EditorType::MESH) && (type != EditorType::RESULT)) {
-        caseName = fullPath.split('/').first();
-    } else {
-        int pos = fileName.indexOf(" (");
-        if (pos != -1) {
-            if (type == EditorType::RESULT) {
-                QString number = fileName.mid(pos + 9);
-                number.chop(1);
-                bool ok;
-                int timeVal = number.toInt(&ok);
-                timeFolder = (ok) ? QString::number(timeVal) : "";
-            }
-            fileName.truncate(pos);
-        }
-        caseName = fileName;
-    }
-
-    // Access case data
+    // Get case data
     CaseData caseData = m_systemMgr.getData(caseName);
-    int targetId = caseData.targetId;
     QString casePath = caseData.casePath + "/" + caseName;
-    QString path;
-    if (fullPath.isEmpty()) {
-        path = caseData.casePath + "/" + fileName;
-    } else {
-        path = caseData.casePath + "/" + fullPath + "/" + fileName;
-    }
-
     QString openFoamPath = caseData.openFoamPath;
+
+    // Update tab map and settings
     TabData tabData;
-    tabData.fullPath = fullPath;
-    tabData.type = type;
+    tabData.type = EditorType::RESULT;
+    m_tabMap.insert(caseName + " (result)", tabData);
+    updateTabSettings(caseName + " (result)", tabData);
 
     // Update log
-    QString append;
-    if (type == EditorType::MESH) {
-        append = "(mesh)";
-    }
     if (logMessage)
-        m_console->appendPlainText(tr("Reading %1 %2\n").arg(path, append));
+        m_console->appendPlainText(tr("Opening %1 (result)\n").arg(caseName));
 
-    // Text editor
-    if (type == EditorType::TEXT) {
-        TextEditor* textEditor = new TextEditor(this);
-        textEditor->setFont(m_font);
-
-        QByteArray data = m_systemMgr.getSystem(caseName)->getFileContent(path);
-        textEditor->setTextData(data);
-        textEditor->applyTheme(m_textTheme);
-
-        int tabIndex = m_tabWidget->addTab(textEditor, fileName);
-        m_tabWidget->setCurrentIndex(tabIndex);
-        m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
-
-        // Undo/redo actions
-        connect(textEditor->document(), &QTextDocument::undoAvailable,
-            m_undoAction, &QAction::setEnabled);
-        connect(textEditor->document(), &QTextDocument::redoAvailable,
-            m_redoAction, &QAction::setEnabled);
-
-        /*
-        // Cut/copy/paste actions
-        connect(textEditor, &QPlainTextEdit::copyAvailable, m_cutAction,
-            &QAction::setEnabled);
-        connect(textEditor, &QPlainTextEdit::copyAvailable, m_copyAction,
-            &QAction::setEnabled);
-        connect(QGuiApplication::clipboard(),
-                &QClipboard::dataChanged, this, [this]() {
-            m_pasteAction->setEnabled(
-                QGuiApplication::clipboard()->mimeData()->hasText());
-        });
-        connect(m_cutAction, &QAction::triggered, textEditor,
-                &QPlainTextEdit::cut);
-        connect(m_copyAction, &QAction::triggered, textEditor,
-                &QPlainTextEdit::copy);
-        connect(m_pasteAction, &QAction::triggered, textEditor,
-                &QPlainTextEdit::paste);
-        */
-
-        connect(textEditor, &TextEditor::dirtyStateChanged, this,
-            [this, textEditor](bool isDirty) {
-                onDirtyStateChanged(isDirty, textEditor);
-            });
-
-        // Track immediately for synchronous tabs
-        m_tabMap.insert(fileName, tabData);
+    // Read time folders and field files
+    auto [timeFolders, fieldFiles] =
+        m_systemMgr.getSystem(caseName)->getTimesAndFields(casePath);
+    if (timeFolders.isEmpty()) {
+        qWarning() << "Couldn't find any time folders";
+        return;
+    }
+    if (fieldFiles.isEmpty()) {
+        qWarning() << "Couldn't find any field files";
         return;
     }
 
-    // Surface editor
-    if (type == EditorType::SURFACE) {
-        bool isBinary = false;
-        RenderData model;
-        QByteArray data;
-        if (fileName.endsWith(".stl", Qt::CaseInsensitive)) {
-            data = m_systemMgr.getSystem(caseName)->getFileContent(path);
-            std::pair<RenderData, bool> res =
-                StlReader::readStlFile(fileName, data);
-            model = res.first;
-            isBinary = res.second;
-        } else if (fileName.endsWith(".obj", Qt::CaseInsensitive)) {
-            data = m_systemMgr.getSystem(caseName)->getFileContent(path);
-            model = ObjReader::readObjFile(fileName, data);
-        }
-        std::shared_ptr<RenderData> modelData =
-            std::make_shared<RenderData>(std::move(model));
+    // Create dialog to select field
+    SelectionDialog selectionDialog(tr("Field Selection"),
+        tr("Select one of the following fields to be displayed:"),
+        fieldFiles, this);
+    if (selectionDialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    QString selectedField = selectionDialog.getSelectedItem();
+    QString timeFolder;
+    /*
+    if (fullPath.isEmpty()) {
+        timeFolder = timeFolders.last();
+    } else {
+        timeFolder = fullPath;
+    }
+    */
 
-        SurfaceEditor* surfaceEditor = new SurfaceEditor(modelData, path,
-                targetId, &m_vulkanInstance, isBinary, this);
-        surfaceEditor->applyTheme(m_graphicalTheme);
-        int tabIndex = m_tabWidget->addTab(surfaceEditor, fileName);
+    // Create progress dialog
+    auto* progress =
+        new QProgressDialog("Loading mesh...", QString(), 0, 0, this);
+    progress->setWindowModality(Qt::WindowModal);
+    progress->setMinimumWidth(300);
+    progress->setAttribute(Qt::WA_DeleteOnClose);
+    progress->show();
+
+    // Create future watcher
+    using RenderDataPtr = std::shared_ptr<RenderData>;
+    auto* watcher = new QFutureWatcher<RenderDataPtr>(this);
+    connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
+    [this, watcher, progress, casePath, caseName, timeFolders,
+            timeFolder, tabData, selectedField]() {
+        if (!progress)
+            return;
+
+        // Delete the watcher
+        watcher->deleteLater();
+
+        progress->close();
+        RenderDataPtr renderData = watcher->result();
+        if (!renderData)
+            return;
+
+        /*
+        auto* resultEditor = new ResultEditor(timeFolders, timeFolder,
+            renderData, casePath, &m_vulkanInstance, this);
+        resultEditor->applyTheme(m_graphicalTheme);
+        connect(resultEditor, &ResultEditor::timeChanged, this,
+            &MainWindow::updateResult);
+
+        QString tabTitle =
+            caseName + QString(" (%1 @ %2)").arg(selectedField, timeFolder);
+        int tabIndex = m_tabWidget->addTab(resultEditor, tabTitle);
+
         m_tabWidget->setCurrentIndex(tabIndex);
         m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
 
-        // Action default configurations
         m_undoAction->setDisabled(true);
         m_redoAction->setDisabled(true);
         m_saveFileAction->setDisabled(true);
 
-        connect(surfaceEditor, &SurfaceEditor::surfacePatchRequested,
-                this, &MainWindow::runSurfacePatch);
-        connect(surfaceEditor, &SurfaceEditor::surfaceCheckRequested,
-                this, &MainWindow::runSurfaceCheck);
-        connect(surfaceEditor, &SurfaceEditor::surfaceScaleRequested,
-                this, &MainWindow::runSurfaceScale);
-        connect(surfaceEditor, &SurfaceEditor::dirtyStateChanged, this,
-            [this, surfaceEditor](bool isDirty) {
-                onDirtyStateChanged(isDirty, surfaceEditor);
-            });
-
-        m_tabMap.insert(fileName, tabData);
-        return;
-    }
-
-    // Create progress dialog
-    auto* progress = new QProgressDialog(
-        type == EditorType::MESH ? "Loading mesh..." : "Loading Results...",
-        QString(), 0, 0, this);
-    progress->setWindowModality(Qt::WindowModal);
-    progress->setMinimumWidth(300);
-    progress->setAttribute(Qt::WA_DeleteOnClose);
-
-    using RenderDataPtr = std::shared_ptr<RenderData>;
-
-    // Mesh editor
-    if (type == EditorType::MESH) {
-        progress->show();
-        auto* watcher = new QFutureWatcher<RenderDataPtr>(this);
-
-        // Connect watcher to delete itself when finished
-        connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, watcher,
-                &QObject::deleteLater);
-
-        connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
-        [this, watcher, progress, casePath, caseName, fileName, fullPath,
-            tabData]() {
-            if (!progress)
-                return;
-
-            // Get mesh data
-            progress->close();
-            RenderDataPtr renderData = watcher->result();
-            if (!renderData)
-                return;
-
-            /*
-            qDebug() << "renderData->indices.size() = " << renderData->indices.size();
-            qDebug() << "renderData->data.size() = " << renderData->data.size();
-            qDebug() << "renderData->patches.size() = " << renderData->patches.size();
-            qDebug() << "renderData->patches[0].first = " << renderData->patches[0].firstIndex;
-            qDebug() << "renderData->patches[0].count = " << renderData->patches[0].count;
-            */
-
-            // Create mesh editor
-            auto* meshEditor = new MeshEditor(
-                renderData, casePath, m_systemMgr.getSystem(caseName),
-                m_solverFamilies, m_turbulenceModels, m_fieldData,
-                m_boundaryConditions, &m_vulkanInstance, this);
-            meshEditor->applyTheme(m_graphicalTheme);
-
-            connect(meshEditor, &MeshEditor::updatePath, this,
-                    &MainWindow::updatePath);
-            connect(meshEditor, &MeshEditor::meshPatchRequested, this,
-                    &MainWindow::runMeshPatch);
-            connect(meshEditor, &MeshEditor::meshCheckRequested, this,
-                    &MainWindow::runMeshCheck);
-            connect(meshEditor, &MeshEditor::meshRenumberRequested, this,
-                    &MainWindow::runMeshRenumber);
-
-            QString tabTitle = fileName + " (mesh)";
-            int tabIndex = m_tabWidget->addTab(meshEditor, tabTitle);
-            m_tabWidget->setCurrentIndex(tabIndex);
-            m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
-
-            m_undoAction->setDisabled(true);
-            m_redoAction->setDisabled(true);
-            m_saveFileAction->setDisabled(true);
-
-            m_tabMap.insert(tabTitle, tabData);
-        });
-
-        // Set future to get mesh data
-        QFuture<std::shared_ptr<RenderData>> future =
-            QtConcurrent::run([this, caseName, casePath]() {
-            return std::make_shared<RenderData>(
-                m_systemMgr.getSystem(caseName)->getMeshData(casePath)
-            );
-        });
-        watcher->setFuture(future);
-    }
-
-    // Result editor
-    if (type == EditorType::RESULT) {
-        QString resultPath = casePath + "/postProcessing/surfaces";
-        /*
-        QString res =
-            m_systemMgr.getSystem(caseName)->getTimesAndFields(resultPath);
-        if (res.isEmpty()) {
-            qWarning() << "Couldn't find result folders";
-            progress->deleteLater();
-            return;
-        }
-
-        // Set time folders
-        QStringList timeFolders = res.split(',');
-        if (timeFolder.isEmpty())
-            timeFolder = timeFolders.back();
-
-        progress->show();
-        auto* watcher = new QFutureWatcher<RenderDataPtr>(this);
-
-        // Connect watcher to delete itself when finished
-        connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, watcher,
-                &QObject::deleteLater);
-
-        connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
-        [this, watcher, progress, casePath, fileName, fullPath,
-            timeFolders, timeFolder, tabData]() {
-            if (!progress)
-                return;
-
-            progress->close();
-            RenderDataPtr renderData = watcher->result();
-            if (!renderData)
-                return;
-
-            auto* resultEditor = new ResultEditor(timeFolders, timeFolder,
-                renderData, casePath, &m_vulkanInstance, this);
-            resultEditor->applyTheme(m_graphicalTheme);
-            connect(resultEditor, &ResultEditor::timeChanged, this,
-                &MainWindow::updateResult);
-
-            QString tabTitle =
-                fileName + QString(" (result=%1)").arg(timeFolder);
-            int tabIndex = m_tabWidget->addTab(resultEditor, tabTitle);
-
-            m_tabWidget->setCurrentIndex(tabIndex);
-            m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
-
-            m_undoAction->setDisabled(true);
-            m_redoAction->setDisabled(true);
-            m_saveFileAction->setDisabled(true);
-
-            m_tabMap.insert(tabTitle, tabData);
-        });
+        m_tabMap.insert(tabTitle, tabData);
         */
-        /*
-        resultPath = resultPath + "/" + timeFolder;
-        watcher->setFuture(QtConcurrent::run(
-            &MainWindow::loadResultData, this, caseName, resultPath));
-        */
-    }
-}
-
-std::shared_ptr<RenderData> MainWindow::getMeshData(QString caseName,
-        QString casePath) {
-    return std::make_shared<RenderData>(
-        m_systemMgr.getSystem(caseName)->getMeshData(casePath));
+    });
+    QFuture<std::shared_ptr<RenderData>> future =
+        QtConcurrent::run([this, caseName, casePath, selectedField,
+                                    timeFolder]() {
+            return getResultData(caseName, casePath,
+                             selectedField, timeFolder);
+        });
+    watcher->setFuture(future);
 }
 
 // Save file content to server
 void MainWindow::saveFile() {
-    // Remove the " *" to get the map key
-    QString rawTabText = m_tabWidget->tabText(m_tabWidget->currentIndex());
-    QString fileName = rawTabText.remove(" *");
+    int index = m_tabWidget->currentIndex();
+    QString tabId = m_tabWidget->tabBar()->tabData(index).toString();
 
     // Look up data
-    if (m_tabMap.contains(fileName)) {
+    if (m_tabMap.contains(tabId)) {
         // Construct the remote path
-        TabData tabData = m_tabMap[fileName];
-        QString caseName = tabData.fullPath.split("/")[0];
-        QString fullPath = m_systemMgr.getData(caseName).casePath + "/" +
-                           tabData.fullPath + "/" + fileName;
+        TabData tabData = m_tabMap[tabId];
+        QString caseName = tabId.split("/")[0];
+        QString fullPath =
+            m_systemMgr.getData(caseName).casePath + "/" + tabId;
 
         // Save data for text editor
         if (tabData.type == EditorType::TEXT) {
@@ -506,72 +860,12 @@ void MainWindow::saveFile() {
             }
             return;
         }
-
-        // Save data for model editor
-        if (tabData.type == EditorType::SURFACE) {
-            SurfaceEditor* editor =
-                qobject_cast<SurfaceEditor*>(m_tabWidget->currentWidget());
-            if (editor) {
-                QString output;
-                QFileInfo info(fullPath);
-                QString path = info.path();
-                QString fileName = info.fileName();
-
-                // Delete patched file when saved
-                if (editor->isSurfacePatched()) {
-                    // Delete xyz.stl and rename xyz_patched.stl to xyz.stl
-                    QString patchName =
-                        info.completeBaseName() + "_patched." + info.suffix();
-                    QString cmd =
-                        QString("cd %1; rm %2; mv %3 %2; ").
-                        arg(path, fileName, patchName);
-                    if (m_systemMgr.getSystem(caseName)->
-                        launchShortUtility(cmd, output) == 0) {
-                        editor->setSurfaceChanged(false);
-                        onDirtyStateChanged(false, editor);
-                    }
-                }
-
-                // Check if patch names have changed
-                std::vector<std::pair<std::string, std::string>> vec =
-                    editor->getPatchChanges();
-                if (!vec.empty()) {
-                    // Replace old patch names with new patch names
-                    QString cmd = QString("cd %1; sed -i ").arg(path);
-                    for (const auto& change : vec) {
-                        QString oldStr = QString::fromStdString(change.first);
-                        QString newStr = QString::fromStdString(change.second);
-                        cmd += QString("-e 's#%1#%2#g' ").arg(oldStr, newStr);
-                    }
-                    cmd += fileName;
-
-                    // Perform text replacement
-                    if (m_systemMgr.getSystem(caseName)->
-                        launchShortUtility(cmd, output) == 0) {
-                        onDirtyStateChanged(false, editor);
-                    }
-                }
-            }
-            return;
-        }
     }
-}
-
-// Set preferences
-void MainWindow::launchPreferencesDialog() {
-    // Create preferences dialog
-    PreferencesDialog dlg(this);
-    dlg.exec();
-
-    // Get desired theme
-    QString theme = dlg.getTheme();
-    applyTheme(theme + ".json");
 }
 
 // Apply theme to editor content
 void MainWindow::applyTheme(const QString& themeFile) {
     // Access files in the themes folder
-    QString styleText;
     m_themeFile = themeFile;
     QFile file(m_configDir.filePath("themes/" + m_themeFile));
     if (file.open(QIODevice::ReadOnly)) {
@@ -580,34 +874,80 @@ void MainWindow::applyTheme(const QString& themeFile) {
         if (doc.isObject()) {
             QJsonObject rootObj = doc.object();
 
-            // Read stylesheet settings
-            if (rootObj.contains("qt_stylesheet")) {
-                styleText = rootObj["qt_stylesheet"].toString();
+            // Associate style keys with string placeholders
+            const QMap<QString, QString> styleMap = {
+                {"background", "%BACKGROUND%"}, {"pane", "%PANE%"},
+                {"border", "%BORDER%"}, {"text", "%TEXT%"},
+                {"dialog", "%DIALOG%"}, {"tabbar", "%TAB_BAR%"},
+                {"tab", "%TAB%"}, {"selectedTab", "%SELECTED_TAB%"},
+                {"selection", "%SELECTION%"}, {"tabText", "%TAB_TEXT%"},
+                {"selectedText", "%SELECTED_TEXT%"}, {"button", "%BUTTON%"},
+                {"disabledText", "%DISABLED_TEXT%"}, {"input", "%INPUT%"},
+                {"buttonHover", "%BUTTON_HOVER%"}, {"highlight", "%HIGHLIGHT%"},
+                {"buttonPressed", "%BUTTON_PRESSED%"}
+            };
+
+            if (rootObj.contains("widgetPalette")) {
+                QJsonObject styleObj = rootObj["widgetPalette"].toObject();
+
+                // Associate placeholders with theme colors
+                QMap<QString, QString> placeholders;
+                for (auto it = styleMap.constBegin();
+                     it != styleMap.constEnd(); ++it) {
+                    const QString& jsonKey = it.key();
+                    const QString& placeholderToken = it.value();
+
+                    // Extract color, default to magenta
+                    placeholders[placeholderToken] =
+                        styleObj.value(jsonKey).toString("#FF00FF");
+                }
+
+                // Read style string from resource
+                QFile file(":/styles/style_template.qss");
+                QString styleText;
+                if (file.open(QFile::ReadOnly | QFile::Text)) {
+                    QTextStream in(&file);
+                    styleText = in.readAll();
+                    file.close();
+                } else {
+                    qWarning() << "Failed to open style_template.qss resource.";
+                }
+
+                // Use colors to update style text
+                for (auto it = placeholders.constBegin();
+                    it != placeholders.constEnd(); ++it) {
+                    styleText.replace(it.key(), it.value());
+                }
+
+                // Apply updated style
+                QApplication* app = qobject_cast<QApplication*>(qApp);
+                if (app)
+                    app->setStyleSheet(styleText);
             } else {
-                qWarning() << QString("'qt_stylesheet' object is missing"
+                qWarning() << QString("'widgetPalette' object is missing"
                                       "or invalid in %1.").arg(m_themeFile);
             }
 
             // Read text editor settings
-            if (rootObj.contains("text_editor")) {
-                QJsonObject textObj = rootObj["text_editor"].toObject();
+            if (rootObj.contains("textEditor")) {
+                QJsonObject textObj = rootObj["textEditor"].toObject();
 
                 // Extract base editor colors
                 if (textObj.contains("background"))
                     m_textTheme.background =
                         QColor(textObj["background"].toString());
-                if (textObj.contains("gutter_background"))
+                if (textObj.contains("gutterBackground"))
                     m_textTheme.gutterBackground =
-                        QColor(textObj["gutter_background"].toString());
-                if (textObj.contains("line_number_normal"))
+                        QColor(textObj["gutterBackground"].toString());
+                if (textObj.contains("lineNumberNormal"))
                     m_textTheme.lineNumberNormal =
-                        QColor(textObj["line_number_normal"].toString());
-                if (textObj.contains("line_number_active"))
+                        QColor(textObj["lineNumberNormal"].toString());
+                if (textObj.contains("lineNumberActive"))
                     m_textTheme.lineNumberActive =
-                        QColor(textObj["line_number_active"].toString());
-                if (textObj.contains("current_line_highlight"))
+                        QColor(textObj["lineNumberActive"].toString());
+                if (textObj.contains("currentLineHighlight"))
                     m_textTheme.currentLineHighlight =
-                        QColor(textObj["current_line_highlight"].toString());
+                        QColor(textObj["currentLineHighlight"].toString());
 
                 // Extract syntax highlighting rules
                 if (textObj.contains("syntax")) {
@@ -646,19 +986,19 @@ void MainWindow::applyTheme(const QString& themeFile) {
                         parseSyntaxItem(syntaxObj["macro"]);
                 }
             } else {
-                qWarning() << QString("'text_editor' object is missing"
+                qWarning() << QString("'textEditor' object is missing"
                                       "or invalid in %1.").arg(m_themeFile);
             }
 
             // Read graphical editor settings
-            if (rootObj.contains("graphical_editor")) {
+            if (rootObj.contains("graphicalEditor")) {
                 QJsonObject graphicalObj =
-                    rootObj["graphical_editor"].toObject();
+                    rootObj["graphicalEditor"].toObject();
 
                 // Extract graphical editor color
-                if (graphicalObj.contains("viewport_clear")) {
+                if (graphicalObj.contains("viewportClear")) {
                     m_graphicalTheme =
-                        graphicalObj["viewport_clear"].toString();
+                        graphicalObj["viewportClear"].toString();
                 }
             }
         } else {
@@ -670,45 +1010,10 @@ void MainWindow::applyTheme(const QString& themeFile) {
         qWarning() << QString("Failed to open %1 at:" +
                               file.fileName()).arg(m_themeFile);
     }
-    if (!styleText.isEmpty()) {
-        QApplication* app = qobject_cast<QApplication*>(qApp);
-        if (app)
-            app->setStyleSheet(styleText);
-    }
 
     // Apply theme to editors
-    for (int i = 0; i < m_tabWidget->count(); ++i) {
-        QString tabName = m_tabWidget->tabText(i);
-        qDebug() << tabName << ": " << static_cast<int>(m_tabMap[tabName].type);
-        if (m_tabMap.contains(tabName)) {
-            switch (m_tabMap[tabName].type) {
-            case EditorType::TEXT: {
-                TextEditor* textEditor =
-                    qobject_cast<TextEditor*>(m_tabWidget->widget(i));
-                textEditor->applyTheme(m_textTheme);
-                break;
-            }
-            case EditorType::SURFACE: {
-                SurfaceEditor* surfaceEditor =
-                    qobject_cast<SurfaceEditor*>(m_tabWidget->widget(i));
-                surfaceEditor->applyTheme(m_graphicalTheme);
-                break;
-            }
-            case EditorType::MESH: {
-                MeshEditor* meshEditor =
-                    qobject_cast<MeshEditor*>(m_tabWidget->widget(i));
-                meshEditor->applyTheme(m_graphicalTheme);
-                break;
-            }
-            case EditorType::RESULT: {
-                ResultEditor* resultEditor =
-                    qobject_cast<ResultEditor*>(m_tabWidget->widget(i));
-                resultEditor->applyTheme(m_graphicalTheme);
-                break;
-            }
-            }
-        }
-    }
+    emit textThemeChanged(m_textTheme);
+    emit graphicalThemeChanged(m_graphicalTheme);
 }
 
 // Launch mesh configuration wizard
@@ -723,13 +1028,15 @@ void MainWindow::launchMeshConfigurationWizard() {
     }
 
     // Create the wizard
-    auto* wizard = new MeshWizard(caseName, m_systemMgr, this);
-    wizard->setAttribute(Qt::WA_DeleteOnClose);
+    MeshWizard wizard(caseName, m_systemMgr, this);
 
-    // Connect the signal to your slot
-    connect(wizard, &MeshWizard::createEditor, this, &MainWindow::createEditor);
-    connect(wizard, &MeshWizard::updatePath, this, &MainWindow::updatePath);
-    wizard->exec();
+    // Connect signals
+    connect(&wizard, &MeshWizard::createTextEditor, this,
+            &MainWindow::createTextEditor);
+    connect(&wizard, &MeshWizard::updatePath, this, &MainWindow::updatePath);
+
+    // Launch the wizard
+    wizard.exec();
 }
 
 // Launch mesh execution dialog
@@ -773,7 +1080,6 @@ void MainWindow::launchMeshExecutionDialog() {
     if (results.contains("0")) {
         RunMeshDialog dialog(caseName, m_systemMgr, results,
                              isFoundation, this);
-        dialog.setAttribute(Qt::WA_DeleteOnClose);
 
         // Connect signal
         connect(&dialog, &RunMeshDialog::requestRunMesh, this,
@@ -851,20 +1157,6 @@ void MainWindow::runMesh(const QString& caseName, bool runBlockMesh,
     }
 }
 
-void MainWindow::viewMesh() {
-    // Access node
-    QVariant data = m_viewMeshAction->data();
-    NodeData* node = data.value<NodeData*>();
-    if (!node)
-        return;
-
-    // Create editor for mesh
-    createEditor(EditorType::MESH, node->name, node->fullPath, true);
-
-    // Clear data
-    m_viewMeshAction->setData(QVariant());
-}
-
 // Launch solver configuration wizard
 void MainWindow::launchSolverConfigurationWizard() {
     // Check if server is available
@@ -880,53 +1172,28 @@ void MainWindow::launchSolverConfigurationWizard() {
     // Get patch names
     QStringList patchNames;
     QString fileName = "constant/polyMesh/boundary";
-    QByteArray fileData = system->getFileContent(
+    std::optional<QByteArray> fileData = system->getFileContent(
         casePath + "/" + caseName + "/" + fileName);
-    if (!fileData.isEmpty()) {
-        patchNames = CaseIO::getPatches(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        patchNames = CaseIO::getPatches(fileData.value());
     } else {
         QMessageBox::critical(this, tr("Boundary File Absent"),
             tr("Couldn't access constant/polyMesh/boundary file."));
         return;
     }
 
-    // Get field names
-    QStringList fieldNames;
-    // Check if field files are in 0
-    fileName = casePath + "/" + caseName + "/0";
-    fieldNames = m_systemMgr.getSystem(caseName)->processPaths(
-        fileName, PathOperationType::LIST);
-    if (fieldNames.isEmpty()) {
-        QMessageBox::critical(this, tr("Field Files Absent"),
-            tr("Couldn't find any field files in the case's 0 folder."));
-        return;
-    }
-
-    // Remove pipe characters if present
-    for (int i = fieldNames.size() - 1; i >= 0; --i) {
-        if (fieldNames[i].endsWith('|')) {
-            fieldNames[i].chop(1);
-        }
-        else {
-            fieldNames.removeAt(i);
-        }
-    }
-
     // Create the wizard
-    auto* wizard = new SolverWizard(caseName, m_systemMgr,
-        m_solverFamilies, m_turbulenceModels, m_transportProperties,
-        m_fieldData, m_boundaryConditions, patchNames, this);
-    wizard->setAttribute(Qt::WA_DeleteOnClose);
+    SolverWizard wizard(caseName, m_systemMgr, m_solverFamilies,
+        m_turbulenceModels, m_transportProperties, m_fieldData,
+        m_boundaryConditions, patchNames, this);
 
     // Parse case files
-    if (wizard->parseFiles()) {
-        connect(wizard, &SolverWizard::createEditor, this,
-            &MainWindow::createEditor);
-        connect(wizard, &SolverWizard::updatePath, this,
+    if (wizard.parseFiles()) {
+        connect(&wizard, &SolverWizard::createTextEditor, this,
+            &MainWindow::createTextEditor);
+        connect(&wizard, &SolverWizard::updatePath, this,
             &MainWindow::updatePath);
-        wizard->exec();
-    } else {
-        wizard->deleteLater();
+        wizard.exec();
     }
 }
 
@@ -954,7 +1221,6 @@ void MainWindow::launchSolverExecutionDialog() {
 
     // Create dialog
     RunSolverDialog dialog(caseName, isFoundation, m_systemMgr, this);
-    dialog.setAttribute(Qt::WA_DeleteOnClose);
 
     // Connect signal
     connect(&dialog, &RunSolverDialog::requestRunSolver, this,
@@ -983,100 +1249,57 @@ void MainWindow::runSolver(const QString& caseName, const QString& cmd) {
 // Stop solver execution
 void MainWindow::stopSolver() {}
 
-void MainWindow::viewResult() {
-    // Access node
-    QVariant data = m_viewResultAction->data();
-    NodeData* node = data.value<NodeData*>();
-    if (!node)
-        return;
-
-    // Get list of folders and field files
-    QString caseName = node->name;
-    QString casePath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
-
-    /*
-    QString res = m_systemMgr.getSystem(caseName)->getTimesAndFields(casePath);
-    QStringList stringList = res.split("|");
-
-    // Safety check: ensure stringList has expected data
-    if (stringList.size() < 2) {
-        qWarning() << "Invalid result string format.";
-        return;
-    }
-
-    QStringList timeFolders = stringList[0].split(",");
-    QStringList fieldFiles = stringList[1].split(",");
-
-    // FIX: Allocate the dialog on the stack to prevent memory leaks
-    SelectionDialog selectionDialog(tr("Field Selection"),
-        tr("Select one of the following fields to be displayed:"),
-        fieldFiles, this);
-
-    // Optional: Only proceed if the user clicked OK
-    if (selectionDialog.exec() != QDialog::Accepted) {
-        return;
-    }
-
-    QString selectedField = selectionDialog.getSelectedItem();
-    */
-    /*
-    // Create progress bar to load
-    auto* progress =
-        new QProgressDialog("Loading results...", QString(), 0, 0, this);
-    progress->setWindowModality(Qt::WindowModal);
-    progress->setMinimumWidth(300);
-    progress->show();
-
-    // Create future watcher
-    using RenderDataPtr = std::shared_ptr<RenderData>;
-    auto* watcher = new QFutureWatcher<RenderDataPtr>(this);
-
-    connect(watcher, &QFutureWatcher<RenderDataPtr>::finished, this,
-        [this, watcher, progress, caseName, casePath, selectedField]() {
-
-            // Handle the progress dialog
-            if (progress) {
-                progress->close();
-                progress->deleteLater();
-            }
-
-            // Call function to load data
-            loadResultData(watcher, caseName, casePath);
-
-            // Clean up the watcher
-            watcher->deleteLater();
-        });
-
-    // Set future to get mesh data
-    auto future = QtConcurrent::run<std::shared_ptr<RenderData>>(
-        [this, caseName, casePath, selectedField]() -> std::shared_ptr<RenderData> {
-            return std::make_shared<RenderData>(
-                m_systemMgr.getSystem(caseName)->getMeshData(casePath));
-        });
-    watcher->setFuture(future);
-    */
-
-    // Clear data
-    m_viewResultAction->setData(QVariant());
+/*
+std::shared_ptr<RenderData> MainWindow::getMeshData(const QString& caseName,
+        const QString& casePath) {
+    return std::make_shared<RenderData>(
+        m_systemMgr.getSystem(caseName)->getMeshData(casePath));
 }
+*/
+
+/*
+                return std::make_shared<RenderData>(
+                    m_systemMgr.getSystem(caseName)->getMeshData(casePath)
+                    );
+*/
 
 // Access result data
-std::shared_ptr<RenderData> MainWindow::loadResultData(
-    QFutureWatcher<std::shared_ptr<RenderData>>* watcher,
-    QString caseName, QString resultPath) {
-
-    // Get mesh data
-    std::shared_ptr<RenderData> renderData = watcher->result();
-    if (renderData) {
-        for (const auto& patch: renderData->patches) {
-            qDebug() << patch.name;
-        }
+std::shared_ptr<RenderData> MainWindow::getResultData(const QString& caseName,
+    const QString& casePath, const QString& selectedField,
+    const QString& timeFolder) {
+    // Check communication
+    auto system = m_systemMgr.getSystem(caseName);
+    if (system == nullptr) {
+        QMessageBox::critical(this, tr("Server access failure"),
+                              tr("Couldn't reach server."));
+        return nullptr;
     }
-    return renderData;
+
+    // Get patches
+    QStringList patchNames;
+    std::optional<QByteArray> fileData =
+        system->getFileContent(casePath + "/constant/polyMesh/boundary");
+    if (fileData && !fileData.value().isEmpty()) {
+        patchNames = CaseIO::getPatches(fileData.value());
+    } else {
+        qDebug() << "Couldn't access constant/polyMesh/boundary file.";
+        return nullptr;
+    }
+
+    // Construct msg string
+    QString fieldPath = casePath + "/" + timeFolder + "/" + selectedField;
+    patchNames.prepend(fieldPath);
+    QString msg = patchNames.join("|");
+
+    // Get result data
+    std::vector<FieldData> fieldData =
+        m_systemMgr.getSystem(caseName)->getResultData(msg);
+    return nullptr;
 }
 
 void MainWindow::updateResult(const QString& casePath,
                             const QString& timeFolder) {
+    /*
     // Access data in time folder
     QString caseName = QFileInfo(casePath).fileName();
     QString resultPath = casePath + "/postProcessing/surfaces/" + timeFolder;
@@ -1096,6 +1319,7 @@ void MainWindow::updateResult(const QString& casePath,
             QString("(result@%1)").arg(timeFolder));
         m_tabWidget->setTabText(m_tabWidget->currentIndex(), tabText);
     }
+    */
 }
 
 // Launch post-processing wizard
@@ -1113,10 +1337,10 @@ void MainWindow::launchPostProcessingWizard() {
     // Get patch names
     QStringList patchNames;
     QString fileName = "constant/polyMesh/boundary";
-    QByteArray fileData = system->getFileContent(
+    std::optional<QByteArray> fileData = system->getFileContent(
         casePath + "/" + caseName + "/" + fileName);
-    if (!fileData.isEmpty()) {
-        patchNames = CaseIO::getPatches(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        patchNames = CaseIO::getPatches(fileData.value());
     } else {
         QMessageBox::critical(this, tr("Boundary File Absent"),
              tr("Couldn't access constant/polyMesh/boundary file."));
@@ -1146,9 +1370,9 @@ void MainWindow::launchPostProcessingWizard() {
     }
 
     // Create the wizard
-    auto* wizard = new PostprocessingWizard(getSelectedCase(), patchNames,
-                        fieldNames, m_systemMgr, this);
-    wizard->setAttribute(Qt::WA_DeleteOnClose);
-    wizard->exec();
+    PostprocessingWizard wizard(getSelectedCase(), patchNames, fieldNames,
+                                m_systemMgr, this);
+    // Parse case files
+    if (wizard.parseFile())
+        wizard.exec();
 }
-

@@ -18,6 +18,7 @@
 #ifndef MAIN_WINDOW_H_
 #define MAIN_WINDOW_H_
 
+#include <QDir>
 #include <QFont>
 #include <QMainWindow>
 #include <QVulkanInstance>
@@ -27,7 +28,7 @@
 #include <vector>
 
 #include "editors/tab_widget.h"
-#include "editors/text/text_editor.h"
+#include "editors/text/text_widget.h"
 #include "geometry/graphic_data.h"
 #include "systems/system_manager.h"
 #include "views/navigator/case_navigator.h"
@@ -37,8 +38,8 @@
 
 // Store information about each tab
 struct TabData {
-    QString fullPath;
     EditorType type;
+    std::optional<FileStats> stats;
 };
 
 class QAction;
@@ -54,6 +55,10 @@ class MainWindow : public QMainWindow {
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
+ signals:
+    void textThemeChanged(const TextEditorConfig& textTheme);
+    void graphicalThemeChanged(const QString& graphicalTheme);
+
  protected:
     void closeEvent(QCloseEvent *event) override;
 
@@ -65,10 +70,9 @@ class MainWindow : public QMainWindow {
     void applyTheme(const QString &themeFile);
 
     // Load data
-    std::shared_ptr<RenderData> getMeshData(QString caseName, QString casePath);
-    std::shared_ptr<RenderData> loadResultData(
-        QFutureWatcher<std::shared_ptr<RenderData>>* watcher,
-        QString caseName, QString resultPath);
+    std::shared_ptr<RenderData> getResultData(const QString& caseName,
+        const QString& casePath, const QString& selectedField,
+        const QString& timeFolder);
     void loadSolverFamilies();
     void loadMaterialProperties();
     void loadTurbulenceModels();
@@ -94,14 +98,15 @@ class MainWindow : public QMainWindow {
     // Actions
     QAction *m_uploadAction, *m_downloadAction, *m_openCaseAction;
     QAction *m_newFileAction, *m_newFolderAction, *m_newDictAction;
-    QAction *m_newCaseAction, *m_saveFileAction, *m_preferencesAction;
+    QAction *m_newCaseAction, *m_saveFileAction, *m_themeAction;
     QAction *m_deleteAction, *m_undoAction, *m_redoAction;
-    QAction *m_cutAction, *m_copyAction, *m_pasteAction;
+    QAction *m_languageAction, *m_cutAction, *m_copyAction, *m_pasteAction;
     QAction *m_zoomInAction, *m_zoomOutAction, *m_exitAction;
     QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
     QAction *m_configureSolverAction, *m_runSolverAction, *m_stopSolverAction;
     QAction *m_viewResultAction, *m_postProcessAction;
-    QAction *m_aboutAction;
+    QAction *m_docAction, *m_issueAction, *m_licenseAction, *m_aboutQtAction;
+    QAction *m_aboutFcAction;
 
     // Configuration data containers
     QMap<QString, TabData> m_tabMap;
@@ -125,33 +130,51 @@ class MainWindow : public QMainWindow {
         "checkMesh", "simpleFoam", "pimpleFoam", "decomposePar",
         "reconstructPar", "topoSet" };
     QVulkanInstance m_vulkanInstance;
+    TextWidget* m_currentEditor = nullptr;
 
  private slots:
     // Case-related functions
     void newCase();
     void openCase();
+    void renameFile(const QString& filePath, const QString& newName);
+    void removeFile(const QString& caseName, bool isCase);
+    void cutPasteFile(const QString& oldPath, const QString& newPath);
     QString checkOpenFoam(int targetId);
-    void createCase(QString caseName, QString casePath, QStringList caseFiles,
-        int systemId, QString openFoamPath, QString userName, QString hostName,
+    void createCase(const QString& caseName, const QString& casePath,
+        const QStringList& caseFiles, int systemId, const QString& openFoamPath,
+        CaseFlags flag, const QString& userName, const QString& hostName,
         int port);
-    void saveCases();
 
-    // Editor/file actions
-    void createEditor(EditorType type, QString& fileName,
-                      const QString& fullPath, bool logMessage);
+    // Editor operations
+    bool checkExistingEditor(const QString& fullPath);
+    void createTextEditor(const QString& fileName, const QString& fullPath,
+                            bool logMessage);
+    void createSurfaceEditor(const QString& fileName, const QString& fullPath,
+                             bool logMessage);
+    void createMeshEditor(const QString& caseName, bool logMessage);
+    void createResultEditor(const QString& caseName, bool logMessage);
+
+    // Tab operations
+    void tabChanged(int index);
+    void tabClosed(const QString& tabId);
+    void updateTab();
+    // void updateTabSettings(const QString& tabName, const TabData& data);
+
+    // File operations
     void saveFile();
     void undo();
     void redo();
     void upload();
     void download();
-    void downloadFolder(std::shared_ptr<TargetSystem> system, QString basePath,
-                        QString nodeName, QString localPath);
+    void downloadFolder(std::shared_ptr<TargetSystem> system,
+        const QString& basePath, const QString& nodeName,
+        const QString& localPath);
     void onDirtyStateChanged(bool isDirty, QWidget* widget);
 
     // Surface editor slots
     void runSurfaceCheck(const QString& fullPath, bool isBinary);
     void runSurfacePatch(double featureAngle, const QString& fullPath,
-                         bool isBinary);
+                         bool isBinary, bool overwrite);
     void runSurfaceScale(double scaleFactor, const QString& fullPath);
 
     // Mesh editor slots
@@ -165,22 +188,17 @@ class MainWindow : public QMainWindow {
     void runMesh(const QString& caseName, bool blockMesh,
                  bool runSurfaceFeature, bool snappyHexMesh,
                  const QString& snappyCmd, int numCores);
-    void viewMesh();
 
     // Solver-related
     void launchSolverConfigurationWizard();
     void launchSolverExecutionDialog();
     void runSolver(const QString& caseName, const QString& command);
     void stopSolver();
-    void viewResult();
     void updateResult(const QString& casePath, const QString& timeFolder);
-
-    // Post-processing wizard
     void launchPostProcessingWizard();
 
     // Other
     void log(const QString& text);
-    void launchPreferencesDialog();
     void longUtilityFinished(const QString& status, const QString& caseName,
                              UtilityType utilityType);
     void updatePath(const QString& caseName, const QString& subDir);

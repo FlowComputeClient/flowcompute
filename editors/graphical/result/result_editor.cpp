@@ -22,7 +22,7 @@
 #include <memory>
 
 ResultEditor::ResultEditor(const QStringList& timeFolders,
-        QString timeFolder, std::shared_ptr<RenderData> renderData,
+        const QString& timeFolder, std::shared_ptr<RenderData> renderData,
         const QString& casePath, QVulkanInstance* instance,
         QWidget* parent):
     QWidget(parent), m_renderData(renderData), m_vulkanInstance(instance),

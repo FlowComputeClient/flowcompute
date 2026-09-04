@@ -22,7 +22,7 @@
 #include <QIcon>
 #include <QStandardItem>
 
-// Keep this exactly as it is!
+// Different types of nodes
 enum class NodeType {
     Root = QStandardItem::UserType + 1,
     CaseFolder,
@@ -35,19 +35,20 @@ enum class NodeType {
     TextFile
 };
 
+// Node class
 class NodeData : public QStandardItem {
     Q_DECLARE_TR_FUNCTIONS(NodeData)
  public:
-    NodeData(const QString& name, const QString& fullPath, NodeType type,
-            bool isDisabled=false);
+    NodeData(const QString& name, NodeType type, bool isDisabled=false);
     ~NodeData() override = default;
 
-    QString name, fullPath;
+    QString name;
     NodeType nodeType;
 
     enum { Type = QStandardItem::UserType + 1 };
     int type() const override { return Type; }
     QString getPath() const;
+    QString getCase() const;
 
  private:
     QIcon getIconForType(NodeType type) const;

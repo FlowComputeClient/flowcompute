@@ -205,7 +205,7 @@ void RunMeshDialog::onOkClicked() {
     QDialog::accept();
 }
 
-void RunMeshDialog::onCaseChanged(QString caseName) {
+void RunMeshDialog::onCaseChanged(const QString& caseName) {
     // Determine OpenFoam Path
     CaseData caseData = m_systemMgr.getData(caseName);
     QString casePath = caseData.casePath + "/" + caseName;
@@ -269,8 +269,9 @@ void RunMeshDialog::onCaseChanged(QString caseName) {
         coreVals.append(QString::number(i));
     }
     m_numCoresCombo->addItems(coreVals);
-    if (numCores > 1) {
-        m_numCoresCombo->setCurrentText(coreVals[coreVals.size() - 2]);
+    if (numCores > 2) {
+        int val = coreVals.size()/2;
+        m_numCoresCombo->setCurrentText(coreVals[val]);
     } else {
         m_numCoresCombo->setCurrentText("1");
     }

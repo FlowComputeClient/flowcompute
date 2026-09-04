@@ -18,6 +18,7 @@
 #ifndef SYSTEMS_TARGET_SYSTEM_H_
 #define SYSTEMS_TARGET_SYSTEM_H_
 
+#include <QDateTime>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -37,6 +38,22 @@ enum class PathOperationType {
     COPY
 };
 
+struct FileStats {
+    QDateTime mtime;
+    qint64 size;
+};
+
+struct FileDataAndStats {
+    QByteArray content;
+    FileStats stats;
+};
+
+struct FileResponse {
+    QByteArray payload;
+    qint64 byteSize = 0;
+    qint64 mtime = 0;
+};
+
 #include "geometry/graphic_data.h"
 
 // Abstract class that represents a target running OpenFOAM
@@ -49,7 +66,10 @@ class TargetSystem: public QObject {
     virtual QStringList getTutorials(const QString& path) = 0;
     virtual QStringList copyTutorialFolders(const QString& tutPath,
                                             const QString& projPath) = 0;
-    virtual QByteArray getFileContent(const QString& path) = 0;
+    virtual std::optional<QByteArray> getFileContent(const QString& path) = 0;
+    virtual std::optional<FileStats> getFileStats(const QString& path) = 0;
+    virtual std::optional<FileDataAndStats>
+                    getFileContentAndStats(const QString& path) = 0;
     virtual bool writeData(const QByteArray& payload,
                            const QString& remoteFilePath) = 0;
     virtual bool writeData(const QString& localPath,
@@ -62,7 +82,7 @@ class TargetSystem: public QObject {
     virtual RenderData getMeshData(const QString& path) = 0;
     virtual std::pair<QStringList, QStringList>
         getTimesAndFields(const QString& projPath) = 0;
-    virtual RenderData getResultData(const QString& path) = 0;
+    virtual std::vector<FieldData> getResultData(const QString& path) = 0;
 
  signals:
     // Updates the console

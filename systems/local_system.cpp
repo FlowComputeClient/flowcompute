@@ -92,8 +92,7 @@ QStringList LocalSystem::processPaths(const QString& pathString,
             // The last element is the destination directory
             fs::path pDst(targetPaths.last().toStdString());
 
-            auto copy_opts = fs::copy_options::recursive |
-                             fs::copy_options::overwrite_existing;
+            auto copy_opts = fs::copy_options::recursive;
 
             // Iterate through all items except the destination
             for (int i = 0; i < targetPaths.size() - 1; ++i) {
@@ -102,7 +101,24 @@ QStringList LocalSystem::processPaths(const QString& pathString,
                 // Append the source filename to the destination
                 fs::path targetPath = pDst / pSrc.filename();
 
-                // Perform copy operation
+                // Handle duplication if the target already exists
+                if (fs::exists(targetPath)) {
+                    std::string stem = pSrc.stem().string();
+                    std::string ext = pSrc.extension().string();
+
+                    // First duplication attempt
+                    targetPath = pDst / (stem + "_copy" + ext);
+
+                    // Sequential duplication attempts
+                    int counter = 1;
+                    while (fs::exists(targetPath)) {
+                        targetPath = pDst / (stem + "_copy_" +
+                                             std::to_string(counter) + ext);
+                        counter++;
+                    }
+                }
+
+                std::error_code ec;
                 fs::copy(pSrc, targetPath, copy_opts, ec);
             }
         }
@@ -708,24 +724,58 @@ std::pair<QStringList, QStringList>
     return std::make_pair(timeFolders, fieldFiles);
 }
 
-QByteArray LocalSystem::getFileContent(const QString& path) {
-    // Make sure the path exists
+// Retrieve file content
+std::optional<QByteArray> LocalSystem::getFileContent(const QString& path) {
     QFileInfo fileInfo(path);
-    if (!fileInfo.exists()) {
-        return {};
+    // Check if the file is present
+    if (!fileInfo.isFile()) {
+        return std::nullopt;
     }
 
-    // Read data if it's a file
+    // Check if the file can be opened
     QFile file(path);
-    QByteArray fileData;
-    if (fileInfo.isFile()) {
-        if (file.open(QIODevice::ReadOnly)) {
-            fileData = file.readAll();
-        }
+    if (!file.open(QIODevice::ReadOnly)) {
+        return std::nullopt;
     }
 
-    file.close();
-    return fileData;
+    return file.readAll();
+}
+
+// Retrieve file statistics (size and update time)
+std::optional<FileStats> LocalSystem::getFileStats(const QString& path) {
+    QFileInfo fileInfo(path);
+
+    if (!fileInfo.isFile()) {
+        return std::nullopt;
+    }
+
+    FileStats stats;
+    stats.size = fileInfo.size();
+    // QFileInfo::lastModified() returns a QDateTime natively
+    stats.mtime = fileInfo.lastModified();
+
+    return stats;
+}
+
+// Retrieve file content and statistics (size and update time)
+std::optional<FileDataAndStats>
+        LocalSystem::getFileContentAndStats(const QString& path) {
+    QFileInfo fileInfo(path);
+
+    if (!fileInfo.isFile()) {
+        return std::nullopt;
+    }
+
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return std::nullopt;
+    }
+
+    FileDataAndStats data;
+    data.stats.size = fileInfo.size();
+    data.stats.mtime = fileInfo.lastModified();
+    data.content = file.readAll();
+    return data;
 }
 
 inline QByteArray extract_vtk_payload(QTextStream& stream, QString& line) {
@@ -804,139 +854,6 @@ RenderData LocalSystem::getMeshData(const QString& path) {
 }
 */
 
-RenderData LocalSystem::getResultData(const QString& path) {
-    bool pointsFound = false, connectivityFound = false,
-        offsetsFound = false, pFound = false;
-    QByteArray pointsData, connectivityData, offsetsData, pData;
-
-    QFile file(path + "/pressure.vtp");
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "Failed to open VTK file:" << file.fileName();
-        return {};
-    }
-
-    QTextStream stream(&file);
-    QString line;
-
-    while (stream.readLineInto(&line)) {
-        if (!line.contains("<DataArray"))
-            continue;
-
-        if (!pointsFound && (line.contains("'Points'") ||
-                             line.contains("\"Points\""))) {
-            pointsData = extract_vtk_payload(stream, line);
-            pointsFound = true;
-        } else if (!connectivityFound && (line.contains("'connectivity'") ||
-                                        line.contains("\"connectivity\""))) {
-            connectivityData = extract_vtk_payload(stream, line);
-            connectivityFound = true;
-        } else if (!offsetsFound && (line.contains("'offsets'") ||
-                                   line.contains("\"offsets\""))) {
-            offsetsData = extract_vtk_payload(stream, line);
-            offsetsFound = true;
-        } else if (!pFound && (line.contains("'p'") ||
-                               line.contains("\"p\""))) {
-            pData = extract_vtk_payload(stream, line);
-            pFound = true;
-        }
-
-        if (pointsFound && connectivityFound && offsetsFound && pFound) {
-            break;
-        }
-    }
-    file.close();
-
-    // Find min/max of pressure
-    auto [minP, maxP] = get_pressure_range(pData);
-    float range = maxP - minP;
-    float invRange = (range > 1e-8f) ? (1.0f / range) : 0.0f;
-
-    // Validate array sizes
-    const std::size_t numPoints = pData.size() / sizeof(float);
-    if (static_cast<size_t>(pointsData.size()) !=
-            numPoints * 3 * sizeof(float)) {
-        qWarning() << "Coordinate and pressure arrays have different sizes.";
-        return {};
-    }
-
-    // Allocate interleaved vertex buffer
-    std::vector<float> vertexBuffer(numPoints * 4);
-    float* destPtr = vertexBuffer.data();
-
-    // Cast the raw byte arrays to float pointers for direct access
-    const float* rawPoints =
-        reinterpret_cast<const float*>(pointsData.constData());
-    const float* rawPressures =
-        reinterpret_cast<const float*>(pData.constData());
-
-    // Initialize STL array bounding boxes
-    std::array<float, 3> bbMin = { std::numeric_limits<float>::max(),
-                                  std::numeric_limits<float>::max(),
-                                  std::numeric_limits<float>::max() };
-    std::array<float, 3> bbMax = { std::numeric_limits<float>::lowest(),
-                                  std::numeric_limits<float>::lowest(),
-                                  std::numeric_limits<float>::lowest() };
-
-    // Interleave and normalize directly into the float vector
-    for (std::size_t i = 0; i < numPoints; i++) {
-        const float* coords = rawPoints + (i * 3);
-
-        // Update bounding box
-        bbMin[0] = std::min(bbMin[0], coords[0]);
-        bbMin[1] = std::min(bbMin[1], coords[1]);
-        bbMin[2] = std::min(bbMin[2], coords[2]);
-        bbMax[0] = std::max(bbMax[0], coords[0]);
-        bbMax[1] = std::max(bbMax[1], coords[1]);
-        bbMax[2] = std::max(bbMax[2], coords[2]);
-
-        // Copy coordinates
-        destPtr[0] = coords[0];
-        destPtr[1] = coords[1];
-        destPtr[2] = coords[2];
-
-        // Extract and normalize pressure
-        float p_raw = rawPressures[i];
-        destPtr[3] = (p_raw - minP) * invRange;
-        destPtr += 4;
-    }
-
-    // Interpret byte arrays as uint32 arrays
-    const uint32_t* connectivityVals =
-        reinterpret_cast<const uint32_t*>(connectivityData.constData());
-    const uint32_t* offsetsVals =
-        reinterpret_cast<const uint32_t*>(offsetsData.constData());
-    size_t numOffsets = offsetsData.size() / sizeof(uint32_t);
-
-    // Populate index buffer
-    std::vector<uint32_t> indexBuffer;
-    indexBuffer.reserve(connectivityData.size() / sizeof(uint32_t) * 1.5);
-    size_t current_conn_idx = 0;
-    for (size_t i = 0; i < numOffsets; ++i) {
-        size_t offset = offsetsVals[i];
-        size_t num_verts_in_cell = offset - current_conn_idx;
-
-        if (num_verts_in_cell == 3) {
-            indexBuffer.push_back(connectivityVals[current_conn_idx]);
-            indexBuffer.push_back(connectivityVals[current_conn_idx + 1]);
-            indexBuffer.push_back(connectivityVals[current_conn_idx + 2]);
-        } else if (num_verts_in_cell > 3) {
-            uint32_t anchor_index = connectivityVals[current_conn_idx];
-            for (size_t j = 1; j < num_verts_in_cell - 1; ++j) {
-                indexBuffer.push_back(anchor_index);
-                indexBuffer.push_back(connectivityVals[current_conn_idx + j]);
-                indexBuffer.push_back(
-                    connectivityVals[current_conn_idx + j + 1]);
-            }
-        }
-        current_conn_idx = offset;
-    }
-
-    // Populate the render data structure
-    RenderData renderData;
-    renderData.format = RenderType::Result;
-    renderData.data = std::move(vertexBuffer);
-    renderData.indices = std::move(indexBuffer);
-    renderData.boundingBoxMin = bbMin;
-    renderData.boundingBoxMax = bbMax;
-    return renderData;
+std::vector<FieldData> LocalSystem::getResultData(const QString& path) {
+    return std::vector<FieldData>();
 }

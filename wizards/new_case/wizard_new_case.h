@@ -67,7 +67,7 @@ class NewCaseWizard : public QWizard {
 
  public:
     NewCaseWizard(SystemManager& systemMgr, QWidget *parent);
-    QStringList processPaths(QString path);
+    QStringList processPaths(const QString& path);
     QStringList getTutorials();
     QStringList findOpenFoam();
     CaseConfig& getCaseConfig() { return m_caseConfig; };
@@ -75,7 +75,7 @@ class NewCaseWizard : public QWizard {
  signals:
     void requestCaseCreation(QString caseName, QString casePath,
         QStringList caseFiles, int systemId, QString openFoamPath,
-        QString userName, QString hostName, int port);
+        CaseFlags flag, QString userName, QString hostName, int port);
 
  protected:
     void accept() override;
@@ -92,7 +92,7 @@ class NewCaseWizard : public QWizard {
     bool checkOpenFoam();
 
     // Create template case
-    bool createCase(QString newCasePath);
+    bool createCase(const QString& newCasePath);
     void createCaseFiles(const QString&, const QString&, const QString&);
 
 };

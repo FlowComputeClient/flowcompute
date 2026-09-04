@@ -198,7 +198,6 @@ void ControlPage::initializePage() {
 }
 
 bool ControlPage::validatePage() {
-
     // Update wizard's case name
     m_solverWizard->setCaseName(m_caseName);
 

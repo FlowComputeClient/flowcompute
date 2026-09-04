@@ -162,11 +162,76 @@ bool SystemManager::addCase(const QString& caseName, const CaseData& data) {
     return false;
 }
 
+// Rename a case
+void SystemManager::renameCase(const QString& oldName, const QString& newName) {
+    // Validate inputs
+    auto it = m_caseMap.find(oldName);
+    if (it == m_caseMap.end() || m_caseMap.contains(newName)) {
+        return;
+    }
+
+    // Rename key in map
+    CaseData data = it.value();
+    m_caseMap.erase(it);
+    m_caseMap.insert(newName, data);
+
+    // Update QSettings
+    QSettings settings;
+    settings.beginGroup("Cases");
+
+    // Replacing the name at the same index
+    QStringList caseOrder = settings.value("caseOrder").toStringList();
+    int orderIndex = caseOrder.indexOf(oldName);
+    if (orderIndex != -1) {
+        caseOrder.replace(orderIndex, newName);
+        settings.setValue("caseOrder", caseOrder);
+    }
+
+    // Write the data to the new group
+    settings.beginGroup(newName);
+    settings.setValue("casePath", data.casePath);
+    settings.setValue("targetSystemId", data.targetId);
+    settings.setValue("openFoamPath", data.openFoamPath);
+    settings.setValue("caseFiles", data.caseFiles);
+    settings.setValue("caseFlags", static_cast<int>(data.caseFlags));
+
+    if (data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
+        settings.setValue("userName", data.userName);
+        settings.setValue("hostName", data.hostName);
+        settings.setValue("port", data.port);
+    }
+    settings.endGroup();
+
+    // Wipe the old subgroup
+    settings.remove(oldName);
+
+    settings.endGroup();
+}
+
 // Remove a case from the case map
 void SystemManager::removeCase(const QString& caseName) {
     auto it = m_caseMap.find(caseName);
     if (it != m_caseMap.end()) {
-        m_caseMap.remove(caseName);
+        // Remove case
+        m_caseMap.erase(it);
+
+        // Update settings
+        QSettings settings;
+        settings.beginGroup("Cases");
+
+        // Remove the case from the master order list
+        QStringList caseOrder = settings.value("caseOrder").toStringList();
+        if (caseOrder.removeOne(caseName)) {
+            if (caseOrder.isEmpty()) {
+                settings.remove("caseOrder");
+            } else {
+                settings.setValue("caseOrder", caseOrder);
+            }
+        }
+
+        // Remove the subgroup from settings
+        settings.remove(caseName);
+        settings.endGroup();
     }
 }
 
@@ -180,6 +245,83 @@ CaseData SystemManager::getData(const QString& caseName) const {
         return it.value();
     }
     return CaseData{};
+}
+
+void SystemManager::setFlag(const QString& caseName, CaseFlag flag,
+                            bool enabled) {
+    // Search for the case's name
+    auto it = m_caseMap.find(caseName);
+    if (it == m_caseMap.end())
+        return;
+
+    // Set the flag
+    it.value().caseFlags.setFlag(flag, enabled);
+}
+
+CaseFlags SystemManager::updateFlags(const QString& caseName,
+                               const QString& casePath) {
+    // Search for the case's name
+    auto it = m_caseMap.find(caseName);
+    if (it == m_caseMap.end())
+        return CaseFlag::NotChecked;
+
+    // Initialize case flag
+    CaseFlags caseFlags = CaseFlag::Initial;
+
+    // Determine fullPath
+    QString fullPath;
+    if (casePath.isEmpty()) {
+        fullPath = getData(caseName).casePath + "/" + caseName;
+    } else {
+        fullPath = casePath + "/" + caseName;
+    }
+
+    // Check if mesh files are present
+    auto system = getSystem(caseName);
+    QStringList files = {fullPath + "/constant/polyMesh/points",
+                         fullPath + "/constant/polyMesh/faces",
+                         fullPath + "/constant/polyMesh/owner",
+                         fullPath + "/constant/polyMesh/boundary" };
+    QStringList results =
+        system->processPaths(files.join("\n"), PathOperationType::CHECK);
+    bool checkResult = !results.contains("-1");
+
+    if (checkResult)
+        caseFlags |= CaseFlag::HasMeshFiles;
+
+    // Check if field files are in 0.orig folder
+    results = system->processPaths(
+        fullPath + "/0.orig", PathOperationType::LIST);
+    checkResult = !results.isEmpty();
+
+    // Check if field files are in 0 folder
+    if (!checkResult) {
+        results = system->processPaths(
+            fullPath + "/0", PathOperationType::LIST);
+        checkResult = !results.isEmpty();
+    }
+
+    if (checkResult)
+        caseFlags |= CaseFlag::HasFieldFiles;
+
+    // Check if time directories are present
+    checkResult = false;
+    results = system->processPaths(fullPath, PathOperationType::LIST);
+    for (const QString& result : std::as_const(results)) {
+        bool ok = false;
+        double value = result.toDouble(&ok);
+        if (ok && value > 0) {
+            checkResult = true;
+            break;
+        }
+    }
+
+    if (checkResult)
+        caseFlags |= CaseFlag::HasTimeDirs;
+
+    // Return flags
+    m_caseMap[caseName].caseFlags = caseFlags;
+    return caseFlags;
 }
 
 QStringList SystemManager::getCases() const {

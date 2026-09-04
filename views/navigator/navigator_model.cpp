@@ -17,36 +17,17 @@
 
 #include "navigator_model.h"
 
-#include "case_navigator.h"
-
-NavigatorModel::NavigatorModel(QObject *parent)
-    : QStandardItemModel(parent) {}
+NavigatorModel::NavigatorModel(QObject *parent): QStandardItemModel(parent) {}
 
 bool NavigatorModel::setData(const QModelIndex &index,
                              const QVariant &value, int role) {
-    // Respond to text edits
     if (role == Qt::EditRole) {
         NodeData* node = nodeFromIndex(index);
-        if (!node)
-            return false;
-
-        // Validate the new name
-        QString newName = value.toString();
-        if (newName.isEmpty() || newName == node->name) {
-            return false;
+        if (node) {
+            QString newName = value.toString();
+            node->name = newName;
+            node->setText(newName);
         }
-
-        // Cast the parent to CaseNavigator
-        CaseNavigator* navigator = qobject_cast<CaseNavigator*>(parent());
-        if (navigator) {
-            bool success = navigator->renameNode(node, newName);
-            if (!success) {
-                return false;
-            }
-        }
-
-        // Update the node's name
-        node->name = newName;
     }
     return QStandardItemModel::setData(index, value, role);
 }

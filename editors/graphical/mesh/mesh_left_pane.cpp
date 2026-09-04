@@ -30,7 +30,7 @@
 #include "editors/graphical/patch_palette.h"
 #include "editors/graphical/table_delegate.h"
 
-MeshLeftPane::MeshLeftPane(QStringList fields,
+MeshLeftPane::MeshLeftPane(const QStringList& fields,
        const QHash<QString, FlowCompute::FieldDef>& fieldData,
        const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
        QWidget* parent):

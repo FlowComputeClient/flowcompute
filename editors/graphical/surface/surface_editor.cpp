@@ -17,18 +17,20 @@
 
 #include "editors/graphical/surface/surface_editor.h"
 
+#include <QFileInfo>
 #include <QHBoxLayout>
+#include <QMessageBox>
 
 #include <algorithm>
 #include <string>
 #include <vector>
 
-SurfaceEditor::SurfaceEditor(std::shared_ptr<RenderData> renderData,
-    const QString& fullPath, int targetId, QVulkanInstance* instance,
-    bool isBinary, QWidget* parent):
-
-    QWidget(parent), m_renderData(renderData), m_fullPath(fullPath),
-    m_targetId(targetId), m_isBinary(isBinary), m_vulkanInstance(instance) {
+SurfaceEditor::SurfaceEditor(SystemManager& systemMgr, const QString& caseName,
+    const QString& fullPath, std::shared_ptr<RenderData> renderData,
+    QVulkanInstance* instance, bool isBinary, QWidget* parent):
+    QWidget(parent), m_systemMgr(systemMgr), m_caseName(caseName),
+    m_fullPath(fullPath), m_renderData(renderData), m_isBinary(isBinary),
+    m_vulkanInstance(instance) {
     // Get list of patch names
     for (const auto& patch : m_renderData->patches) {
         m_patchNames.push_back(std::string(patch.name));
@@ -80,12 +82,14 @@ SurfaceEditor::SurfaceEditor(std::shared_ptr<RenderData> renderData,
         this, &SurfaceEditor::onSurfaceCheckRequest);
     connect(m_leftPane, &SurfaceLeftPane::surfaceScaleRequested,
         this, &SurfaceEditor::onSurfaceScaleRequest);
-    connect(m_leftPane, &SurfaceLeftPane::dirtyStateChanged,
-        this, &SurfaceEditor::dirtyStateChanged);
+    connect(m_leftPane, &SurfaceLeftPane::patchApplyRequested,
+            this, &SurfaceEditor::onSurfacePatchApply);
 }
 
 void SurfaceEditor::applyTheme(const QString& theme) {
-    m_vulkanWindow->applyTheme(theme);
+    if (m_vulkanWindow) {
+        m_vulkanWindow->applyTheme(theme);
+    }
 }
 
 // Update surface data
@@ -115,7 +119,7 @@ void SurfaceEditor::updateModel(std::shared_ptr<RenderData> newData) {
 
     // Set dirty state
     m_isSurfaceChanged = true;
-    emit dirtyStateChanged(true);
+    // emit dirtyStateChanged(true);
 }
 
 void SurfaceEditor::changeBounds(double scaleFactor) {
@@ -128,29 +132,55 @@ std::vector<std::pair<std::string, std::string>>
     std::vector<std::pair<std::string, std::string>> differences;
     std::vector<std::string> newPatchNames = m_leftPane->getPatchNames();
 
-    const int maxSize = std::max(newPatchNames.size(), m_patchNames.size());
-
-    for (int i = 0; i < maxSize; ++i) {
+    const size_t maxSize = std::max(newPatchNames.size(), m_patchNames.size());
+    for (size_t i = 0; i < maxSize; ++i) {
         const std::string left =
             (i < m_patchNames.size()) ? m_patchNames[i] : "";
         const std::string right =
             (i < newPatchNames.size()) ? newPatchNames[i] : "";
-        if (left != right) {
+        if (left != right && !left.empty()) {
             differences.emplace_back(left, right);
         }
     }
     return differences;
 }
 
-void SurfaceEditor::onSurfaceCheckRequest() {
-    emit surfaceCheckRequested(m_fullPath, m_targetId, m_isBinary);
+void SurfaceEditor::onSurfacePatchApply() {
+    QFileInfo info(m_fullPath);
+    QString path = info.path();
+    QString fileName = info.fileName();
+
+    // Iterate through patch changes
+    std::vector<std::pair<std::string, std::string>> vec = getPatchChanges();
+    if (!vec.empty()) {
+        // Replace old patch names with new patch names
+        QString cmd = QString("cd %1; sed -i ").arg(path);
+        for (const auto& change : vec) {
+            QString oldStr = QString::fromStdString(change.first);
+            QString newStr = QString::fromStdString(change.second);
+            cmd += QString("-e 's#%1#%2#g' ").arg(oldStr, newStr);
+        }
+        cmd += fileName;
+
+        // Perform text replacement
+        QString output;
+        if (m_systemMgr.getSystem(m_caseName)->
+            launchShortUtility(cmd, output) == 0) {
+            // Display success message
+            QMessageBox::information(this, tr("Operation Successful"),
+                tr("Patch names updated successfully."));
+        }
+    }
 }
 
-void SurfaceEditor::onSurfacePatchRequest(double featureAngle) {
-    emit surfacePatchRequested(featureAngle, m_fullPath, m_targetId,
-                               m_isBinary);
+void SurfaceEditor::onSurfaceCheckRequest() {
+    emit surfaceCheckRequested(m_fullPath, m_isBinary);
+}
+
+void SurfaceEditor::onSurfacePatchRequest(double featureAngle, bool overwrite) {
+    emit surfacePatchRequested(featureAngle, m_fullPath, m_isBinary, overwrite);
 }
 
 void SurfaceEditor::onSurfaceScaleRequest(double scaleFactor) {
-    emit surfaceScaleRequested(scaleFactor, m_fullPath, m_targetId);
+    emit surfaceScaleRequested(scaleFactor, m_fullPath);
 }

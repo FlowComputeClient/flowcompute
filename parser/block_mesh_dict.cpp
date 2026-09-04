@@ -200,7 +200,7 @@ QString CaseIO::updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict,
 
 // Create a new blockMeshDict file
 QString CaseIO::createBlockMeshDict(const BlockMeshConfig& config,
-                                    QString openFoamPath) {
+                                    const QString& openFoamPath) {
     QString dictStr;
     QTextStream out(&dictStr);
 

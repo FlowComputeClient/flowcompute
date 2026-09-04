@@ -27,12 +27,12 @@ class OpenCaseWizard : public QWizard {
 
  public:
     OpenCaseWizard(TargetType targetType, SystemManager& systemMgr,
-                   QString openFoamPath, QWidget *parent);
+                   const QString& openFoamPath, QWidget *parent);
 
  signals:
     void requestCaseCreation(QString caseName, QString casePath,
         QStringList caseFiles, int systemId, QString openFoamPath,
-        QString userName, QString hostName, int port);
+        CaseFlag flag, QString userName, QString hostName, int port);
     void logMessage(const QString& msg);
 
  protected:

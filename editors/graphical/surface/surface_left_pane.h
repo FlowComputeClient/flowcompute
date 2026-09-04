@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+class QCheckBox;
 class QDoubleSpinBox;
 class QLabel;
 class QPushButton;
@@ -44,20 +45,22 @@ class SurfaceLeftPane : public QWidget {
     void paintEvent(QPaintEvent *event) override;
 
  signals:
+    void patchApplyRequested();
     void surfaceCheckRequested();
     void surfaceScaleRequested(double scaleFactor);
-    void surfacePatchRequested(double featureAngle);
-    void dirtyStateChanged(bool isDirty);
+    void surfacePatchRequested(double featureAngle, bool overwrite);
 
  private:
     bool m_isBinary;
     std::array<float, 3> m_bounds;
+    QCheckBox *m_overwriteCheck;
     QDoubleSpinBox *m_angleSpin, *m_scaleSpin;
     QLabel* m_boundsLabel;
-    QPushButton *m_checkButton, *m_patchButton, *m_scaleButton;
+    QPushButton *m_checkButton, *m_patchButton, *m_scaleButton, *m_applyButton;
     QTableWidget *m_patchTable;
 
  private slots:
+    void onApplyButtonClicked();
     void onCheckButtonClicked();
     void onScaleButtonClicked();
     void onPatchButtonClicked();

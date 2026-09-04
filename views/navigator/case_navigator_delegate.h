@@ -15,6 +15,8 @@ class CaseNavigatorDelegate : public QStyledItemDelegate {
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option,
                const QModelIndex& index) const override;
+    void setModelData(QWidget *editor, QAbstractItemModel *model,
+                      const QModelIndex &index) const override;
 
  private:
     CaseNavigator* m_navigator;

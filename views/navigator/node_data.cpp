@@ -17,14 +17,12 @@
 
 #include "node_data.h"
 
-NodeData::NodeData(const QString& name, const QString& fullPath,
-    NodeType type, bool isDisabled) : QStandardItem(name), name(name),
-    fullPath(fullPath), nodeType(type) {
+NodeData::NodeData(const QString& name, NodeType type, bool isDisabled) :
+    QStandardItem(name), name(name), nodeType(type) {
 
     setForeground(QBrush(Qt::black));
     setIcon(getIconForType(type));
     setSizeHint(QSize(0, 24));
-    // setEditable(false);
 
     // Force the expand arrow to appear
     if (type == NodeType::Folder) {
@@ -36,12 +34,30 @@ NodeData::NodeData(const QString& name, const QString& fullPath,
     }
 }
 
-QString NodeData::getPath() const {
-    if (fullPath.isEmpty()) {
-        return name;
-    } else {
-        return fullPath + "/" + name;
+// Returns the case containing the node
+QString NodeData::getCase() const {
+    const QStandardItem* current = this;
+
+    // Traverse up until the item has no parent (the top-level case item)
+    while (current->parent() != nullptr) {
+        current = current->parent();
     }
+    return current->text();
+}
+
+// Returns the full path starting from the case name
+QString NodeData::getPath() const {
+    QStringList pathElements;
+    const QStandardItem* current = this;
+
+    // Traverse up to the top-level item, prepending each name to the list
+    while (current != nullptr) {
+        pathElements.prepend(current->text());
+        current = current->parent();
+    }
+
+    // Join the elements with forward slashes
+    return pathElements.join("/");
 }
 
 QIcon NodeData::getIconForType(NodeType type) const {

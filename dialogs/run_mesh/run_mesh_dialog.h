@@ -48,7 +48,7 @@ class RunMeshDialog : public QDialog {
     void onOkClicked();
     void snappyCheckToggled(bool state);
     void snappyHexMeshModeChanged(int index);
-    void onCaseChanged(QString caseName);
+    void onCaseChanged(const QString& caseName);
 };
 
 #endif  // DIALOGS_RUN_MESH_RUN_MESH_DIALOG_H_

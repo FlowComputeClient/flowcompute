@@ -302,7 +302,7 @@ QByteArray addPhiBlock(const QByteArray& fvSolutionContent) {
     return dict.getRawText();
 }
 
-void RunSolverDialog::onCaseChanged(QString caseName) {
+void RunSolverDialog::onCaseChanged(const QString& caseName) {
     // Check if using Foundation release of OpenFOAM
     QString openFoamPath = m_systemMgr.getData(caseName).openFoamPath;
     QString dirName = QDir(openFoamPath).dirName();
@@ -314,9 +314,9 @@ void RunSolverDialog::onCaseChanged(QString caseName) {
     // Read controlDict
     QString casePath = m_systemMgr.getData(caseName).casePath;
     auto system = m_systemMgr.getSystem(caseName);
-    QByteArray controlData = system->getFileContent(
+    std::optional<QByteArray> controlData = system->getFileContent(
         casePath + "/" + caseName + "/system/controlDict");
-    m_solverName = getSolverName(controlData, m_isFoundation);
+    m_solverName = getSolverName(controlData.value(), m_isFoundation);
 
     // Update solver combo
     if (m_isFoundation) {
@@ -344,9 +344,9 @@ void RunSolverDialog::onCaseChanged(QString caseName) {
     }
 
     // Get the number of cores based on decomposeParDict
-    QByteArray decomposeData = system->getFileContent(
+    std::optional<QByteArray> decomposeData = system->getFileContent(
         casePath + "/" + caseName + "/system/decomposeParDict");
-    std::pair<int, bool> data = getRunData(decomposeData);
+    std::pair<int, bool> data = getRunData(decomposeData.value());
 
     // Update combo boxes
     for (QComboBox* combo :
@@ -380,8 +380,9 @@ void RunSolverDialog::onOkClicked() {
 
     // Update decomposeParDict
     if (numCores > 1) {
-        QByteArray dictContent = system->getFileContent(dictPath);
-        OpenFoamDictionary dict(dictContent);
+        std::optional<QByteArray> dictContent =
+            system->getFileContent(dictPath);
+        OpenFoamDictionary dict(dictContent.value());
 
         // Only attempt to mutate if the dictionary parsed successfully
         if (!dict.hasSyntaxErrors()) {
@@ -443,8 +444,9 @@ void RunSolverDialog::onOkClicked() {
         if (m_potentialCheck->isChecked()) {
             // Add Phi block to fvSolution
             dictPath = casePath + "/" + caseName + "/system/fvSolution";
-            QByteArray solutionContent = system->getFileContent(dictPath);
-            system->writeData(addPhiBlock(solutionContent), dictPath);
+            std::optional<QByteArray> solutionContent =
+                system->getFileContent(dictPath);
+            system->writeData(addPhiBlock(solutionContent.value()), dictPath);
 
             // Create command for potentialFoam with proper leading spaces
             QString potentialCmd = "potentialFoam";

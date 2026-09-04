@@ -18,8 +18,6 @@
 #ifndef EDITORS_TEXT_TEXT_EDITOR_H_
 #define EDITORS_TEXT_TEXT_EDITOR_H_
 
-#include <QFuture>
-#include <QtConcurrent>
 #include <QPlainTextEdit>
 #include <QWidget>
 
@@ -38,6 +36,7 @@ struct TextEditorConfig {
 class TextEditor;
 
 class LineNumberArea : public QWidget {
+    Q_OBJECT
  public:
     explicit LineNumberArea(TextEditor *editor);
     QSize sizeHint() const override;
@@ -58,7 +57,10 @@ class TextEditor : public QPlainTextEdit {
     int lineNumberAreaWidth();
     void lineNumberAreaPaintEvent(QPaintEvent *event);
     void setTextData(const QByteArray &textData);
-    void applyTheme(const TextEditorConfig& config);
+    void showBanner();
+
+ public slots:
+    void applyTheme(const TextEditorConfig& theme);
 
  signals:
     void dirtyStateChanged(bool isDirty);
@@ -68,7 +70,7 @@ class TextEditor : public QPlainTextEdit {
 
  private slots:
     void updateLineNumberAreaWidth(int newBlockCount);
-    void updateLineNumberArea(const QRect &, int);
+    void updateLineNumberArea(QRect, int);
     void highlightCurrentLine();
     void onDocumentEdited(int position, int charsRemoved, int charsAdded);
     void triggerBackgroundParse(const QByteArray& fileData);

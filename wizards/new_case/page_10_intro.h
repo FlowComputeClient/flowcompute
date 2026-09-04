@@ -21,6 +21,8 @@
 #include <QButtonGroup>
 #include <QWizardPage>
 
+#include "systems/system_manager.h"
+
 class QGroupBox;
 class QLineEdit;
 class QRadioButton;
@@ -34,7 +36,7 @@ class IntroPage : public QWizardPage {
                    WRITE setCaseCreationType NOTIFY caseCreationTypeChanged)
 
  public:
-    IntroPage(bool isWslAvailable, QWidget *parent);
+    IntroPage(SystemManager& systemMgr, bool isWslAvailable, QWidget *parent);
     int nextId() const override;
     QString& getOpenFoamPath() { return m_openFoamPath; };
 

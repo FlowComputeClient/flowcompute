@@ -15,13 +15,14 @@
         <file>images/cut.png</file>
         <file>images/delete.png</file>
         <file>images/dict.png</file>
+        <file>images/doc.png</file>
         <file>images/download.png</file>
         <file>images/field.png</file>
         <file>images/flowcompute.ico</file>
         <file>images/flowcompute.png</file>
         <file>images/folder.png</file>
         <file>images/geometry.png</file>
-        <file>images/help.png</file>
+        <file>images/language.png</file>
         <file>images/mesh.png</file>
         <file>images/new_file.png</file>
         <file>images/new_folder.png</file>
@@ -40,6 +41,7 @@
         <file>images/solver.png</file>
         <file>images/stop_solver.png</file>
         <file>images/text.png</file>
+        <file>images/theme.png</file>
         <file>images/undo.png</file>
         <file>images/upload.png</file>
         <file>images/view_mesh.png</file>
@@ -47,16 +49,11 @@
         <file>images/viridis_map.png</file>
         <file>images/zoom_in.png</file>
         <file>images/zoom_out.png</file>
-        <file>shaders/model/vert.spv</file>
-        <file>shaders/model/frag.spv</file>
-        <file>shaders/mesh/vert.spv</file>
-        <file>shaders/mesh/frag.spv</file>
-        <file>shaders/color/vert.spv</file>
-        <file>shaders/color/frag.spv</file>
-        <file>shaders/axis/vert.spv</file>
-        <file>shaders/axis/frag.spv</file>
-        <file>shaders/lines/vert.spv</file>
-        <file>shaders/lines/frag.spv</file>
+        <file>licenses/asio.txt</file>
+        <file>licenses/libssh.txt</file>
+        <file>licenses/qt.txt</file>
+        <file>licenses/tree_sitter.txt</file>
+        <file>licenses/zlib.txt</file>
         <file>template/Allclean</file>
         <file>template/Allrun</file>
         <file>template/blockMeshDict</file>
@@ -65,7 +62,29 @@
         <file>template/fvSolution</file>
         <file>template/turbulenceProperties</file>
         <file>template/transportProperties</file>
+		<file>styles/style_template.qss</file>
         <file>themes/light.json</file>
         <file>themes/dark.json</file>
+		<file>translations/qt_de.qm</file>
+        <file>translations/qt_es.qm</file>
+        <file>translations/qt_fr.qm</file>
+        <file>translations/qt_it.qm</file>
+        <file>translations/qt_ja.qm</file>
+        <file>translations/qt_ko.qm</file>
+        <file>translations/qt_pt.qm</file>
+        <file>translations/qt_sv.qm</file>
+        <file>translations/qt_zh.qm</file>
+
+<!--
+        <file>translations/qtbase_de.qm</file>
+        <file>translations/qtbase_zh_CN.qm</file>
+        <file>translations/qtbase_ja.qm</file>
+        <file>translations/qtbase_sv.qm</file>
+        <file>translations/qtbase_fr.qm</file>
+        <file>translations/qtbase_it.qm</file>
+        <file>translations/qtbase_ko.qm</file>
+        <file>translations/qtbase_es.qm</file>
+        <file>translations/qtbase_pt_BR.qm</file>
+-->
     </qresource>
 </RCC>

@@ -172,6 +172,8 @@ AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {
     QGroupBox* finalGroup =
         new QGroupBox(tr("Final Iteration Configuration"), configPage);
     QFormLayout* finalLayout = new QFormLayout(finalGroup);
+    finalLayout->setContentsMargins(10, 25, 10, 10);
+    finalLayout->setSpacing(15);
 
     // Check for final iteration override
     m_finalIterationCheck = new QCheckBox(finalGroup);

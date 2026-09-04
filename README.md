@@ -1,6 +1,6 @@
 # FlowCompute: A Cross-Platform Client for OpenFOAM
 
-## (Coming in August)
+## (Coming VERY SOON)
 
 ![The FlowCompute GUI](images/flowcompute.gif)
 

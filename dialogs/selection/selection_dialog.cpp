@@ -24,7 +24,8 @@
 #include <QDialogButtonBox>
 
 SelectionDialog::SelectionDialog(const QString& title, const QString& prompt,
-        const QStringList& items, QWidget* parent): QDialog(parent) {
+        const QStringList& items, QWidget* parent, int selectedIndex):
+    QDialog(parent) {
     setWindowTitle(title);
     setMinimumWidth(300);
     setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
@@ -55,19 +56,21 @@ SelectionDialog::SelectionDialog(const QString& title, const QString& prompt,
         m_buttonGroup->addButton(radioBtn, i);
 
         // Select first item by default
-        if (i == 0) {
+        if (i == selectedIndex) {
             radioBtn->setChecked(true);
         }
     }
     layout->addLayout(radioLayout);
 
-    // Create the OK button
-    QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok);
+    // Create the OK/Cancel buttons
+    QDialogButtonBox* buttonBox =
+        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     buttonBox->setCenterButtons(true);
     layout->addWidget(buttonBox);
 
     // Connections
     connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
 
 // Access the currently checked radio button

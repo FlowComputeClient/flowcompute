@@ -28,14 +28,15 @@
 #include "editors/graphical/surface/surface_left_pane.h"
 #include "editors/graphical/vulkan/vulkan_window.h"
 #include "geometry/graphic_data.h"
+#include "systems/system_manager.h"
 
 class SurfaceEditor : public QWidget {
     Q_OBJECT
 
  public:
-    explicit SurfaceEditor(std::shared_ptr<RenderData> renderData,
-        const QString& fullPath, int targetId, QVulkanInstance* instance,
-        bool isBinary, QWidget* parent = nullptr);
+    explicit SurfaceEditor(SystemManager& systemMgr, const QString& caseName,
+        const QString& fullPath, std::shared_ptr<RenderData> renderData,
+        QVulkanInstance* instance, bool isBinary, QWidget* parent = nullptr);
     std::vector<std::pair<std::string, std::string>> getPatchChanges();
     void updateModel(std::shared_ptr<RenderData> newMesh);
     bool isSurfacePatched() { return m_isSurfaceChanged; }
@@ -44,18 +45,16 @@ class SurfaceEditor : public QWidget {
     void applyTheme(const QString& theme);
 
  signals:
-    void surfaceCheckRequested(const QString& fullPath, int targetId,
-                               bool isBinary);
+    void surfaceCheckRequested(const QString& fullPath, bool isBinary);
     void surfacePatchRequested(double featureAngle, const QString& fullPath,
-                               int targetId, bool isBinary);
-    void surfaceScaleRequested(double scaleFactor, const QString& fullPath,
-                               int targetId);
+                               bool isBinary, bool overwrite);
+    void surfaceScaleRequested(double scaleFactor, const QString& fullPath);
     void dirtyStateChanged(bool isDirty);
 
  private:
+    SystemManager& m_systemMgr;
     bool m_isBinary, m_isSurfaceChanged = false;
-    int m_targetId;
-    QString m_fullPath;
+    QString m_caseName, m_fullPath;
     std::vector<std::string> m_patchNames;
 
     SurfaceLeftPane* m_leftPane;
@@ -64,8 +63,9 @@ class SurfaceEditor : public QWidget {
     std::shared_ptr<RenderData> m_renderData;
 
  private slots:
+    void onSurfacePatchApply();
     void onSurfaceCheckRequest();
-    void onSurfacePatchRequest(double featureAngle);
+    void onSurfacePatchRequest(double featureAngle, bool overwrite);
     void onSurfaceScaleRequest(double scaleFactor);
 };
 

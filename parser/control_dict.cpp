@@ -113,7 +113,7 @@ CaseIO::ControlConfig CaseIO::parseControlDict(
 }
 
 QString CaseIO::updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
-                          ControlConfig& cfg, QString funcString) {
+                        ControlConfig& cfg, const QString& funcString) {
     if (!dict)
         return QString();
 
@@ -131,10 +131,6 @@ QString CaseIO::updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
     dict->setValue("endTime", QString::number(cfg.endTime));
     dict->setValue("deltaT", QString::number(cfg.deltaT));
 
-    // Update Time Step Adjustment
-    dict->setValue("adjustTimeStep", boolToString(cfg.adjustTimeStep));
-    dict->setValue("maxCo", QString::number(cfg.maxCo));
-
     // Update Data Writing
     dict->setValue("writeCompression", boolToString(cfg.writeCompression));
     dict->setValue("runTimeModifiable", boolToString(cfg.runTimeModifiable));
@@ -143,18 +139,44 @@ QString CaseIO::updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
     dict->setValue("writeInterval", QString::number(cfg.writeInterval));
     dict->setValue("purgeWrite", QString::number(cfg.purgeWrite));
 
-    // Handle the functions block
+    // Remove the functions block
     dict->removeEntry("functions");
 
     // Extract the updated raw text
     QString updatedText = QString::fromUtf8(dict->getRawText());
 
-    // Append the new functions block if a valid string is provided
+    // Insert the new functions block
     if (!funcString.isEmpty()) {
-        if (!updatedText.endsWith('\n')) {
-            updatedText += "\n";
+        // Search for spaced footer
+        int spacedFooterPos =
+            updatedText.lastIndexOf("// * * * * * * * * * * * * * * * * * * * "
+                                    "* * * * * * * * * * * * * * * * * * //");
+        int solidFooterPos = updatedText.lastIndexOf("// *********");
+
+        // Select whichever string appears closest to the bottom of the file
+        int footerPos = std::max(spacedFooterPos, solidFooterPos);
+
+        // Verify the selected string is actually a footer and not the header
+        int appPos = updatedText.indexOf("application");
+        if (footerPos != -1 && appPos != -1 && footerPos < appPos) {
+            footerPos = -1;
         }
-        updatedText += "\n" + funcString + "\n";
+
+        if (footerPos != -1) {
+            // Ensure there is a newline
+            if (footerPos > 0 && updatedText.at(footerPos - 1) != '\n') {
+                updatedText.insert(footerPos, "\n");
+                footerPos++;
+            }
+            // Insert the functions block before the footer
+            updatedText.insert(footerPos, funcString + "\n\n");
+        } else {
+            // Append to the very end if no footer is found
+            if (!updatedText.endsWith('\n')) {
+                updatedText += "\n";
+            }
+            updatedText += "\n" + funcString + "\n";
+        }
     }
 
     return updatedText;

@@ -64,8 +64,7 @@ class MeshWizard : public QWizard {
     bool m_runSnap, m_runLayers;
 
  signals:
-    void createEditor(EditorType type, QString& fileName, const QString& path,
-        bool logMessage);
+    void createTextEditor(QString fileName, QString fullPath, bool logMessage);
     void updatePath(QString caseName, QString subDir);
 
  protected:

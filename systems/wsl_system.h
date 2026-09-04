@@ -36,11 +36,11 @@
 #include <QTcpSocket>
 #include <QVBoxLayout>
 
-#include <string>
 #include <vector>
 
 #include "./target_system.h"
 
+// Header preceding mesh data
 struct RenderHeader {
     uint32_t magicNumber;
     uint32_t dataByteSize;
@@ -49,6 +49,20 @@ struct RenderHeader {
     uint32_t patchesByteSize;
     std::array<float, 3> boundingBoxMin;
     std::array<float, 3> boundingBoxMax;
+};
+
+// Header preceding field data
+struct FieldDataHeader {
+    uint32_t magicNumber;
+    uint32_t numFields;
+    uint32_t sizesByteSize;
+    uint32_t dataByteSize;
+};
+
+enum class FileRequestType {
+    CONTENT = 0,
+    STATS,
+    CONTENTANDSTATS
 };
 
 class WslSystem : public TargetSystem {
@@ -65,7 +79,10 @@ class WslSystem : public TargetSystem {
     QStringList getTutorials(const QString& path) override;
     QStringList copyTutorialFolders(const QString& tutPath,
                                     const QString& projPath) override;
-    QByteArray getFileContent(const QString& path) override;
+    std::optional<QByteArray> getFileContent(const QString& path) override;
+    std::optional<FileStats> getFileStats(const QString& path) override;
+    std::optional<FileDataAndStats>
+            getFileContentAndStats(const QString& path) override;
     bool writeData(const QByteArray& payload,
                    const QString& remoteFilePath) override;
     bool writeData(const QString& localPath,
@@ -78,11 +95,15 @@ class WslSystem : public TargetSystem {
     QStringList processPaths(const QString& path,
                              PathOperationType type) override;
     RenderData getMeshData(const QString& path) override;
-    RenderData getResultData(const QString& path) override;
+    std::vector<FieldData> getResultData(const QString& path) override;
 
  private:
     void terminateProcess();
-    QJsonObject contactServer(QString action, QString message, int opType = -1);
+    QJsonObject contactServer(const QString& action, const QString& message,
+                              int opType = -1);
+    std::optional<FileResponse> getFile(const QString& path,
+                                        FileRequestType reqType);
+
 };
 
 #endif  // SYSTEMS_WSL_SYSTEM_H_

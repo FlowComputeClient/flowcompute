@@ -20,8 +20,8 @@ struct ControlConfig {
     double deltaT = 1.0;
 
     // Time step adjustment
-    bool adjustTimeStep = false;
-    double maxCo = 1.0;
+    // bool adjustTimeStep = false;
+    // double maxCo = 1.0;
 
     // Data writing
     bool writeCompression = false;
@@ -37,7 +37,7 @@ ControlConfig parseControlDict(std::shared_ptr<OpenFoamDictionary> dict);
 
 // Update existing controlDict
 QString updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
-                          ControlConfig& cfg, QString funcString);
+                          ControlConfig& cfg, const QString& funcString);
 
 // Create new controlDict file
 QString createControlDict(const ControlConfig& cfg, const QString& openFoamPath,

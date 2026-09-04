@@ -12,7 +12,243 @@ int getTaskTypeIndex(const QString& taskType) {
     return index;
 }
 
-// Create overall "functions" block
+// Helper to safely parse OpenFOAM boolean strings (true/false, yes/no, on/off)
+static bool parseFoamBool(const QString& val, bool defaultValue = false) {
+    if (val.isEmpty()) return defaultValue;
+    QString lower = val.toLower();
+    return (lower == "true" || lower == "yes" || lower == "on");
+}
+
+// Helper to extract a 3-element array from a flat QStringList
+static std::array<double, 3> parseArray3(const QStringList& list,
+                            const std::array<double, 3>& defaultArr) {
+    if (list.size() >= 3) {
+        bool okX, okY, okZ;
+        double x = list[0].toDouble(&okX);
+        double y = list[1].toDouble(&okY);
+        double z = list[2].toDouble(&okZ);
+        if (okX && okY && okZ) return {x, y, z};
+    }
+    return defaultArr;
+}
+
+// Helper to map string to Q_ENUM values via QMetaEnum
+template<typename T>
+static T parseEnum(const QString& str, T defaultValue) {
+    if (str.isEmpty()) return defaultValue;
+    QMetaEnum metaEnum = QMetaEnum::fromType<T>();
+    bool ok = false;
+    int val = metaEnum.keyToValue(str.toUtf8().constData(), &ok);
+    return ok ? static_cast<T>(val) : defaultValue;
+}
+
+// Helper to populate base FunctionObject properties
+static void parseBaseProperties(CaseIO::FunctionObject* obj,
+    const QString& path, const std::shared_ptr<OpenFoamDictionary>& dict) {
+    obj->name = path.split('/').last();
+
+    QString activeStr = dict->getString(path + "/active");
+    if (!activeStr.isEmpty()) obj->active = parseFoamBool(activeStr, true);
+
+    obj->executeControl = parseEnum<CaseIO::FunctionObject::ControlType>(
+        dict->getString(path + "/executeControl"),
+        CaseIO::FunctionObject::ControlType::timeStep);
+
+    double execInt = dict->getNumber(path + "/executeInterval");
+    if (!std::isnan(execInt)) obj->executeInterval = execInt;
+
+    obj->writeControl = parseEnum<CaseIO::FunctionObject::ControlType>(
+        dict->getString(path + "/writeControl"),
+        CaseIO::FunctionObject::ControlType::writeTime);
+
+    double writeInt = dict->getNumber(path + "/writeInterval");
+    if (!std::isnan(writeInt)) obj->writeInterval = writeInt;
+
+    obj->logOutput = parseFoamBool(dict->getString(path + "/log"), false);
+}
+
+std::vector<std::unique_ptr<CaseIO::FunctionObject>>
+    CaseIO::parsePostProcessDict(std::shared_ptr<OpenFoamDictionary> dict) {
+    std::vector<std::unique_ptr<FunctionObject>> functionObjects;
+    if (!dict)
+        return functionObjects;
+
+    // Check if objects are wrapped in a "functions" block
+    QString basePath = "functions";
+    QStringList objectNames = dict->getDictKeys(basePath);
+    if (objectNames.isEmpty()) {
+        basePath = "";
+        objectNames = dict->getDictKeys("");
+    }
+
+    for (const QString& objName : std::as_const(objectNames)) {
+        QString path =
+            basePath.isEmpty() ? objName : (basePath + "/" + objName);
+        QString typeStr = dict->getString(path + "/type");
+
+        if (typeStr == "forces") {
+            auto obj = std::make_unique<ForcesConfig>();
+            obj->type = FunctionObject::FuncObjType::forces;
+            parseBaseProperties(obj.get(), path, dict);
+
+            obj->writeFields =
+                parseFoamBool(dict->getString(path + "/writeFields"), false);
+            obj->patches = dict->getList(path + "/patches");
+
+            QString pName = dict->getString(path + "/pName");
+            if (!pName.isEmpty()) obj->pName = pName;
+
+            QString rhoName = dict->getString(path + "/rhoName");
+            if (!rhoName.isEmpty()) obj->rhoName = rhoName;
+
+            double rhoInf = dict->getNumber(path + "/rhoInf");
+            if (!std::isnan(rhoInf)) obj->rhoInf = rhoInf;
+
+            QString uName = dict->getString(path + "/UName");
+            if (!uName.isEmpty()) obj->UName = uName;
+
+            double pRef = dict->getNumber(path + "/pRef");
+            if (!std::isnan(pRef)) obj->pRef = pRef;
+
+            obj->centerOfRotation = parseArray3(
+                dict->getList(path + "/CofR"), obj->centerOfRotation);
+            obj->includePorosity =
+                parseFoamBool(dict->getString(path + "/porosity"), false);
+
+            functionObjects.push_back(std::move(obj));
+
+        } else if (typeStr == "forceCoeffs") {
+            auto obj = std::make_unique<ForceCoeffsConfig>();
+            obj->type = FunctionObject::FuncObjType::forceCoeffs;
+            parseBaseProperties(obj.get(), path, dict);
+
+            obj->writeFields =
+                parseFoamBool(dict->getString(path + "/writeFields"), false);
+            obj->patches = dict->getList(path + "/patches");
+
+            QString pName = dict->getString(path + "/pName");
+            if (!pName.isEmpty()) obj->pName = pName;
+
+            double magUInf = dict->getNumber(path + "/magUInf");
+            if (!std::isnan(magUInf)) obj->magUInf = magUInf;
+
+            double lRef = dict->getNumber(path + "/lRef");
+            if (!std::isnan(lRef)) obj->lRef = lRef;
+
+            double aRef = dict->getNumber(path + "/Aref");
+            if (!std::isnan(aRef)) obj->aRef = aRef;
+
+            obj->centerOfRotation = parseArray3(
+                dict->getList(path + "/CofR"), obj->centerOfRotation);
+            obj->liftDir =
+                parseArray3(dict->getList(path + "/liftDir"), obj->liftDir);
+            obj->dragDir =
+                parseArray3(dict->getList(path + "/dragDir"), obj->dragDir);
+            obj->pitchAxis =
+                parseArray3(dict->getList(path + "/pitchAxis"), obj->pitchAxis);
+
+            functionObjects.push_back(std::move(obj));
+
+        } else if (typeStr == "fieldMinMax") {
+            auto obj = std::make_unique<FieldMinMaxConfig>();
+            obj->type = FunctionObject::FuncObjType::fieldMinMax;
+            parseBaseProperties(obj.get(), path, dict);
+
+            obj->fields = dict->getList(path + "/fields");
+            obj->mode = parseEnum<FieldMinMaxConfig::Mode>(
+                dict->getString(path + "/mode"),
+                FieldMinMaxConfig::Mode::Magnitude);
+            obj->location = parseFoamBool(
+                dict->getString(path + "/location"), true);
+
+            functionObjects.push_back(std::move(obj));
+
+        } else if (typeStr == "probes") {
+            auto obj = std::make_unique<ProbesConfig>();
+            obj->type = FunctionObject::FuncObjType::probes;
+            parseBaseProperties(obj.get(), path, dict);
+
+            obj->fields = dict->getList(path + "/fields");
+            obj->interpolationScheme =
+                parseEnum<FunctionObject::InterpolationType>(
+                    dict->getString(path + "/interpolationScheme"),
+                    FunctionObject::InterpolationType::cell);
+            obj->fixedLocations = parseFoamBool(
+                dict->getString(path + "/fixedLocations"), true);
+            obj->includeOutOfBounds = parseFoamBool(
+                dict->getString(path + "/includeOutOfBounds"), true);
+            obj->verbose = parseFoamBool(
+                dict->getString(path + "/verbose"), false);
+            obj->sampleOnExecute = parseFoamBool(
+                dict->getString(path + "/sampleOnExecute"), false);
+
+            // Extract flat coordinate list and convert to QVector3D
+            QStringList locList = dict->getList(path + "/probeLocations");
+            for (int i = 0; i <= locList.size() - 3; i += 3) {
+                bool okX, okY, okZ;
+                float x = locList[i].toFloat(&okX);
+                float y = locList[i + 1].toFloat(&okY);
+                float z = locList[i + 2].toFloat(&okZ);
+                if (okX && okY && okZ) {
+                    obj->probeLocations.push_back(QVector3D(x, y, z));
+                }
+            }
+
+            functionObjects.push_back(std::move(obj));
+
+        } else if (typeStr == "surfaces") {
+            auto obj = std::make_unique<SurfacesConfig>();
+            obj->type = FunctionObject::FuncObjType::surfaces;
+            parseBaseProperties(obj.get(), path, dict);
+
+            obj->surfaceFormat = parseEnum<SurfacesConfig::SurfaceFormat>(
+                dict->getString(path + "/surfaceFormat"),
+                SurfacesConfig::SurfaceFormat::vtk);
+            obj->interpolationScheme =
+                parseEnum<FunctionObject::InterpolationType>(
+                    dict->getString(path + "/interpolationScheme"),
+                    FunctionObject::InterpolationType::cell);
+            obj->fields = dict->getList(path + "/fields");
+
+            QString surfacesPath = path + "/surfaces";
+            QStringList surfaceKeys = dict->getDictKeys(surfacesPath);
+
+            for (const QString& surfKey : std::as_const(surfaceKeys)) {
+                SurfaceDef sDef;
+                sDef.name = surfKey;
+
+                QString surfPath = surfacesPath + "/" + surfKey;
+                sDef.type = parseEnum<SurfaceDef::SurfaceType>(
+                    dict->getString(surfPath + "/type"),
+                    SurfaceDef::SurfaceType::patch);
+
+                // Store parameters as key-value pairs (excluding "type")
+                QStringList paramKeys = dict->getDictKeys(surfPath);
+                for (const QString& pKey : std::as_const(paramKeys)) {
+                    if (pKey != "type") {
+                        sDef.parameters[pKey] =
+                            dict->getString(surfPath + "/" + pKey);
+                    }
+                }
+                obj->surfaces.push_back(sDef);
+            }
+
+            functionObjects.push_back(std::move(obj));
+
+        } else if (typeStr == "yPlus") {
+            auto obj = std::make_unique<YPlusConfig>();
+            obj->type = FunctionObject::FuncObjType::yPlus;
+            parseBaseProperties(obj.get(), path, dict);
+
+            obj->patches = dict->getList(path + "/patches");
+
+            functionObjects.push_back(std::move(obj));
+        }
+    }
+    return functionObjects;
+}
+
+// Create functions block
 QString CaseIO::createFunctionsBlock(
     const std::vector<std::unique_ptr<FunctionObject>>& functions) {
     // Create string and stream
@@ -100,9 +336,11 @@ void CaseIO::createForcesBlock(QTextStream& stream,
 
     stream << "        p               " << config->pName << ";\n"
            << "        U               " << config->UName << ";\n"
-           << "        rho             " << config->rhoName << ";\n"
-           << "        rhoInf          " << config->rhoInf << ";\n"
-           << "        pRef            " << config->pRef << ";\n"
+           << "        rho             " << config->rhoName << ";\n";
+    if (config->rhoName == "rhoInf") {
+        stream << "        rhoInf          " << config->rhoInf << ";\n";
+    }
+    stream << "        pRef            " << config->pRef << ";\n"
            << "        porosity        " <<
         boolStr(config->includePorosity) << ";\n";
 
@@ -162,9 +400,11 @@ void CaseIO::createForceCoeffsBlock(QTextStream& stream,
     // Output physical and reference fields
     stream << "        p               " << config->pName << ";\n"
            << "        U               " << config->UName << ";\n"
-           << "        rho             " << config->rhoName << ";\n"
-           << "        rhoInf          " << config->rhoInf << ";\n"
-           << "        pRef            " << config->pRef << ";\n"
+           << "        rho             " << config->rhoName << ";\n";
+    if (config->rhoName == "rhoInf") {
+        stream << "        rhoInf          " << config->rhoInf << ";\n";
+    }
+    stream << "        pRef            " << config->pRef << ";\n"
            << "        magUInf         " << config->magUInf << ";\n"
            << "        lRef            " << config->lRef << ";\n"
            << "        Aref            " << config->aRef << ";\n"

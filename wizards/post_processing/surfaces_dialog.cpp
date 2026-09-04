@@ -27,6 +27,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QMetaEnum>
 #include <QPushButton>
 #include <QStackedWidget>
@@ -245,10 +246,35 @@ void SurfacesDialog::addSurface() {
 }
 
 void SurfacesDialog::removeSurface() {
+    // Identify the current selected row
+    int currentRow = m_surfaceListWidget->currentRow();
 
+    // If no item is selected, do nothing
+    if (currentRow < 0) {
+        return;
+    }
+
+    // Remove and delete the parameter widget from the stacked widget
+    QWidget* paramWidget = m_surfaceStack->widget(currentRow);
+    if (paramWidget) {
+        m_surfaceStack->removeWidget(paramWidget);
+        delete paramWidget;
+    }
+
+    // Remove and delete the item from the list widget
+    QListWidgetItem* item = m_surfaceListWidget->takeItem(currentRow);
+    if (item)
+        delete item;
 }
 
 void SurfacesDialog::onOkClicked() {
+    // Make sure a name has been provided
+    if (m_nameEdit->text().isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("A name must be provided for the post-processing task."));
+        return;
+    }
+
     // Get list of fields
     QStringList selectedFields;
     for (int i = 0; i < m_fieldListWidget->count(); ++i) {
@@ -256,6 +282,13 @@ void SurfacesDialog::onOkClicked() {
         if (item->checkState() == Qt::Checked) {
             selectedFields << item->text();
         }
+    }
+
+    // Make sure at least one field has been selected
+    if (selectedFields.isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+                              tr("At least one field must be selected."));
+        return;
     }
 
     // Update the SurfacesConfig structure
@@ -271,5 +304,38 @@ void SurfacesDialog::onOkClicked() {
     m_surfacesConfig.writeInterval = m_writeSpin->value();
     m_surfacesConfig.logOutput = m_logCheck->isChecked();
     m_surfacesConfig.fields = selectedFields;
+
+    // Clear existing surfaces
+    m_surfacesConfig.surfaces.clear();
+
+    // Build surface definitions
+    for (int i = 0; i < m_surfaceListWidget->count(); ++i) {
+        QListWidgetItem* item = m_surfaceListWidget->item(i);
+        CaseIO::SurfaceDef sDef;
+
+        // Extract name and type from the list item
+        sDef.name = item->text();
+        sDef.type = static_cast<CaseIO::SurfaceDef::SurfaceType>(
+            item->data(Qt::UserRole).toInt());
+
+        // Get the corresponding parameter widget from the stack
+        QWidget* paramWidget = m_surfaceStack->widget(i);
+        if (paramWidget) {
+            // Find all QLineEdits associated with this surface's parameters
+            QList<QLineEdit*> lineEdits =
+                paramWidget->findChildren<QLineEdit*>();
+            for (QLineEdit* lineEdit : std::as_const(lineEdits)) {
+                QString paramName = lineEdit->property("paramName").toString();
+                QString paramValue = lineEdit->text().trimmed();
+
+                // Only store the parameter if the user provided a value
+                if (!paramValue.isEmpty()) {
+                    sDef.parameters[paramName] = paramValue;
+                }
+            }
+        }
+        m_surfacesConfig.surfaces.push_back(sDef);
+    }
+
     QDialog::accept();
 }

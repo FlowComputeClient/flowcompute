@@ -36,7 +36,7 @@ QString updateBlockMeshDict(std::shared_ptr<OpenFoamDictionary> dict,
 
 // Create new blockMeshDict
 QString createBlockMeshDict(const BlockMeshConfig& config,
-                            QString openFoamPath);
+                            const QString& openFoamPath);
 };
 
 #endif  // PARSER_BLOCK_MESH_DICT_H_

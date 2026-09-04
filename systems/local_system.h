@@ -42,7 +42,10 @@ class LocalSystem : public TargetSystem {
     QStringList getTutorials(const QString& path) override;
     QStringList copyTutorialFolders(const QString& tutPath,
                                     const QString& projPath) override;
-    QByteArray getFileContent(const QString& path) override;
+    std::optional<QByteArray> getFileContent(const QString& path) override;
+    std::optional<FileStats> getFileStats(const QString& path) override;
+    std::optional<FileDataAndStats>
+            getFileContentAndStats(const QString& path) override;
     bool writeData(const QByteArray& payload,
                    const QString& remoteFilePath) override;
     bool writeData(const QString& localPath,
@@ -55,7 +58,7 @@ class LocalSystem : public TargetSystem {
     QStringList processPaths(const QString& path,
                              PathOperationType type) override;
     RenderData getMeshData(const QString& path) override;
-    RenderData getResultData(const QString& path) override;
+    std::vector<FieldData> getResultData(const QString& path) override;
 
 private:
     void processAllrunScript(const fs::path& scriptPath,

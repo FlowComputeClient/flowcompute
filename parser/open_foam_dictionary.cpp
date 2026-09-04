@@ -24,8 +24,8 @@
 // Forward declare the C-generated language function
 extern "C" const TSLanguage *tree_sitter_openfoam();
 
-// Extract text from the TSNode ---
-static QString getNodeText(TSNode node, const QByteArray& sourceText) {
+// Extract text from the TSNode
+static QString getNodeText(const TSNode& node, const QByteArray& sourceText) {
     if (ts_node_is_null(node)) return QString();
     uint32_t start = ts_node_start_byte(node);
     uint32_t end = ts_node_end_byte(node);
@@ -475,9 +475,6 @@ void OpenFoamDictionary::insertIntoDict(const QString& path,
 void OpenFoamDictionary::removeEntry(const QString& path) {
     if (!m_tree || path.isEmpty()) return;
 
-    // Use your existing findNode to locate the patch dictionary
-    // Note: You need to find the parent 'entry' node, not just the 'dict' node,
-    // to ensure you remove the key as well as the {} block.
     TSNode dictNode = findNode(path);
     if (ts_node_is_null(dictNode)) return;
 

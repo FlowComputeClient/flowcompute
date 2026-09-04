@@ -17,6 +17,7 @@
 
 #include "editors/graphical/surface/surface_left_pane.h"
 
+#include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QHeaderView>
 #include <QLabel>
@@ -43,12 +44,6 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     int spinBoxWidth = 80;
 
     layout->addSpacing(10);
-
-    // Label
-    layout->addSpacing(5);
-    QLabel* paneTitle = new QLabel(tr("<b>Surface Utilities</b>"));
-    layout->addWidget(paneTitle, 0, Qt::AlignHCenter);
-    layout->addSpacing(5);
 
     // Button to check model
     m_checkButton = new QPushButton(tr("Check Surface"));
@@ -125,6 +120,10 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     hLayout->addWidget(m_angleSpin);
     layout->addLayout(hLayout);
 
+    // Check box to overwrite file
+    m_overwriteCheck = new QCheckBox(tr("Overwrite File"));
+    layout->addWidget(m_overwriteCheck, 0, Qt::AlignHCenter);
+
     // Button to launch surfaceAutoPatch
     m_patchButton = new QPushButton(tr("Generate Patches"));
     m_patchButton->setFixedWidth(buttonWidth);
@@ -144,7 +143,8 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     layout->addSpacing(10);
 
     // Set table title
-    QLabel* tableTitle = new QLabel(tr("<b>Surface Patches</b>"));
+    QLabel* tableTitle = new QLabel(tr("Surface Patches"));
+    tableTitle->setStyleSheet("font-weight: bold;");
     layout->addWidget(tableTitle, 0, Qt::AlignHCenter);
 
     layout->addSpacing(10);
@@ -157,24 +157,34 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     m_patchTable->horizontalHeader()->setSectionResizeMode(1,
         QHeaderView::Stretch);
     m_patchTable->verticalHeader()->setVisible(false);
-    m_patchTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
     m_patchTable->setTabKeyNavigation(true);
     m_patchTable->setItemDelegateForColumn(1, new TableDelegate(m_patchTable));
     m_patchTable->setStyleSheet("QTableView::item { padding-left: 10px; }");
-    // layout->addWidget(m_patchTable, 0, Qt::AlignHCenter);
     m_patchTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     layout->addWidget(m_patchTable);
     // m_patchTable->setShowGrid(false);
 
-    // Emit signal when a patch name changes
-    connect(m_patchTable, &QTableWidget::itemChanged, this,
-        [this](QTableWidgetItem* item) {
-        if (item->column() == 1) {
-            emit dirtyStateChanged(true);
-        }
-    });
+    // Enable the Apply Changes button when a patch name is changed
+    connect(m_patchTable, &QTableWidget::itemChanged,
+        this, [this](QTableWidgetItem* item) {
+            m_applyButton->setEnabled(true);
+        });
+
+    // Button to apply changes
+    m_applyButton = new QPushButton(tr("Apply Changes"));
+    m_applyButton->setFixedWidth(buttonWidth);
+    layout->addWidget(m_applyButton, 0, Qt::AlignHCenter);
+    connect(m_applyButton, &QPushButton::clicked,
+            this, &SurfaceLeftPane::onApplyButtonClicked);
+    m_applyButton->setEnabled(false);
 
     layout->addStretch();
+}
+
+// Respond when the apply button is pressed
+void SurfaceLeftPane::onApplyButtonClicked() {
+    emit patchApplyRequested();
+    m_applyButton->setEnabled(false);
 }
 
 void SurfaceLeftPane::setBounds(std::array<float, 3> bounds) {
@@ -197,12 +207,14 @@ void SurfaceLeftPane::changeBounds(double scaleFactor) {
     m_boundsLabel->setText(boundsStr);
 }
 
-void SurfaceLeftPane::setPatchNames(const std::vector<std::string>& patchNames) {
+void SurfaceLeftPane::setPatchNames(
+    const std::vector<std::string>& patchNames) {
     // Block signals
     QSignalBlocker blocker(m_patchTable);
-    m_patchTable->setRowCount(static_cast<int>(patchNames.size()));
-    PatchPalette::ensureCapacity(patchNames.size());
-    for (int i = 0; i < static_cast<int>(patchNames.size()); i++) {
+    int rowCount = static_cast<int>(patchNames.size());
+    m_patchTable->setRowCount(rowCount);
+    PatchPalette::ensureCapacity(rowCount);
+    for (int i = 0; i < rowCount; i++) {
         QColor color(PatchPalette::getColor(i));
 
         QTableWidgetItem *colorItem = new QTableWidgetItem();
@@ -225,7 +237,6 @@ void SurfaceLeftPane::setPatchNames(const std::vector<std::string>& patchNames) 
     }
     m_patchTable->setFixedHeight(height);
     */
-    update();
 }
 
 std::vector<std::string> SurfaceLeftPane::getPatchNames() const {
@@ -260,7 +271,8 @@ void SurfaceLeftPane::onScaleButtonClicked() {
 // Respond when the check button is pressed
 void SurfaceLeftPane::onPatchButtonClicked() {
     double angle = m_angleSpin->value();
-    emit surfacePatchRequested(angle);
+    bool overwrite = m_overwriteCheck->isChecked();
+    emit surfacePatchRequested(angle, overwrite);
 }
 
 void SurfaceLeftPane::paintEvent(QPaintEvent *event) {

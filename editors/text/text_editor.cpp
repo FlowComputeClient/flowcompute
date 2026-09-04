@@ -17,9 +17,11 @@
 
 #include "editors/text/text_editor.h"
 
+#include <QFuture>
 #include <QPainter>
 #include <QTextBlock>
 #include <QScrollBar>
+#include <QtConcurrent>
 
 LineNumberArea::LineNumberArea(TextEditor *editor)
     : QWidget(editor), textEditor(editor) {}
@@ -61,6 +63,8 @@ void TextEditor::setTextData(const QByteArray &textData) {
         triggerBackgroundParse(textData);
     }
 }
+
+void TextEditor::showBanner() {}
 
 void TextEditor::triggerBackgroundParse(const QByteArray& fileData) {
     QFuture<TSTree*> future = QtConcurrent::run([fileData]() {
@@ -106,7 +110,7 @@ void TextEditor::updateLineNumberAreaWidth(int) {
     setViewportMargins(lineNumberAreaWidth() + 5, 0, 0, 0);
 }
 
-void TextEditor::updateLineNumberArea(const QRect &rect, int dy) {
+void TextEditor::updateLineNumberArea(QRect rect, int dy) {
     if (dy)
         lineNumberArea->scroll(0, dy);
     else

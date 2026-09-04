@@ -118,7 +118,8 @@ QString createFoamHeader(const QString& objectName, const QString& foamPath,
 QString createFoamFooter();
 
 // Create message box for parsing error
-ParseErrorAction showParsingErrorMessage(QString fileName, QWidget* parent);
+ParseErrorAction showParsingErrorMessage(const QString& fileName,
+                                         QWidget* parent);
 };
 
 #endif  // PARSER_COMMON_H_

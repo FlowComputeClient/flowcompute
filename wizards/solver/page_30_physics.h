@@ -39,11 +39,12 @@ class PhysicsPage : public QWizardPage {
 
     // Accessors for the properties
     QString getTurbulenceModel() const { return m_selectedModel; }
-    void setTurbulenceModel(QString arg) { m_selectedModel = arg; }
+    void setTurbulenceModel(const QString& arg) { m_selectedModel = arg; }
     QString getTurbulenceCategory() const { return m_selectedCategory; }
-    void setTurbulenceCategory(QString arg) { m_selectedCategory = arg; }
+    void setTurbulenceCategory(const QString& arg) { m_selectedCategory = arg; }
     QString getTurbulenceSubCategory() const { return m_selectedSubCategory; }
-    void setTurbulenceSubCategory(QString arg) { m_selectedSubCategory = arg; }
+    void setTurbulenceSubCategory(const QString& arg) {
+        m_selectedSubCategory = arg; }
 
  protected:
     void initializePage() override;

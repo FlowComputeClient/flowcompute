@@ -28,7 +28,7 @@
 #include "editors/graphical/result/color_bar_widget.h"
 
 ResultLeftPane::ResultLeftPane(const QStringList& timeFolders,
-    QString timeFolder, QWidget* parent): m_timeFolders(timeFolders),
+    const QString& timeFolder, QWidget* parent): m_timeFolders(timeFolders),
     m_timeFolder(timeFolder), QWidget(parent) {
     setProperty("widgetType", "pane");
 

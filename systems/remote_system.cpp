@@ -229,12 +229,37 @@ QStringList RemoteSystem::processPaths(const QString& pathString,
                 escapedSources.append(QString("'%1'").arg(src));
             }
 
-            // Loop through sources
+            // Loop through sources and handle duplication in Bash
             cmd = QString("DST='%1'; "
-                  "for SRC in %2; do "
-                  "  cp -rf \"$SRC\" \"$DST\" 2>/dev/null; "
-                  "  if [ $? -eq 0 ]; then echo '0'; else echo '-1'; fi; "
-                  "done").arg(dstPath, escapedSources.join(" "));
+              "for SRC in %2; do "
+              "  filename=$(basename \"$SRC\"); "
+
+              // Mimic C++ filesystem stem() and extension() behavior
+              // Ignores leading dots (like .bashrc) as an extension
+              "  if [[ \"$filename\" == *.* && \"$filename\" != .* ]]; then "
+              "    stem=\"${filename%.*}\"; "
+              "    ext=\".${filename##*.}\"; "
+              "  else "
+              "    stem=\"$filename\"; "
+              "    ext=\"\"; "
+              "  fi; "
+
+              "  TARGET=\"$DST/$filename\"; "
+
+              // Apply duplication suffix logic if target exists
+              "  if [ -e \"$TARGET\" ]; then "
+              "    TARGET=\"$DST/${stem}_copy${ext}\"; "
+              "    counter=1; "
+              "    while [ -e \"$TARGET\" ]; do "
+              "      TARGET=\"$DST/${stem}_copy_${counter}${ext}\"; "
+              "      counter=$((counter+1)); "
+              "    done; "
+              "  fi; "
+
+              // Execute recursive copy without the -f (overwrite) flag
+              "  cp -r \"$SRC\" \"$TARGET\" 2>/dev/null; "
+              "  if [ $? -eq 0 ]; then echo '0'; else echo '-1'; fi; "
+              "done").arg(dstPath, escapedSources.join(" "));
         }
 
         QStringList cmdResult =
@@ -788,65 +813,134 @@ std::pair<QStringList, QStringList>
     return std::make_pair(timeFolders, fieldFiles);
 }
 
-QByteArray RemoteSystem::getFileContent(const QString& path) {
-    QByteArray fileData;
-
-    // Check the session is valid
+// Retrieve file content
+std::optional<QByteArray> RemoteSystem::getFileContent(const QString& path) {
     if (!m_session || !ssh_is_connected(m_session)) {
         qWarning() << "SSH session is not established.";
-        return {};
+        return std::nullopt;
     }
 
-    // Initialize the SFTP session
     sftp_session sftp = sftp_new(m_session);
     if (sftp == nullptr) {
-        return {};
+        return std::nullopt;
     }
 
     if (sftp_init(sftp) != SSH_OK) {
         sftp_free(sftp);
-        return {};
+        return std::nullopt;
     }
 
-    // Make sure the path exists and is a file
-    sftp_attributes attributes = sftp_stat(sftp, path.toUtf8().constData());
-    if (attributes == nullptr) {
-        sftp_free(sftp);
-        return {};
-    }
-
-    // Path exists but is not a regular file
-    if (attributes->type != SSH_FILEXFER_TYPE_REGULAR) {
-        sftp_attributes_free(attributes);
-        sftp_free(sftp);
-        return {};
-    }
-    sftp_attributes_free(attributes);
-
-    // Open the file as ReadOnly
+    // Skip the sftp_stat call to save a network round-trip
     sftp_file file = sftp_open(sftp, path.toUtf8().constData(), O_RDONLY, 0);
     if (file == nullptr) {
         sftp_free(sftp);
-        return {};
+        return std::nullopt;
     }
 
-    // Read data if it's a file
+    QByteArray fileData;
     char buffer[16384];
     ssize_t bytesRead;
 
-    // Loop until EOF
     while ((bytesRead = sftp_read(file, buffer, sizeof(buffer))) > 0) {
         fileData.append(buffer, bytesRead);
     }
 
+    // Handle errors with nullopt
     if (bytesRead < 0) {
         qWarning() << "Error reading data from remote file:" << path;
+        sftp_close(file);
+        sftp_free(sftp);
+        return std::nullopt;
     }
 
-    // Close it
     sftp_close(file);
     sftp_free(sftp);
     return fileData;
+}
+
+// Retrieve file statistics (size and update time)
+std::optional<FileStats> RemoteSystem::getFileStats(const QString& path) {
+    if (!m_session || !ssh_is_connected(m_session)) {
+        qWarning() << "SSH session is not established.";
+        return std::nullopt;
+    }
+
+    sftp_session sftp = sftp_new(m_session);
+    if (sftp == nullptr) return std::nullopt;
+    if (sftp_init(sftp) != SSH_OK) {
+        sftp_free(sftp);
+        return std::nullopt;
+    }
+
+    // Request metadata without opening the file to save disk I/O on the server
+    sftp_attributes attr = sftp_stat(sftp, path.toUtf8().constData());
+    if (attr == nullptr) {
+        sftp_free(sftp);
+        return std::nullopt;
+    }
+
+    FileStats stats;
+    stats.size = attr->size;
+    stats.mtime = QDateTime::fromSecsSinceEpoch(attr->mtime);
+
+    sftp_attributes_free(attr);
+    sftp_free(sftp);
+    return stats;
+}
+
+// Retrieve file content and statistics (size and update time)
+std::optional<FileDataAndStats>
+        RemoteSystem::getFileContentAndStats(const QString& path) {
+    if (!m_session || !ssh_is_connected(m_session)) {
+        qWarning() << "SSH session is not established.";
+        return std::nullopt;
+    }
+
+    sftp_session sftp = sftp_new(m_session);
+    if (sftp == nullptr) return std::nullopt;
+    if (sftp_init(sftp) != SSH_OK) {
+        sftp_free(sftp);
+        return std::nullopt;
+    }
+
+    sftp_file file = sftp_open(sftp, path.toUtf8().constData(), O_RDONLY, 0);
+    if (file == nullptr) {
+        sftp_free(sftp);
+        return std::nullopt;
+    }
+
+    // fstat gets the metadata directly from the already-open file handle
+    sftp_attributes attr = sftp_fstat(file);
+    if (attr == nullptr) {
+        sftp_close(file);
+        sftp_free(sftp);
+        return std::nullopt;
+    }
+
+    FileDataAndStats data;
+    data.stats.size = attr->size;
+    data.stats.mtime = QDateTime::fromSecsSinceEpoch(attr->mtime);
+    sftp_attributes_free(attr);
+
+    // Use the retrieved size to pre-allocate memory
+    data.content.reserve(data.stats.size);
+
+    char buffer[16384];
+    ssize_t bytesRead;
+    while ((bytesRead = sftp_read(file, buffer, sizeof(buffer))) > 0) {
+        data.content.append(buffer, bytesRead);
+    }
+
+    if (bytesRead < 0) {
+        qWarning() << "Error reading data from remote file:" << path;
+        sftp_close(file);
+        sftp_free(sftp);
+        return std::nullopt;
+    }
+
+    sftp_close(file);
+    sftp_free(sftp);
+    return data;
 }
 
 RenderData RemoteSystem::getMeshData(const QString& path) {
@@ -854,9 +948,6 @@ RenderData RemoteSystem::getMeshData(const QString& path) {
     return renderData;
 }
 
-RenderData RemoteSystem::getResultData(const QString& path) {
-
-    // Populate the render data structure
-    RenderData renderData;
-    return renderData;
+std::vector<FieldData> RemoteSystem::getResultData(const QString& path) {
+    return std::vector<FieldData>();
 }

@@ -38,13 +38,14 @@ class CaseNavigator : public QTreeView {
         QAction* viewMeshAction, QAction* configureSolverAction,
         QAction* runSolverAction, QAction* viewResultAction, QAction* cutAction,
         QAction* copyAction, QAction* pasteAction, QAction* uploadAction,
-        QAction* downloadAction, SystemManager& systemMgr,
-        QWidget *parent = nullptr);
-    void addCase(QString caseName, QStringList caseFiles, bool disable=false);
-    void expandCase(QString caseName);
+        QAction* downloadAction, QAction* postProcessingAction,
+        SystemManager& systemMgr, QWidget *parent = nullptr);
+    void addCase(const QString& caseName, const QStringList& caseFiles,
+                 bool disable=false);
+    void expandCase(const QString& caseName);
     QStringList getCases() const;
     QString getSelectedCase();
-    void updatePath(QString path, QStringList children);
+    void updatePath(const QString& path, const QStringList& children);
     void addNodes(NodeData* parent, const QList<NodeData*>& children);
     void removeNode(NodeData* node);
     bool renameNode(NodeData* node, const QString& newName);
@@ -67,17 +68,22 @@ class CaseNavigator : public QTreeView {
     void mouseDoubleClickEvent(QMouseEvent *event) override;
 
  signals:
-    void createEditor(EditorType type, QString& fileName, const QString& path,
-        bool logMessage);
+    void createTextEditor(QString& fileName, const QString& path,
+                           bool logMessage);
+    void createSurfaceEditor(QString& fileName, const QString& path,
+                             bool logMessage);
     void logMessage(const QString& msg);
     void requestUpdatePath(const QString& caseName, const QString& subDir);
-    void updateSettings();
+    void renameFile(const QString& filePath, const QString& newName);
+    void removeFile(const QString& filePath, bool isCase);
+    void cutPasteFile(const QString& oldPath, const QString& newPath);
 
  private:
     void createActions();
+    void updateActions(NodeData* node);
     void fetchChildren(NodeData* parentNode);
-    NodeType checkType(QString name, QString fullPath);
-    bool checkCaseFiles(QString caseName);
+    NodeType checkType(const QString& name, const QString& fullPath);
+    bool checkConnection(const QString& caseName);
     void refresh(NodeData* node);
 
     QStringList m_clipboardPaths;
@@ -91,7 +97,7 @@ class CaseNavigator : public QTreeView {
     QAction *m_newCaseAction, *m_openCaseAction;
     QAction *m_newFileAction, *m_newFolderAction, *m_newDictAction;
     QAction *m_deleteAction, *m_renameAction, *m_uploadAction;
-    QAction *m_downloadAction, *m_refreshAction;
+    QAction *m_downloadAction, *m_refreshAction, *m_postProcessingAction;
     QAction *m_cutAction, *m_copyAction, *m_pasteAction;
     QAction *m_configureMeshAction, *m_runMeshAction, *m_viewMeshAction;
     QAction *m_configureSolverAction, *m_runSolverAction, *m_viewResultAction;
@@ -105,7 +111,7 @@ class CaseNavigator : public QTreeView {
                            const QItemSelection &deselected);
 
     // Displays the context menu
-    void showContextMenu(const QPoint &pos);
+    void showContextMenu(QPoint pos);
 
     // Deletes selected files
     void deleteFile();

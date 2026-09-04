@@ -24,6 +24,7 @@
 #include "parser/control_dict.h"
 #include "parser/decompose_par_dict.h"
 #include "parser/field.h"
+#include "parser/function_object.h"
 #include "parser/fv_solution.h"
 #include "core_types.h"
 #include "systems/system_manager.h"
@@ -45,14 +46,14 @@ class SolverWizard : public QWizard {
         Page_Tasks = 9
     };
 
-    SolverWizard(const QString& caseName, const SystemManager& systemMgr,
+    SolverWizard(const QString& caseName, SystemManager& systemMgr,
     const std::vector<FlowCompute::SolverFamily>& families,
     const FlowCompute::TurbulenceDatabase& turbModels,
     const std::map<QString, FlowCompute::TransportPropertyDef>&
         transportProperties,
     const QHash<QString, FlowCompute::FieldDef>& fieldData,
     const std::vector<FlowCompute::BoundaryConditionDef>&
-        boundaryConditions, QStringList patchNames, QWidget *parent);
+        boundaryConditions, const QStringList& patchNames, QWidget *parent);
 
     bool parseFiles();
     CaseIO::ControlConfig& getControlConfig() { return m_controlConfig; };
@@ -77,7 +78,7 @@ class SolverWizard : public QWizard {
     FlowCompute::Algorithm getSolverAlgorithm();
 
  signals:
-    void createEditor(EditorType type, QString& fileName, const QString& path,
+    void createTextEditor(QString& fileName, const QString& path,
                       bool logMessage);
     void updatePath(QString caseName, QString subDir);
 
@@ -85,8 +86,11 @@ class SolverWizard : public QWizard {
     void accept() override;
 
  private:
-    const SystemManager& m_systemMgr;
+    SystemManager& m_systemMgr;
     std::vector<CaseIO::MeshPatch> m_boundaries;
+
+    // Function objects
+    std::vector<std::unique_ptr<CaseIO::FunctionObject>> m_functionObjects;
 
     // Data from config files
     std::vector<FlowCompute::SolverFamily> m_families;

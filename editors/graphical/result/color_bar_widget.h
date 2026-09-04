@@ -22,6 +22,7 @@
 #include <QWidget>
 
 class ColorBarWidget : public QWidget {
+    Q_OBJECT
  public:
     explicit ColorBarWidget(QWidget *parent = nullptr);
 

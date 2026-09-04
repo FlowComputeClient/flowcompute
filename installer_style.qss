@@ -1,0 +1,79 @@
+QWizard, QDialog, QMessageBox, QWizardPage {
+    background-color: #f7f4ee;
+    color: #1a1a1a;
+}
+
+QLabel, QMessageBox QLabel {
+    background-color: transparent;
+    color: #1a1a1a;
+}
+
+QPushButton {
+    background-color: #ede4d3;
+    color: #1a1a1a;
+    border: 1px solid #bbaea0;
+    border-radius: 4px;
+    padding: 5px 16px;
+    min-width: 68px;
+    min-height: 20px;
+}
+
+QPushButton:hover {
+    background-color: #e2d6c2;
+    border-color: #9f9180;
+}
+
+QPushButton:pressed {
+    background-color: #d5c7b0;
+    border-color: #8c7e6c;
+}
+
+QPushButton:disabled {
+    background-color: #f0eae1;
+    color: #99938b;
+    border-color: #ded8ce;
+}
+
+QTextBrowser, QTextEdit, QLineEdit, QPlainTextEdit, QListWidget, QListView {
+    background-color: #ffffff;
+    color: #1a1a1a;
+    border: 1px solid #c8bea8;
+    border-radius: 3px;
+    padding: 4px;
+}
+
+QCheckBox {
+    color: #1a1a1a;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+    background-color: #ffffff;
+    border: 1px solid #9f9180;
+    border-radius: 2px;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0078d7;
+    border-color: #005a9e;
+}
+
+QRadioButton {
+    color: #1a1a1a;
+    spacing: 8px;
+}
+
+QRadioButton::indicator {
+    width: 14px;
+    height: 14px;
+    background-color: #ffffff;
+    border: 1px solid #9f9180;
+    border-radius: 8px;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #ffffff;
+    border: 4px solid #0078d7;
+}

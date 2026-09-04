@@ -19,6 +19,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QDesktopServices>
 #include <QDockWidget>
 #include <QFile>
 #include <QFileDialog>
@@ -27,14 +28,20 @@
 #include <QMenuBar>
 #include <QProgressBar>
 #include <QProgressDialog>
+#include <QStandardPaths>
 #include <QStatusBar>
 #include <QToolBar>
+#include <QtConcurrent>
 
 #include <algorithm>
 #include <memory>
 #include <utility>
 #include <vector>
 
+#include "dialogs/about/about_dialog.h"
+#include "dialogs/license/license_dialog.h"
+// #include "dialogs/preferences/preferences_dialog.h"
+#include "dialogs/selection/selection_dialog.h"
 #include "dialogs/utility_output/utility_output_dialog.h"
 #include "editors/graphical/surface/surface_editor.h"
 #include "editors/graphical/mesh/mesh_editor.h"
@@ -93,6 +100,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // Create tab widget
     m_tabWidget = new TabWidget(this);
     setCentralWidget(m_tabWidget);
+    connect(m_tabWidget, &TabWidget::currentChanged,
+            this, &MainWindow::tabChanged);
+    connect(m_tabWidget, &TabWidget::tabClosedSuccessfully,
+            this, &MainWindow::tabClosed);
 
     // Create the navigator
     m_navigatorWidget = new QDockWidget(tr("Case Navigator"), this);
@@ -102,21 +113,27 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         m_configureMeshAction, m_runMeshAction, m_viewMeshAction,
         m_configureSolverAction, m_runSolverAction, m_viewResultAction,
         m_cutAction, m_copyAction, m_pasteAction, m_uploadAction,
-        m_downloadAction, m_systemMgr, this);
+        m_downloadAction, m_postProcessAction, m_systemMgr, this);
     m_navigatorWidget->setWidget(m_navigator);
     m_navigatorWidget->setMinimumWidth(200);
     addDockWidget(Qt::LeftDockWidgetArea, m_navigatorWidget);
     setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
 
     // Connect navigator signals
-    connect(m_navigator, &CaseNavigator::createEditor,
-            this, &MainWindow::createEditor);
+    connect(m_navigator, &CaseNavigator::createTextEditor,
+            this, &MainWindow::createTextEditor);
+    connect(m_navigator, &CaseNavigator::createSurfaceEditor,
+            this, &MainWindow::createSurfaceEditor);
     connect(m_navigator, &CaseNavigator::logMessage,
             this, &MainWindow::log);
     connect(m_navigator, &CaseNavigator::requestUpdatePath,
             this, &MainWindow::updatePath);
-    connect(m_navigator, &CaseNavigator::updateSettings,
-            this, &MainWindow::saveCases);
+    connect(m_navigator, &CaseNavigator::removeFile,
+            this, &MainWindow::removeFile);
+    connect(m_navigator, &CaseNavigator::renameFile,
+            this, &MainWindow::renameFile);
+    connect(m_navigator, &CaseNavigator::cutPasteFile,
+            this, &MainWindow::cutPasteFile);
 
     // Get actions from navigator
     QList<QAction*> actions = m_navigator->getActions();
@@ -177,24 +194,27 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Read theme from settings
     QSettings settings;
-    bool noAccess = false;
-    applyTheme(settings.value("Theme/file", "dark.json").toString());
+    applyTheme(settings.value("Preferences/theme", "dark.json").toString());
 
-    // Populate caseMap and navigator from settings
+    // Load order of cases
+    settings.beginGroup("Cases");
+    QStringList caseOrder = settings.value("caseOrder").toStringList();
+
+    // Clear system manager
     m_systemMgr.clear();
-    int caseCount = settings.beginReadArray("Cases");
     bool wslServerCheck = false, wslServerAvailable = false;
     bool remoteServerCheck = false, remoteServerAvailable = false;
 
     // Read settings
     CaseData data;
-    for (int i = 0; i < caseCount; ++i) {
-        settings.setArrayIndex(i);
-        QString caseName = settings.value("caseName").toString();
+    for (const QString& caseName : std::as_const(caseOrder)) {
+        settings.beginGroup(caseName);
         data.casePath = settings.value("casePath").toString();
-        data.caseFiles = settings.value("caseFiles").toStringList();
         data.targetId = settings.value("targetSystemId", 0).toInt();
+        data.caseFlags = CaseFlag::NotChecked;
         data.openFoamPath = settings.value("openFoamPath").toString();
+
+        // Set data for remote case
         if (data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
             data.userName = settings.value("userName").toString();
             data.hostName = settings.value("hostName").toString();
@@ -277,33 +297,60 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                 "Please import the case if it has moved.")
                     .arg(caseName, casePath)));
         }
+
+        // End the group for the case
+        settings.endGroup();
     }
-    settings.endArray();
+    // End the group for all cases
+    settings.endGroup();
 
-    // Populate tabMap and tabs from settings
-    m_tabMap.clear();
-    int tabCount = settings.beginReadArray("Tabs");
-    for (int i = 0; i < tabCount; ++i) {
-        settings.setArrayIndex(i);
+    // Get order of tabs
+    settings.beginGroup("Tabs");
+    QStringList tabOrder = settings.value("tabOrder").toStringList();
 
-        // Update map
-        QString tabName = settings.value("tabName").toString();
+    for (const QString& tabPath : std::as_const(tabOrder)) {
+        settings.beginGroup(tabPath);
+
+        // Update tab data
         TabData data;
         data.type = static_cast<EditorType>(settings.value("type").toInt());
-        data.fullPath = settings.value("fullPath").toString();
 
-        // Check if the case can be accessed
-        QString caseName = data.fullPath.split("/")[0];
+        // Get case information about the tab
+        QStringList segments = tabPath.split("/");
+        QString caseName = segments.first();
+        QString fileName = segments.last();
         CaseData caseData = m_systemMgr.getData(caseName);
+
+        // Read file statistics
+        QString fullPath = caseData.casePath + "/" + tabPath;
+        data.stats = m_systemMgr.getSystem(caseName)->getFileStats(fullPath);
+
+        // End group for tab
+        settings.endGroup();
         if (m_utilMap[caseData.openFoamPath].empty()) {
             continue;
         }
 
         // Create tab and editor
-        m_tabMap.insert(tabName, data);
-        createEditor(data.type, tabName, data.fullPath, false);
+        m_tabMap.insert(tabPath, data);
+        switch(data.type) {
+        case EditorType::TEXT:
+            createTextEditor(fileName, tabPath, false);
+            break;
+        case EditorType::SURFACE:
+            createSurfaceEditor(fileName, tabPath, false);
+            break;
+        case EditorType::MESH:
+            createMeshEditor(caseName, false);
+            break;
+        case EditorType::RESULT:
+            createResultEditor(caseName, false);
+            break;
+        }
     }
-    settings.endArray();
+
+    // End group for all tabs
+    settings.endGroup();
 
     // Create Vulkan instance
     m_vulkanInstance.setLayers({ "VK_LAYER_KHRONOS_validation" });
@@ -398,6 +445,9 @@ void MainWindow::createActions() {
     m_cutAction->setShortcuts(QKeySequence::Cut);
     m_cutAction->setStatusTip(tr("Cut"));
     connect(m_cutAction, &QAction::triggered, this, [this]() {
+
+        qDebug() << "Running cut operation";
+
         QWidget* focused = QApplication::focusWidget();
         if (!focused || qobject_cast<QMenu*>(focused)) {
             if (QWidget* activeWindow = QApplication::activeWindow()) {
@@ -478,13 +528,81 @@ void MainWindow::createActions() {
         QMetaObject::invokeMethod(focused, "paste");
     });
 
-    // Preferences
-    m_preferencesAction = new QAction(QIcon(":/images/dict.png"),
-            tr("Set preferences..."), this);
-    m_preferencesAction->setShortcuts(QKeySequence::Preferences);
-    m_preferencesAction->setStatusTip(tr("Set preferences"));
-    connect(m_preferencesAction, &QAction::triggered, this,
-            &MainWindow::launchPreferencesDialog);
+    // Theme
+    m_themeAction = new QAction(QIcon(":/images/theme.png"),
+            tr("Set Theme..."), this);
+    m_themeAction->setStatusTip(tr("Set theme"));
+    connect(m_themeAction, &QAction::triggered, this, [this]() {
+        // Get list of themes files
+        QStringList themeNames, themeFiles;
+        QDir themesDir(m_configDir.filePath("themes"));
+        if (themesDir.exists()) {
+            QFileInfoList themeInfos = themesDir.entryInfoList(
+                QStringList() << "*.json",
+                QDir::Files | QDir::NoDotAndDotDot);
+            for (const QFileInfo& themeInfo : std::as_const(themeInfos)) {
+                themeNames.append(themeInfo.baseName());
+                themeFiles.append(themeInfo.fileName());
+            }
+        }
+
+        // Get settings
+        QSettings settings;
+        QString currentTheme = settings.value("Preferences/theme").toString();
+        int currentIndex = themeFiles.indexOf(currentTheme);
+        currentIndex = (std::max)(0, currentIndex);
+
+        // Get user selection
+        if (!themeFiles.isEmpty()) {
+            SelectionDialog selectionDialog(tr("Theme Selection"),
+                tr("Select one of the following themes:"), themeNames,
+                    this, currentIndex);
+            if (selectionDialog.exec() == QDialog::Accepted) {
+                // Apply theme if different
+                QString selectedTheme = selectionDialog.getSelectedItem();
+                if (selectedTheme != currentTheme) {
+                    applyTheme(selectedTheme + ".json");
+                    settings.setValue("Preferences/theme",
+                                      selectedTheme + ".json");
+                }
+            }
+        }
+    });
+
+    // Language
+    m_languageAction = new QAction(QIcon(":/images/language.png"),
+                                tr("Set Language..."), this);
+    m_languageAction->setStatusTip(tr("Set language"));
+    connect(m_languageAction, &QAction::triggered, this, [this]() {
+        // Create list of languages
+        QStringList languageNames = { "English", "Deutsch",
+            "中文（简体）", "日本語", "Svenska", "Français", "Italiano", "한국어",
+            "Español", "Português" };
+        QStringList languageIds = { "en", "de", "zh_CN", "ja", "sv", "fr",
+            "it", "ko", "es", "pt_BR" };
+
+        // Get settings
+        QSettings settings;
+        QString currentLanguage =
+            settings.value("Preferences/language").toString();
+        int currentIndex = languageIds.indexOf(currentLanguage);
+        currentIndex = (std::max)(0, currentIndex);
+
+        // Create selection dialog
+        SelectionDialog selectionDialog(tr("Language Selection"),
+            tr("Select one of the following languages:"), languageNames, this,
+            currentIndex);
+        if (selectionDialog.exec() == QDialog::Accepted) {
+            QString language = languageIds[selectionDialog.getSelectedIndex()];
+            if (language != currentLanguage) {
+                // Update settings and alert user
+                settings.setValue("Preferences/language", language);
+                QMessageBox::information(this, tr("Restart Required"),
+                tr("Language changed. Please restart FlowCompute for changes "
+                                            "to take effect."));
+            }
+        }
+    });
 
     // Undo
     m_undoAction = new QAction(QIcon(":/images/undo.png"), tr("Undo"), this);
@@ -530,8 +648,10 @@ void MainWindow::createActions() {
     m_viewMeshAction =
         new QAction(QIcon(":/images/view_mesh.png"), tr("&View Mesh"), this);
     m_viewMeshAction->setStatusTip(tr("View mesh"));
-    connect(m_viewMeshAction, &QAction::triggered, this,
-            &MainWindow::viewMesh);
+    connect(m_viewMeshAction, &QAction::triggered, this, [this]() {
+        QString caseName = getSelectedCase();
+        createMeshEditor(caseName, true);
+    });
 
     // Launch solver configuration dialog
     m_configureSolverAction = new QAction(QIcon(":/images/solver.png"),
@@ -559,20 +679,55 @@ void MainWindow::createActions() {
     m_viewResultAction = new QAction(
         QIcon(":/images/view_result.png"), tr("View R&esult"), this);
     m_viewResultAction->setStatusTip(tr("View result"));
-    connect(m_viewResultAction, &QAction::triggered, this,
-            &MainWindow::viewResult);
+    connect(m_viewResultAction, &QAction::triggered, this, [this]() {
+        QString caseName = getSelectedCase();
+        createResultEditor(caseName, true);
+    });
 
     // Post-processing
     m_postProcessAction = new QAction(QIcon(":/images/postprocess.png"),
-         tr("&Post-process"), this);
+         tr("&Post-processing"), this);
     m_postProcessAction->setStatusTip(tr("Launch post-processing"));
     connect(m_postProcessAction, &QAction::triggered, this,
             &MainWindow::launchPostProcessingWizard);
 
-    // Configure the About action in the help menu
-    m_aboutAction = new QAction(QIcon(":/images/help.png"), tr("&Help"), this);
-    m_aboutAction->setStatusTip(tr("Provide assistance"));
-    // connect(aboutAction, &QAction::triggered, this, SLOT(About()));
+    // Documentation
+    m_docAction = new QAction(QIcon(":/images/doc.png"),
+         tr("Online Documentation"), this);
+    m_docAction->setShortcut(QKeySequence::HelpContents);
+    connect(m_docAction, &QAction::triggered, this, []() {
+        QDesktopServices::openUrl(
+            QUrl("https://www.flowcompute.com/documentation"));
+    });
+
+    // Report issue
+    m_issueAction = new QAction(tr("Report Issue"), this);
+    connect(m_issueAction, &QAction::triggered, this, []() {
+        QDesktopServices::openUrl(
+            QUrl("https://github.com/FlowComputeClient/flowcompute/issues"));
+    });
+
+    // License dialog
+    m_licenseAction = new QAction(tr("Third-Party Licenses"), this);
+    m_licenseAction->setStatusTip(tr("Display license information"));
+    connect(m_licenseAction, &QAction::triggered, this, [this]() {
+        LicenseDialog dialog(this);
+        dialog.exec();
+    });
+
+    // About Qt
+    m_aboutQtAction = new QAction(tr("About Qt"), this);
+    m_aboutQtAction->setStatusTip(tr("About Qt"));
+    connect(m_aboutQtAction, &QAction::triggered, this,
+            QApplication::aboutQt);
+
+    // About FlowCompute
+    m_aboutFcAction = new QAction(tr("About FlowCompute"), this);
+    m_aboutFcAction->setStatusTip(tr("About FlowCompute"));
+    connect(m_aboutFcAction, &QAction::triggered, this, [this]() {
+        AboutDialog dialog(this);
+        dialog.exec();
+    });
 }
 
 // Assemble actions within main menu
@@ -602,7 +757,8 @@ void MainWindow::createMenus() {
     m_editMenu->addAction(m_pasteAction);
     m_editMenu->addAction(m_deleteAction);
     m_editMenu->addSeparator();
-    m_editMenu->addAction(m_preferencesAction);
+    m_editMenu->addAction(m_themeAction);
+    m_editMenu->addAction(m_languageAction);
 
     // Create view menu
     m_viewMenu = menuBar()->addMenu(tr("&View"));
@@ -613,54 +769,63 @@ void MainWindow::createMenus() {
     m_meshMenu = menuBar()->addMenu(tr("&Mesh"));
     m_meshMenu->addAction(m_configureMeshAction);
     m_meshMenu->addAction(m_runMeshAction);
+    m_meshMenu->addAction(m_viewMeshAction);
 
     // Create simulation menu
     m_simMenu = menuBar()->addMenu(tr("&Simulation"));
+    m_simMenu->addAction(m_configureSolverAction);
+    m_simMenu->addAction(m_runSolverAction);
+    m_simMenu->addAction(m_viewResultAction);
+    m_simMenu->addSeparator();
     m_simMenu->addAction(m_postProcessAction);
 
     // Create help menu
     helpMenu = menuBar()->addMenu(tr("&Help"));
-    // helpMenu->addAction(aboutAction);
+    helpMenu->addAction(m_docAction);
+    helpMenu->addAction(m_issueAction);
+    helpMenu->addAction(m_licenseAction);
+    helpMenu->addAction(m_aboutQtAction);
+    helpMenu->addAction(m_aboutFcAction);
 }
 
 // Add entries to toolbars
 void MainWindow::createToolBar() {
-    // Create tool bar
+    // File actions
     toolBar = addToolBar(tr("Toolbar"));
     toolBar->addAction(m_newCaseAction);
-    toolBar->addAction(m_saveFileAction);
-    /*
-    toolBar->addAction(m_newFileAction);
-    toolBar->addAction(open_fileAction);
-
-    toolBar->addAction(printAction);
-    */
-
-    // Create tool bar with view actions
+    toolBar->addAction(m_openCaseAction);
+    toolBar->addAction(m_newDictAction);
     toolBar->addSeparator();
+
+    // Edit actions
     toolBar->addAction(m_undoAction);
     toolBar->addAction(m_redoAction);
     toolBar->addSeparator();
+    toolBar->addAction(m_cutAction);
+    toolBar->addAction(m_copyAction);
+    toolBar->addAction(m_pasteAction);
+    toolBar->addSeparator();
+
+    // View actions
     toolBar->addAction(m_zoomInAction);
     toolBar->addAction(m_zoomOutAction);
     toolBar->addSeparator();
 
-    // Create tool bar with mesh actions
+    // Mesh actions
     toolBar->addAction(m_configureMeshAction);
     toolBar->addAction(m_runMeshAction);
     toolBar->addSeparator();
 
-    // Create tool bar with solver actions
+    // Solver actions
     toolBar->addAction(m_configureSolverAction);
     toolBar->addAction(m_runSolverAction);
     toolBar->addAction(m_stopSolverAction);
     toolBar->addSeparator();
-
-    // Create tool bar with view actions
     toolBar->addAction(m_postProcessAction);
+    toolBar->addSeparator();
 
-    // Add help actions
-    toolBar->addAction(m_aboutAction);
+    // Documentation
+    toolBar->addAction(m_docAction);
 }
 
 // Undo action in text editor
@@ -681,24 +846,16 @@ void MainWindow::redo() {
 
 // Upload file or folder
 void MainWindow::upload() {
-    // Access selected node (always a folder or case folder)
+    // Access selected node
     NodeData* node = m_navigator->nodeFromIndex(m_navigator->currentIndex());
     if (!node)
         return;
 
     // Construct path
-    QString caseName, targetPath, nodePath;
-    if (node->fullPath.isEmpty()) {
-        caseName = node->name;
-        nodePath = "";
-        targetPath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
-    } else {
-        int pos = node->fullPath.indexOf("/");
-        caseName = node->fullPath.left(pos);
-        nodePath = node->fullPath.mid(pos + 1);
-        targetPath = m_systemMgr.getData(caseName).casePath + "/" +
-                   node->fullPath + "/" +  node->name;
-    }
+    QString caseName = node->getCase();
+    QString nodePath = node->getPath();
+    QString targetPath =
+        m_systemMgr.getData(caseName).casePath + "/" + nodePath;
 
     // Create file selection dialog
     QFileDialog dialog(this);
@@ -713,22 +870,26 @@ void MainWindow::upload() {
         for (const QString& path : std::as_const(selections)) {
             QFileInfo fileInfo(path);
             QString fileName = fileInfo.fileName();
-            system->writeData(path, targetPath + "/" + fileName);
+            if (system->writeData(path, targetPath + "/" + fileName)) {
+                log(QString("Uploaded %1 to %2").arg(path, targetPath));
+            }
         }
     }
 
-    // Update folder
-    updatePath(caseName, nodePath);
+    // Display updated folder
+    int index = nodePath.indexOf("/");
+    QString relPath = (index == -1) ? "" : nodePath.mid(index + 1);
+    updatePath(caseName, relPath);
 }
 
 // Download file or folder
 void MainWindow::download() {
-    // Access selected node (always a folder or case folder)
+    // Access selected node
     NodeData* node = m_navigator->nodeFromIndex(m_navigator->currentIndex());
     if (!node)
         return;
 
-    // Get download
+    // Get download path
     QString localPath = QFileDialog::getExistingDirectory(this,
         QString(tr("Select folder to receive download")),
         QDir::homePath());
@@ -736,21 +897,14 @@ void MainWindow::download() {
         return;
 
     // Construct path
-    QString caseName, targetPath, basePath;
-    if (node->fullPath.isEmpty()) {
-        caseName = node->name;
-        basePath = m_systemMgr.getData(caseName).casePath;
-        targetPath = basePath + "/" + caseName;
-    } else {
-        int pos = node->fullPath.indexOf("/");
-        caseName = node->fullPath.left(pos);
-        basePath = m_systemMgr.getData(caseName).casePath + "/" +
-                   node->fullPath;
-        targetPath = basePath + "/" + node->name;
-    }
+    QString caseName = node->getCase();
+    QString nodePath = node->getPath();
+    QString basePath = m_systemMgr.getData(caseName).casePath;
+    QString targetPath = basePath + "/" + nodePath;
 
     // Get the base file name
     QFileInfo fileInfo(targetPath);
+    QString targetDir = fileInfo.path();
     QString targetFileName = fileInfo.fileName();
 
     // Perform download depending on node type
@@ -774,44 +928,50 @@ void MainWindow::download() {
 
         // Run function concurrently
         QFuture<void> future = QtConcurrent::run([=, this]() {
-            downloadFolder(system, basePath, node->name, localPath);
+            downloadFolder(system, targetDir, targetFileName, localPath);
         });
         watcher->setFuture(future);
     } else {
         // Get content of remote file
-        QByteArray fileData = system->getFileContent(targetPath);
+        std::optional<QByteArray> fileData = system->getFileContent(targetPath);
 
         // Write data to local file
-        if (!fileData.isEmpty()) {
+        if (fileData && !fileData.value().isEmpty()) {
+            QByteArray fileBytes = fileData.value();
             QFile file(localPath + "/" + targetFileName);
             if (!file.open(QIODevice::WriteOnly))
                 return;
-            if (file.write(fileData) != fileData.size())
+            if (file.write(fileBytes) != fileBytes.size())
                 return;
             file.close();
         }
     }
+
+    // Present message
+    log(QString("Downloaded %1 to %2").arg(targetPath, localPath));
 }
 
 void MainWindow::downloadFolder(std::shared_ptr<TargetSystem> system,
-                QString basePath, QString nodeName, QString localPath) {
+    const QString& targetDir, const QString& targetFileName,
+    const QString& localPath) {
     // Compress folder
     QString cmd =
-        QString("cd %1; tar -czf %2.tar.gz %2/").arg(basePath, nodeName);
+        QString("cd %1; tar -czf %2.tar.gz %2/").arg(targetDir, targetFileName);
     QString output;
     if (system->launchShortUtility(cmd, output) == 0) {
-        QString remoteFileName = basePath + "/" + nodeName + ".tar.gz";
+        QString remoteFileName = targetDir + "/" + targetFileName + ".tar.gz";
         QString localFilePath =
-            QDir::cleanPath(localPath + "/" + nodeName + ".tar.gz");
+            QDir::cleanPath(localPath + "/" + targetFileName + ".tar.gz");
 
         // Download the compressed file
-        QByteArray fileData = system->getFileContent(remoteFileName);
+        std::optional<QByteArray> fileData =
+            system->getFileContent(remoteFileName);
 
         // Save to local disk
-        if (!fileData.isEmpty()) {
+        if (fileData && !fileData.value().isEmpty()) {
             QFile file(localFilePath);
             if (file.open(QIODevice::WriteOnly)) {
-                file.write(fileData);
+                file.write(fileData.value());
                 file.close();
             }
         }
@@ -998,9 +1158,10 @@ void MainWindow::runMeshPatch(double angle, const QString& casePath) {
     });
 
     // Start the background thread
-    QFuture<RenderDataPtr> future =
-        QtConcurrent::run(&MainWindow::getMeshData, this,
-                          caseName, casePath);
+    QFuture<RenderDataPtr> future = QtConcurrent::run([=, this]() {
+        return std::make_shared<RenderData>(
+            m_systemMgr.getSystem(caseName)->getMeshData(casePath));
+    });
     watcher->setFuture(future);
 
     // Refresh polyMesh directory in navigator
@@ -1181,11 +1342,15 @@ void MainWindow::runMeshRenumber(const QString& casePath) {
     std::vector<QString> messageStrings;
     messageStrings.push_back(QString("Mesh size: %1\n").arg(meshSize));
     messageStrings.push_back(QString("Before renumbering:"));
-    messageStrings.push_back(QString("     band: %1").arg(beforeBand));
-    messageStrings.push_back(QString("     profile: %1\n").arg(beforeProfile));
+    messageStrings.push_back(
+        QString("     Matrix bandwidth: %1").arg(beforeBand));
+    messageStrings.push_back(
+        QString("     Matrix profile: %1\n").arg(beforeProfile));
     messageStrings.push_back(QString("After renumbering:"));
-    messageStrings.push_back(QString("     band: %1").arg(afterBand));
-    messageStrings.push_back(QString("     profile: %1\n").arg(afterProfile));
+    messageStrings.push_back(
+        QString("     Matrix bandwidth: %1").arg(afterBand));
+    messageStrings.push_back(
+        QString("     Matrix profile: %1\n").arg(afterProfile));
 
     // Display dialog
     UtilityOutputDialog dlg(tr("Renumber Results"),
@@ -1194,9 +1359,21 @@ void MainWindow::runMeshRenumber(const QString& casePath) {
     dlg.exec();
 }
 
+QString formatAngle(double angle) {
+    // Check if the angle is a whole number
+    if (std::floor(angle) == angle) {
+        return QString::number(static_cast<int>(angle));
+    }
+
+    // If fractional part, format to 3 places and replace dot with 'p'
+    QString formattedAngle = QString::number(angle, 'f', 3);
+    formattedAngle.replace('.', 'p');
+    return formattedAngle;
+}
+
 // Run surfacePatch
 void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
-                                 bool isBinary) {
+                                 bool isBinary, bool overwrite) {
     // Variables for command string
     QFileInfo info(fullPath);
     QString path = info.path();
@@ -1282,24 +1459,41 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
 
         // Check if a new file has been created
         if (result.contains("Writing repatched surface")) {
-            // Read patched file content
-            QString newPath = path + "/" + stem + "_patched.stl";
-            QByteArray newData =
-                m_systemMgr.getSystem(caseName)->getFileContent(newPath);
+            // Get paths of old and new file
+            QString oldPath = path + "/" + stem + "_patched.stl";
+            QString newName =
+                (overwrite) ? fileName : fileName + "_" + formatAngle(angle);
+            QString newPath = path + "/" + newName;
+            QString str = QStringList{ oldPath, newPath }.join("\n");
 
-            if (newData.size() > 0) {
-                // Create new RenderData
-                std::pair<RenderData, bool> res =
-                    StlReader::readStlFile(fileName, newData);
-                RenderData mesh = res.first;
-                std::shared_ptr<RenderData> meshData =
-                    std::make_shared<RenderData>(std::move(mesh));
+            // Perform rename operation
+            QStringList res = m_systemMgr.getSystem(caseName)->
+                        processPaths(str, PathOperationType::RENAME);
+            if (res[0] == "0") {
+                // Access data from the renamed file
+                std::optional<QByteArray> newData =
+                    m_systemMgr.getSystem(caseName)->getFileContent(newPath);
+                QByteArray newBytes = newData.value();
+                if (newBytes.size() > 0) {
+                    if (overwrite) {
+                        // Create new RenderData
+                        std::pair<RenderData, bool> res =
+                            StlReader::readStlFile(fileName, newBytes);
+                        RenderData mesh = res.first;
+                        std::shared_ptr<RenderData> meshData =
+                            std::make_shared<RenderData>(std::move(mesh));
 
-                // Pass data to SurfaceEditor
-                SurfaceEditor* editor =
-                    qobject_cast<SurfaceEditor*>(m_tabWidget->currentWidget());
-                editor->updateModel(meshData);
+                        // Pass data to SurfaceEditor
+                        SurfaceEditor* editor = qobject_cast<SurfaceEditor*>(
+                            m_tabWidget->currentWidget());
+                        editor->updateModel(meshData);
+                    }
+                }
             }
+
+            // Display success message
+            QMessageBox::information(this, tr("Operation Successful"),
+                tr("surfacePatch generated patches successfully."));
         } else if (result.contains("unchanged")) {
             QMessageBox::warning(this, tr("No Patches Generated"),
              tr("The surfacePatch utility didn't generate any patches.\n\n"
@@ -1450,22 +1644,60 @@ QString MainWindow::getSelectedCase() {
     return selectedCase;
 }
 
+// Called when a long operation completes
 void MainWindow::longUtilityFinished(const QString& status,
                     const QString& caseName, UtilityType utilityType) {
-    // Refresh navigator
+    // Get case path
+    QString casePath = m_systemMgr.getData(caseName).casePath + "/" + caseName;
+
+    // Check which files are present
+    QStringList results;
+    bool checkResult = false;
     switch (utilityType) {
-    case UtilityType::MESH:
+    case UtilityType::MESH: {
+        // Check if field files and output dirs are present
+        QStringList files = {casePath + "/constant/polyMesh/points",
+                            casePath + "/constant/polyMesh/faces",
+                            casePath + "/constant/polyMesh/owner",
+                            casePath + "/constant/polyMesh/boundary" };
+        results = m_systemMgr.getSystem(caseName)->
+            processPaths(files.join("\n"), PathOperationType::CHECK);
+        checkResult = !results.contains("-1");
+
+        // Update case flag
+        m_systemMgr.setFlag(caseName, CaseFlag::HasMeshFiles, checkResult);
+
+        // Update navigator
         updatePath(caseName, "constant/polyMesh");
         updatePath(caseName, "system");
         break;
+    }
     case UtilityType::SOLVER:
+        // Check if any directories are integers > 0
+        results = m_systemMgr.getSystem(caseName)->processPaths(
+            casePath, PathOperationType::LIST);
+        for (const QString& result : std::as_const(results)) {
+            bool ok = false;
+            int value = result.toInt(&ok);
+            if (ok && value > 0) {
+                checkResult = true;
+                break;
+            }
+        }
+
+        // Update case flag
+        m_systemMgr.setFlag(caseName, CaseFlag::HasTimeDirs, checkResult);
+
+        // Update navigator
         updatePath(caseName, "");
+        break;
     case UtilityType::POSTPROCESS:
         updatePath(caseName, "");
         break;
     }
 }
 
+// Load solver families
 void MainWindow::loadSolverFamilies() {
     // Load data from solvers.json
     QFile file(m_configDir.filePath("solvers.json"));
@@ -1753,9 +1985,10 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         }
     }
 
+    /*
     // Access settings
     QSettings settings;
-    settings.setValue("Theme/file", m_themeFile);
+    settings.setValue("Preferences/theme", m_themeFile);
 
     // Save open tabs to settings
     settings.remove("Tabs");
@@ -1772,4 +2005,5 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         settings.setValue("type", static_cast<int>(data.type));
     }
     settings.endArray();
+    */
 }

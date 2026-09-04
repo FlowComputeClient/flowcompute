@@ -28,6 +28,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QMetaEnum>
 #include <QPushButton>
 #include <QString>
@@ -158,6 +159,7 @@ ProbesDialog::ProbesDialog(const QStringList& fields,
             new QTableWidgetItem(QString::number(loc.z())));
     }
     tableLayout->addWidget(m_probesTable);
+    probeLayout->addRow(tr("Probe locations:"), tableLayout);
 
     // Configure event handling for the Add Probe button
     connect(addProbeButton, &QPushButton::clicked, this, [this]() {
@@ -237,6 +239,20 @@ ProbesDialog::ProbesDialog(const QStringList& fields,
 }
 
 void ProbesDialog::onOkClicked() {
+    // Make sure a name has been provided
+    if (m_nameEdit->text().isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("A name must be provided for the post-processing task."));
+        return;
+    }
+
+    // Make sure probe locations have been set
+    if (m_probesTable->rowCount() == 0) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("One or more probe locations must be provided."));
+        return;
+    }
+
     // Get list of fields
     QStringList selectedFields;
     for (int i = 0; i < m_fieldListWidget->count(); ++i) {
@@ -244,6 +260,13 @@ void ProbesDialog::onOkClicked() {
         if (item->checkState() == Qt::Checked) {
             selectedFields << item->text();
         }
+    }
+
+    // Make sure a field has been selected
+    if (selectedFields.isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("One or more fields must be selected."));
+        return;
     }
 
     // Set probe locations

@@ -8,6 +8,8 @@
 
 #include <array>
 
+#include "open_foam_dictionary.h"
+
 namespace CaseIO {
 
 // Base structure
@@ -95,10 +97,7 @@ struct FieldMinMaxConfig : public FunctionObject {
 
  public:
     QStringList fields;
-    enum class Mode {
-        Magnitude,
-        Component
-    };
+    enum class Mode { Magnitude, Component };
     Q_ENUM(Mode)
     Mode mode = Mode::Magnitude;
     bool location = true;
@@ -157,10 +156,14 @@ struct SurfacesConfig : public FunctionObject {
     std::vector<SurfaceDef> surfaces = {};
 };
 
-// forceCoeffs function object
+// YPlusConfig function object
 struct YPlusConfig : public FunctionObject {
     QStringList patches;
 };
+
+// Parse postProcessDict
+std::vector<std::unique_ptr<FunctionObject>>
+    parsePostProcessDict(std::shared_ptr<OpenFoamDictionary> dict);
 
 // Create overall functions block
 QString createFunctionsBlock(

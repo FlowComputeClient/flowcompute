@@ -34,7 +34,7 @@ class ResultLeftPane : public QWidget {
 
  public:
     explicit ResultLeftPane(const QStringList& timeFolders,
-        QString timeFolder, QWidget* parent = nullptr);
+        const QString& timeFolder, QWidget* parent = nullptr);
 
  signals:
      void timeChange(const QString& timeFolder);

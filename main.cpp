@@ -26,6 +26,7 @@
 #include <QStandardPaths>
 #include <QString>
 #include <QStyleFactory>
+#include <QTranslator>
 
 #include "./main_window.h"
 
@@ -70,7 +71,8 @@ void flowComputeLogHandler(QtMsgType type, const QMessageLogContext &context,
 }
 
 // Copy solvers.json and turbulence.json
-void initializeConfig() {
+// Pass QApplication by reference to avoid using global macros where possible
+void initializeConfig(QApplication& app) {
 
     // Determine the writable directory path
     QString configDirPath =
@@ -82,22 +84,42 @@ void initializeConfig() {
         configDir.mkpath(".");
     }
 
+    // Get selected locale
+    QString settingsFilePath = configDir.filePath("settings.ini");
+    QSettings settings(settingsFilePath, QSettings::IniFormat);
+    QString localeCode = settings.value("Preferences/language",
+                                        QLocale::system().name()).toString();
+
+    // Perform translation
+    if (!localeCode.startsWith("en")) {
+        QTranslator* appTranslator = new QTranslator(&app);
+        if (appTranslator->load(localeCode + ".qm", ":/translations")) {
+            app.installTranslator(appTranslator);
+        } else {
+            qWarning() <<
+                "Failed to load translation for locale:" << localeCode;
+        }
+    }
+
     QStringList configFiles = {
         "solvers.json", "turbulence.json", "fields.json",
-        "boundary_conditions.json", "material_properties.json" };
-    for (const auto& configFile : configFiles) {
+        "boundary_conditions.json", "material_properties.json"
+    };
 
+    // Deploy configuration files
+    for (const auto& configFile : configFiles) {
         // Define the path for the writable JSON file
         QString writableFilePath = configDir.filePath(configFile);
         QFileInfo fileInfo(writableFilePath);
+
         if (!fileInfo.exists()) {
             QString resourceFilePath = ":/config/" + configFile;
             if (QFile::copy(resourceFilePath, writableFilePath)) {
                 QFile::setPermissions(writableFilePath,
-                    QFileDevice::ReadOwner | QFileDevice::WriteOwner |
-                    QFileDevice::ReadUser | QFileDevice::WriteUser);
+                  QFileDevice::ReadOwner | QFileDevice::WriteOwner |
+                      QFileDevice::ReadUser | QFileDevice::WriteUser);
             } else {
-                qCritical() << "Failed to deploy config file!";
+                qCritical() << "Failed to deploy config file:" << configFile;
             }
         }
     }
@@ -118,13 +140,14 @@ int main(int argc, char *argv[]) {
     // Set application properties
     app.setOrganizationName("FlowCompute");
     app.setApplicationName("FlowCompute");
-    app.setApplicationVersion("0.8.0");
+    app.setApplicationVersion(APP_VERSION);
 
     QApplication::setStyle(QStyleFactory::create("Fusion"));
 
     // Set QSettings format to .ini
     QSettings::setDefaultFormat(QSettings::IniFormat);
 
+    /*
     // Set Logging Directory
     QString appDataDir =
         QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -135,18 +158,17 @@ int main(int argc, char *argv[]) {
         dir.mkpath(".");
     }
 
-    /*
     // Set the log file path and install the handler
     g_logFilePath = dir.absoluteFilePath("FlowCompute.log");
     qInstallMessageHandler(flowComputeLogHandler);
-    */
-
-    // Copy solvers.json and turbulence.json
-    initializeConfig();
 
     // Test the logger
     qInfo() << "FlowCompute Client Application Started.";
     qDebug() << "Log file initialized at:" << g_logFilePath;
+    */
+
+    // Copy solvers.json and turbulence.json
+    initializeConfig(app);
 
     // Create window
     MainWindow mainWindow;

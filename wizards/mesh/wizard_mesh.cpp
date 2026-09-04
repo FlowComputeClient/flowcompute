@@ -29,8 +29,8 @@
 
 // Function declarations
 MeshWizard::MeshWizard(const QString& caseName, const SystemManager& systemMgr,
-    QWidget *parent): m_caseName(caseName), m_systemMgr(systemMgr),
-    QWizard(parent) {
+    QWidget *parent): QWizard(parent), m_caseName(caseName),
+    m_systemMgr(systemMgr) {
     // Configure the wizard appearance
     setWizardStyle(QWizard::ClassicStyle);
     setWindowTitle(tr("Mesh Configuration Wizard"));
@@ -48,7 +48,6 @@ MeshWizard::MeshWizard(const QString& caseName, const SystemManager& systemMgr,
 }
 
 bool MeshWizard::loadParseFiles() {
-
     // Access OpenFOAM path on server
     m_caseName = field("caseName").toString();
     m_casePath = m_systemMgr.getData(m_caseName).casePath;
@@ -56,7 +55,7 @@ bool MeshWizard::loadParseFiles() {
 
     // Declare variables
     QString fileName;
-    QByteArray fileData;
+    std::optional<QByteArray> fileData;
     std::shared_ptr<OpenFoamDictionary> dict;
 
     // If blockMesh should be run
@@ -65,8 +64,8 @@ bool MeshWizard::loadParseFiles() {
         fileName = "system/blockMeshDict";
         fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
-        if (!fileData.isEmpty()) {
-            dict = std::make_shared<OpenFoamDictionary>(fileData);
+        if (fileData && !fileData.value().isEmpty()) {
+            dict = std::make_shared<OpenFoamDictionary>(fileData.value());
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
                 m_blockMeshConfig = CaseIO::parseBlockMeshDict(dict);
@@ -74,9 +73,8 @@ bool MeshWizard::loadParseFiles() {
                 auto action = CaseIO::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case CaseIO::ParseErrorAction::EditFile:
-                    emit createEditor(EditorType::TEXT,
-                        fileName.split('/').last(), m_caseName + "/system",
-                            false);
+                    emit createTextEditor(fileName.split('/').last(),
+                                          m_caseName + "/system", false);
                     reject();
                     return false;
                 case CaseIO::ParseErrorAction::Overwrite:
@@ -94,8 +92,8 @@ bool MeshWizard::loadParseFiles() {
         fileName = "system/surfaceFeatureExtractDict";
         fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
-        if (!fileData.isEmpty()) {
-            dict = std::make_shared<OpenFoamDictionary>(fileData);
+        if (fileData && !fileData.value().isEmpty()) {
+            dict = std::make_shared<OpenFoamDictionary>(fileData.value());
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
                 m_surfaceFeatureMap = CaseIO::parseSurfaceFeatureData(
@@ -104,9 +102,8 @@ bool MeshWizard::loadParseFiles() {
                 auto action = CaseIO::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case CaseIO::ParseErrorAction::EditFile:
-                    emit createEditor(EditorType::TEXT,
-                        fileName.split('/').last(), m_caseName + "/system",
-                            false);
+                    emit createTextEditor(fileName.split('/').last(),
+                                          m_caseName + "/system", false);
                     reject();
                     return false;
                 case CaseIO::ParseErrorAction::Overwrite:
@@ -120,13 +117,12 @@ bool MeshWizard::loadParseFiles() {
 
     // If snappyHexMesh should be run
     if ((m_runCastellated) || (m_runSnap) || (m_runLayers)) {
-
         // Load data
         fileName = "system/snappyHexMeshDict";
         fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
-        if (!fileData.isEmpty()) {
-            dict = std::make_shared<OpenFoamDictionary>(fileData);
+        if (fileData && !fileData.value().isEmpty()) {
+            dict = std::make_shared<OpenFoamDictionary>(fileData.value());
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
                 if (m_runCastellated) m_castellatedMeshConfig =
@@ -139,9 +135,8 @@ bool MeshWizard::loadParseFiles() {
                 auto action = CaseIO::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case CaseIO::ParseErrorAction::EditFile:
-                    emit createEditor(EditorType::TEXT,
-                        fileName.split('/').last(), m_caseName + "/system",
-                            false);
+                    emit createTextEditor(fileName.split('/').last(),
+                                          m_caseName + "/system", false);
                     reject();
                     return false;
                 case CaseIO::ParseErrorAction::Overwrite:

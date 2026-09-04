@@ -486,9 +486,9 @@ void VulkanRenderer::createPipelines() {
             .pVertexAttributeDescriptions = vertexAttrDescs.data()
         };
         shaderModules[0] =
-            createShader(QStringLiteral(":/shaders/model/vert.spv"));
+            createShader(QStringLiteral(":/model/model.vert.spv"));
         shaderModules[1] =
-            createShader(QStringLiteral(":/shaders/model/frag.spv"));
+            createShader(QStringLiteral(":/model/model.frag.spv"));
     }
     /*
     else if (m_renderData->format == RenderType::Mesh) {
@@ -531,9 +531,9 @@ void VulkanRenderer::createPipelines() {
             .pVertexAttributeDescriptions = vertexAttrDescs.data()
         };
         shaderModules[0] =
-            createShader(QStringLiteral(":/shaders/color/vert.spv"));
+            createShader(QStringLiteral(":/color/color.vert.spv"));
         shaderModules[1] =
-            createShader(QStringLiteral(":/shaders/color/frag.spv"));
+            createShader(QStringLiteral(":/color/color.frag.spv"));
     }
 
     VkPipelineShaderStageCreateInfo shaderStages[2] = {{
@@ -641,9 +641,9 @@ void VulkanRenderer::createPipelines() {
 
     VkShaderModule axisShaderModules[2] = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     axisShaderModules[0] =
-        createShader(QStringLiteral(":/shaders/axis/vert.spv"));
+        createShader(QStringLiteral(":/axis/axis.vert.spv"));
     axisShaderModules[1] =
-        createShader(QStringLiteral(":/shaders/axis/frag.spv"));
+        createShader(QStringLiteral(":/axis/axis.frag.spv"));
 
     VkPipelineShaderStageCreateInfo axisShaderStages[2] = {{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -697,9 +697,9 @@ void VulkanRenderer::createPipelines() {
     if (m_renderData->format == RenderType::Mesh) {
         // Define shaders for mesh lines
         meshShaderModules[0] =
-            createShader(QStringLiteral(":/shaders/lines/vert.spv"));
+            createShader(QStringLiteral(":/lines/lines.vert.spv"));
         meshShaderModules[1] =
-            createShader(QStringLiteral(":/shaders/lines/frag.spv"));
+            createShader(QStringLiteral(":/lines/lines.frag.spv"));
 
         // Shader stages
         meshShaderStages[0] = {

@@ -26,8 +26,8 @@
 
 #include "dialogs/selection/selection_dialog.h"
 
-QJsonObject WslSystem::contactServer(QString action, QString message,
-                                     int opType) {
+QJsonObject WslSystem::contactServer(const QString& action,
+    const QString& message, int opType) {
     QJsonObject result;
 
     // Create socket
@@ -133,11 +133,10 @@ void WslSystem::launchLongUtility(const QString& cmd, const QString& caseName,
     });
 
     // Connect the readyRead signal to process chunks
-    connect(socket, &QTcpSocket::readyRead, this, [this, socket,
-                                                   caseName, utilityType]() {
+    connect(socket, &QTcpSocket::readyRead, this,
+        [this, socket, caseName, utilityType]() {
         while (socket->canReadLine()) {
             QByteArray data = socket->readLine();
-
             QJsonParseError parseError;
             QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
 
@@ -387,18 +386,120 @@ std::pair<QStringList, QStringList>
     return std::make_pair(timeFolders, fieldNames);
 }
 
-QByteArray WslSystem::getFileContent(const QString& path) {
+std::optional<FileResponse> WslSystem::getFile(const QString& path,
+                                               FileRequestType reqType) {
     QTcpSocket socket;
     socket.connectToHost(QHostAddress::LocalHost, 53626);
     if (!socket.waitForConnected(3000)) {
         qWarning() << "Could not connect to WSL server.";
-        return QByteArray();
+        return std::nullopt;
     }
 
     // Send the JSON Request
     QJsonObject request;
     request["action"] = "getFileContent";
     request["message"] = path;
+    request["requestType"] = static_cast<int>(reqType);
+    socket.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
+    socket.waitForBytesWritten(3000);
+
+    // Read the JSON Header
+    QJsonObject header;
+    bool headerRead = false;
+
+    while (!headerRead && socket.waitForReadyRead(3000)) {
+        if (socket.canReadLine()) {
+            QByteArray headerData = socket.readLine();
+            QJsonParseError parseError;
+            QJsonDocument doc =
+                QJsonDocument::fromJson(headerData, &parseError);
+            if (parseError.error != QJsonParseError::NoError) {
+                return std::nullopt;
+            }
+            header = doc.object();
+            headerRead = true;
+        }
+    }
+
+    if (!headerRead || header["status"].toString() != "success") {
+        return std::nullopt;
+    }
+
+    FileResponse response;
+    response.byteSize = header["byteSize"].toVariant().toLongLong();
+
+    // Extract mtime if the server provided it
+    if (header.contains("mtime")) {
+        response.mtime = header["mtime"].toVariant().toLongLong();
+    }
+
+    // Only attempt to read the payload if we requested content
+    if (reqType == FileRequestType::CONTENT || reqType ==
+                    FileRequestType::CONTENTANDSTATS) {
+        response.payload.reserve(response.byteSize);
+        while (response.payload.size() < response.byteSize) {
+            if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
+                qint64 bytesLeft = response.byteSize - response.payload.size();
+                response.payload.append(socket.read(bytesLeft));
+            } else {
+                qWarning() << "Timeout: Failed to reach server.";
+                return std::nullopt;
+            }
+        }
+    }
+
+    return response;
+}
+
+// Access file content
+std::optional<QByteArray> WslSystem::getFileContent(const QString& path) {
+    auto result = getFile(path, FileRequestType::CONTENT);
+    if (result) {
+        return result->payload;
+    }
+    return std::nullopt;
+}
+
+// Access file statistics (size and update time)
+std::optional<FileStats> WslSystem::getFileStats(const QString& path) {
+    auto result = getFile(path, FileRequestType::STATS);
+    if (result) {
+        FileStats stats;
+        stats.size = result->byteSize;
+        stats.mtime = QDateTime::fromSecsSinceEpoch(result->mtime);
+        return stats;
+    }
+    return std::nullopt;
+}
+
+// Access file content and statistics (size and update time)
+std::optional<FileDataAndStats>
+        WslSystem::getFileContentAndStats(const QString& path) {
+    auto result = getFile(path, FileRequestType::CONTENTANDSTATS);
+    if (result) {
+        FileDataAndStats data;
+        data.content = result->payload;
+        data.stats.size = result->byteSize;
+        data.stats.mtime = QDateTime::fromSecsSinceEpoch(result->mtime);
+        return data;
+    }
+    return std::nullopt;
+}
+
+/*
+std::optional<QByteArray> WslSystem::getFileContent(const QString& path) {
+    QTcpSocket socket;
+    socket.connectToHost(QHostAddress::LocalHost, 53626);
+    if (!socket.waitForConnected(3000)) {
+        qWarning() << "Could not connect to WSL server.";
+        return std::nullopt;
+    }
+
+    // Send the JSON Request
+    QJsonObject request;
+    request["action"] = "getFileContent";
+    request["message"] = path;
+    request["requestType"] = static_cast<int>(FileRequestType::CONTENT);
     socket.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
 
     // Read the JSON Header
@@ -414,17 +515,16 @@ QByteArray WslSystem::getFileContent(const QString& path) {
             if (parseError.error != QJsonParseError::NoError) {
                 qWarning() << "JSON Parse Error in Header:"
                            << parseError.errorString();
-                return QByteArray();
+                return std::nullopt;
             }
             header = doc.object();
             headerRead = true;
         }
     }
 
+    // Explicitly fail if the server did not report success
     if (!headerRead || header["status"].toString() != "success") {
-        qWarning() << "Server failed or returned error:"
-                   << header["message"].toString();
-        return QByteArray();
+        return std::nullopt;
     }
 
     // Extract Size and Prepare Buffer
@@ -439,11 +539,12 @@ QByteArray WslSystem::getFileContent(const QString& path) {
             payload.append(socket.read(bytesLeft));
         } else {
             qWarning() << "Timeout: Server disconnected or stalled.";
-            break;
+            return std::nullopt;
         }
     }
     return payload;
 }
+*/
 
 RenderData WslSystem::getMeshData(const QString& path) {
     RenderData renderData;
@@ -560,20 +661,20 @@ RenderData WslSystem::getMeshData(const QString& path) {
     return renderData;
 }
 
-RenderData WslSystem::getResultData(const QString& path) {
-    RenderData result;
+std::vector<FieldData> WslSystem::getResultData(const QString& msg) {
+    std::vector<FieldData> fieldData;
     QTcpSocket socket;
     socket.connectToHost(QHostAddress::LocalHost, 53626);
 
     if (!socket.waitForConnected(3000)) {
         qDebug() << "Could not connect to WSL server on port 53626.";
-        return result;
+        return fieldData;
     }
 
     // Send the JSON Request
     QJsonObject request;
-    request["action"] = "getFileContent";
-    request["message"] = path;
+    request["action"] = "getResult";
+    request["message"] = msg;
     socket.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
 
     // Read the JSON Response
@@ -585,15 +686,14 @@ RenderData WslSystem::getResultData(const QString& path) {
             QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 
             if (parseError.error != QJsonParseError::NoError) {
-                qDebug() << "JSON Parse Error: " + parseError.errorString();
-                return result;
+                qDebug() << "JSON Parse Error:" << parseError.errorString();
+                return fieldData;
             }
 
             QJsonObject responseObj = doc.object();
             if (responseObj["status"].toString() != "success") {
-                qDebug() << "Server error: " +
-                                responseObj["message"].toString();
-                return result;
+                qDebug() << "Server error:" << responseObj["message"].toString();
+                return fieldData;
             }
             jsonRead = true;
         }
@@ -601,67 +701,68 @@ RenderData WslSystem::getResultData(const QString& path) {
 
     if (!jsonRead) {
         qDebug() << "Timeout waiting for JSON response header.";
-        return result;
+        return fieldData;
     }
 
-    // Read the Binary Header
-    RenderHeader binHeader;
-    qint64 headerSize = sizeof(RenderHeader);
-    qint64 headerBytesRead = 0;
-    while (headerBytesRead < headerSize) {
-        if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
-            qint64 chunk =
-                socket.read(reinterpret_cast<char*>(&binHeader) +
-                    headerBytesRead, headerSize - headerBytesRead);
-            if (chunk > 0) headerBytesRead += chunk;
-        } else {
-            qDebug() << "Timeout reading binary header.";
-            return result;
+    // Lambda to read byte payloads
+    auto readExactPayload = [&](char* dest, qint64 totalBytes,
+                                const char* payloadName) -> bool {
+        qint64 bytesRead = 0;
+        while (bytesRead < totalBytes) {
+            if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
+                qint64 chunk =
+                    socket.read(dest + bytesRead, totalBytes - bytesRead);
+                if (chunk <= 0) {
+                    qDebug() << "Socket error while reading" << payloadName;
+                    return false;
+                }
+                bytesRead += chunk;
+            } else {
+                qDebug() << "Timeout reading" << payloadName;
+                return false;
+            }
         }
+        return true;
+    };
+
+    // Validate the header
+    FieldDataHeader binHeader;
+    if (!readExactPayload(reinterpret_cast<char*>(&binHeader),
+                          sizeof(FieldDataHeader), "binary header")) {
+        return fieldData;
     }
 
-    // Check the magic number
     if (binHeader.magicNumber != 0xFEEDBEEF) {
         qDebug() << "Protocol mismatch: Magic number invalid.";
-        return result;
+        return fieldData;
     }
 
-    // Read the Vertex Payload
-    result.data.resize(binHeader.dataByteSize);
-    qint64 vertexBytesRead = 0;
-
-    while (vertexBytesRead < binHeader.dataByteSize) {
-        if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
-            qint64 chunk =
-                socket.read(reinterpret_cast<char*>(result.data.data()) +
-                    vertexBytesRead, binHeader.dataByteSize - vertexBytesRead);
-            if (chunk > 0) vertexBytesRead += chunk;
-        } else {
-            qDebug() << "Timeout reading vertex payload.";
-            return result;
+    // Read the field sizes array
+    std::vector<uint32_t> fieldSizes(binHeader.numFields);
+    if (binHeader.sizesByteSize > 0) {
+        if (!readExactPayload(reinterpret_cast<char*>(fieldSizes.data()),
+                              binHeader.sizesByteSize, "field sizes")) {
+            return fieldData;
         }
     }
 
-    // Read the Index Payload
-    result.indices.resize(binHeader.indexByteSize / sizeof(uint32_t));
-    qint64 indexBytesRead = 0;
-    while (indexBytesRead < binHeader.indexByteSize) {
-        if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
-            qint64 chunk = socket.read(
-                reinterpret_cast<char*>(result.indices.data()) + indexBytesRead,
-                    binHeader.indexByteSize - indexBytesRead);
-            if (chunk > 0) indexBytesRead += chunk;
-        } else {
-            qDebug() << "Timeout reading index payload.";
-            return result;
+    // Initialize floating-point data
+    fieldData.resize(binHeader.numFields);
+    for (uint32_t i = 0; i < binHeader.numFields; ++i) {
+        fieldData[i].numElements = fieldSizes[i];
+        fieldData[i].elementVals.resize(fieldSizes[i]);
+
+        uint32_t bytesToRead = fieldSizes[i] * sizeof(float);
+        if (bytesToRead > 0) {
+            if (!readExactPayload(
+                    reinterpret_cast<char*>(fieldData[i].elementVals.data()),
+                                  bytesToRead, "field data")) {
+                return fieldData;
+            }
         }
     }
 
-    // Finalize
-    result.format = RenderType::Result;
-    result.boundingBoxMin = binHeader.boundingBoxMin;
-    result.boundingBoxMax = binHeader.boundingBoxMax;
-    return result;
+    return fieldData;
 }
 
 // Check for installed WSL distributions
@@ -681,7 +782,7 @@ bool WslSystem::checkDistributions() {
             reinterpret_cast<const char16_t*>(output.constData()),
             output.size() / 2);
 
-        // Split the output by newlines, skipping empty lines
+        // Split the output by newlines
         QStringList lines =
             strOutput.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
 

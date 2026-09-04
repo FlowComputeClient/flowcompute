@@ -26,9 +26,10 @@ class SelectionDialog : public QDialog {
     Q_OBJECT
 
  public:
-    // Pass the title, the prompt, and the options in the constructor
+    // Pass the title, the prompt, and the options
     SelectionDialog(const QString& title, const QString& prompt,
-                    const QStringList& items, QWidget* parent = nullptr);
+        const QStringList& items, QWidget* parent = nullptr,
+        int selectedIndex = 0);
 
     QString getSelectedItem() const;
     int getSelectedIndex() const;

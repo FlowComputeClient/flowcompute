@@ -33,10 +33,15 @@ class TabWidget : public QTabWidget {
     bool promptToSave(int index);
 
  public slots:
+    void destroyTab(int index, bool force = false);
     void closeAllTabs();
 
  signals:
     void saveTab();
+    void tabClosedSuccessfully(QString uniqueId);
+
+ protected:
+    void tabInserted(int index) override;
 
  private:
     QMainWindow* window;
@@ -48,7 +53,6 @@ class TabWidget : public QTabWidget {
 
  private slots:
     // void editFile(NodeData*);
-    void destroyTab(int index);
     void changeDirtyState(QWidget*, bool);
 };
 

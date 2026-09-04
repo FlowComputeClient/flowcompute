@@ -1,27 +1,44 @@
 {
-  "theme_name": "Dark",
-  "qt_stylesheet": "QWidget { background-color: #28282E; color: #DADADA; } QWidget[widgetType='pane'] { background-color: #32323D; } QWizardPage { background-color: #2A2A32; color: #DEDEDE; } QLabel { background-color: transparent; } QPushButton { background-color: #3F3F3F; color: #DADADA; border: 1px solid #40404A; padding: 4px; } QPushButton:hover { background-color: #2A2D2E; } QPushButton:pressed { background-color: #094771; } QPushButton:disabled { background-color: #2D2D32; color: #65656A; border: 1px solid #35353A; } QRadioButton::indicator { width: 14px; height: 14px; border-radius: 8px; border: 1px solid #606070; background-color: #1E1E24; } QRadioButton::indicator:checked { background-color: qradialgradient(cx: 0.5, cy: 0.5, radius: 0.4, fx: 0.5, fy: 0.5, stop: 0 #007ACC, stop: 0.6 #007ACC, stop: 0.7 transparent, stop: 1 transparent); border: 1px solid #007ACC; } QLineEdit, QComboBox { background-color: #28282E; color: #DADADA; padding: 4px; } QLineEdit { border: 1px solid #3C3C3C; } QComboBox, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QListWidget { border: 1px solid #404048; } QTreeView { background-color: #28282E; color: #DADADA; border: 1px solid #3C3C3C; padding: 4px; } QTreeView::item { color: #DADADA; padding: 2px; } QTableView { background-color: #282832; alternate-background-color: #30303A; gridline-color: #404050; } QTableWidget { background-color: transparent; } QTabBar { background-color: #1E1E24; } QTabBar::tab { background-color: #32323D; color: #A0A0A5; font: bold; padding: 8px 16px; margin-right: 2px; border: 1px solid transparent; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; } QTabBar::tab:selected { background-color: #32323D; color: #FFFFFF; border-top: 2px solid #007ACC; border-left: 1px solid #3E3E42; border-right: 1px solid #3E3E42; border-bottom: none; } QGroupBox { border: 1px solid #404048; border-radius: 4px; margin-top: 2ex; } QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 5px; font-weight: bold; left: 10px; } QToolBar { background-color: #28282E; border: none; border-bottom: 1px solid #3C3C3C; } QSplitter::handle { background-color: #3C3C3C; width: 2px; } QFrame[lineStyle='hline'] { background-color: #007ACC; border: none; max-height: 2px; } QTableView::item:selected, QTreeView::item:selected { background-color: #094771; color: #FFFFFF; }",
-  "text_editor": {
-    "background": "#1E1E1E",
-    "gutter_background": "#1E1E1E",
-    "line_number_border": "#007ACC",
-    "line_number_normal": "#858585",
-    "line_number_active": "#C6C6C6",
-    "current_line_highlight": "#2A2D2E",
-    "syntax": {
-      "keyword": { "color": "#569CD6", "bold": true, "italic": false },
-      "number": { "color": "#B5CEA8", "bold": false, "italic": false },
-      "string": { "color": "#CE9178", "bold": false, "italic": false },
-      "enum": { "color": "#4EC9B0", "bold": false, "italic": false },
-      "comment": { "color": "#E5C07B", "bold": false, "italic": true },
-      "punctuation": { "color": "#808080", "bold": false, "italic": false },
-      "macro": { "color": "#C586C0", "bold": true, "italic": false }
-    }
-  },
-  "graphical_editor": {
-    "viewport_clear": "#1A1A1F",
-    "wireframe_base": "#00FFCC",
-    "selection_highlight": "#FF5500"
-  }
+	"widgetPalette": {
+		"background": "#28282E",
+		"input": "#28282E",
+		"pane": "#35353F",
+		"dialog": "#2A2A32",
+		"border": "#454545",
+		"tabbar": "#1E1E24",
+		"tab": "#32323D",
+		"selectedTab": "#32323D",
+		"selection": "#094771",	
+		"text": "#DFDFDF",
+		"tabText": "#ADD8E6",
+		"selectedText": "#FFFFFF",
+		"disabledText": "#6E6E6E",
+		"button": "#404040",
+		"buttonHover": "#2A2D2E",
+		"buttonPressed": "#094771",
+		"highlight": "#007ACC"
+	},
+	"textEditor": {
+		"background": "#1E1E1E",
+		"gutterBackground": "#1E1E1E",
+		"lineNumberBorder": "#007ACC",
+		"lineNumberNormal": "#858585",
+		"lineNumberActive": "#C6C6C6",
+		"currentLineHighlight": "#2A2D2E",
+		"syntax": {
+		    "keyword": { "color": "#569CD6", "bold": true, "italic": false },
+		    "number": { "color": "#B5CEA8", "bold": false, "italic": false },
+		    "string": { "color": "#CE9178", "bold": false, "italic": false },
+		    "enum": { "color": "#4EC9B0", "bold": false, "italic": false },
+		    "comment": { "color": "#E5C07B", "bold": false, "italic": true },
+		    "punctuation": { "color": "#808080", "bold": false, "italic": false },
+		    "macro": { "color": "#C586C0", "bold": true, "italic": false }
+		}
+	},
+	"graphicalEditor": {
+		"viewportClear": "#1A1A1F",
+		"wireframeBase": "#00FFCC",
+		"selectionHighlight": "#FF5500"
+	}
 }
 

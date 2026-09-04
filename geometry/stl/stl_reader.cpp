@@ -41,7 +41,7 @@ struct StlTriangle {
 
 // Custom hasher for QVector3D to use in std::unordered_map
 struct VertexHasher {
-    std::size_t operator()(const std::array<float, 3>& v) const {
+    std::size_t operator()(const std::array<float, 3> v) const {
         std::size_t h1 = std::hash<float>{}(v[0]);
         std::size_t h2 = std::hash<float>{}(v[1]);
         std::size_t h3 = std::hash<float>{}(v[2]);

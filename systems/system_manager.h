@@ -23,12 +23,24 @@
 
 #include "./target_system.h"
 
-// Store information about project in navigator
+// Store case settings
+enum CaseFlag {
+    Initial            = 0,
+    HasMeshFiles       = 1 << 0,
+    HasFieldFiles      = 1 << 1,
+    HasTimeDirs        = 1 << 2,
+    NotChecked         = 1 << 3
+};
+Q_DECLARE_FLAGS(CaseFlags, CaseFlag)
+Q_DECLARE_OPERATORS_FOR_FLAGS(CaseFlags)
+
+// Store information about case
 struct CaseData {
     QString casePath;
     QStringList caseFiles;
     int targetId;
     QString openFoamPath;
+    CaseFlags caseFlags;
     QString userName;
     QString hostName;
     int port;
@@ -49,7 +61,7 @@ enum class EditorType : int {
 };
 
 class SystemManager {
-public:
+ public:
     SystemManager() {}
 
     // Access server
@@ -61,8 +73,13 @@ public:
     void setSystems(
         const std::array<std::shared_ptr<TargetSystem>, 3>& systems);
 
-    // Add case to the manager
+    // Add case
     bool addCase(const QString& caseName, const CaseData& data);
+
+    // Remove case
+    void renameCase(const QString& oldName, const QString& newName);
+
+    // Remove case
     void removeCase(const QString& caseName);
 
     // Check if case is present
@@ -70,6 +87,13 @@ public:
 
     // Get data for a given case
     CaseData getData(const QString& caseName) const;
+
+    // Set flag
+    void setFlag(const QString& caseName, CaseFlag flag, bool enabled = true);
+
+    // Check flags
+    CaseFlags updateFlags(const QString& caseNane,
+                         const QString& casePath = QString());
 
     // Get names of cases
     QStringList getCases() const;
@@ -96,7 +120,7 @@ public:
     QString getDefaultHost() { return m_defaultHost; }
     QString getDefaultUser() { return m_defaultUser; }
 
-private:
+ private:
     QString m_serverVersion = "1.0.0", m_defaultHost, m_defaultUser;
     QMap<QString, CaseData> m_caseMap;
     std::array<std::shared_ptr<TargetSystem>,

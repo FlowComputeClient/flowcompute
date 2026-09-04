@@ -42,7 +42,7 @@ NewCaseWizard::NewCaseWizard(SystemManager& systemMgr, QWidget *parent):
 
     // Add pages
     setPage(static_cast<int>(WizardPage::Page_Intro),
-            new IntroPage(isWslAvailable, this));
+            new IntroPage(systemMgr, isWslAvailable, this));
     setPage(static_cast<int>(WizardPage::Page_Remote),
             new RemotePage(systemMgr, this));
     setPage(static_cast<int>(WizardPage::Page_Tutorial),
@@ -59,7 +59,7 @@ NewCaseWizard::NewCaseWizard(SystemManager& systemMgr, QWidget *parent):
     });
 }
 
-QStringList NewCaseWizard::processPaths(QString path) {
+QStringList NewCaseWizard::processPaths(const QString& path) {
     return m_system->processPaths(path, PathOperationType::LIST);
 }
 
@@ -69,7 +69,6 @@ QStringList NewCaseWizard::getTutorials() {
 }
 
 bool NewCaseWizard::validateCurrentPage() {
-
     // Validate first page
     if (currentId() == static_cast<int>(WizardPage::Page_Intro)) {
         // Read registered fields
@@ -82,8 +81,8 @@ bool NewCaseWizard::validateCurrentPage() {
             if(!m_systemMgr.checkWslServer()) {
                 QString title = tr("Server Installation Failure");
                 QString msg = tr("Failed to install the WSL server in "
-                                 "~/config/flowcompute.\n"
-                                 "Please make sure this directory is accessible.");
+                     "~/config/flowcompute.\n"
+                     "Please make sure this directory is accessible.");
                 QMessageBox::critical(nullptr, title, msg);
                 return false;
             }
@@ -138,15 +137,18 @@ bool NewCaseWizard::checkOpenFoam() {
     QStringList ofList = m_systemMgr.getSystem(m_targetId)->findOpenFoam();
     if(ofList.empty()) {
         QMessageBox::critical(this, tr("Missing OpenFOAM"),
-                              tr("No OpenFOAM installations detected..."));
+            tr("No OpenFOAM installations detected..."));
         m_openFoamPath = "";
         return false;
     } else if (ofList.size() > 1) {
-        auto selectionDialog =
-            new SelectionDialog(tr("Multiple OpenFOAM Installations Detected"),
-                tr("Select one of the following:"), ofList, this);
-        selectionDialog->exec();
-        m_openFoamPath = selectionDialog->getSelectedItem();
+        // Create selection dialog
+        SelectionDialog selectionDialog(
+            tr("Multiple OpenFOAM Installations Detected"),
+            tr("Select one of the following:"), ofList, this);
+        if (selectionDialog.exec() != QDialog::Accepted) {
+            return false;
+        }
+        m_openFoamPath = selectionDialog.getSelectedItem();
         return !m_openFoamPath.isEmpty();
     } else {
         m_openFoamPath = ofList[0];
@@ -155,7 +157,7 @@ bool NewCaseWizard::checkOpenFoam() {
 }
 
 void NewCaseWizard::accept() {
-
+    // Create the new case
     CaseCreationType caseCreationType =
         static_cast<CaseCreationType>(field("caseCreationType").toInt());
     QString casePath = field("casePath").toString();
@@ -163,8 +165,8 @@ void NewCaseWizard::accept() {
 
     // Check if case folder already exists
     QString checkPath = casePath + "/" + m_caseName;
-    QStringList results = m_system->processPaths(checkPath,
-                                                 PathOperationType::CHECK);
+    QStringList results =
+        m_system->processPaths(checkPath, PathOperationType::CHECK);
     QString result = results[0];
 
     // Handle existing case
@@ -216,11 +218,13 @@ void NewCaseWizard::accept() {
     checkPath = casePath + "/" + m_caseName;
 
     QStringList files;
+    CaseFlags flag = CaseFlag::Initial;
     if (caseCreationType == CaseCreationType::TUTORIAL) {
 
         // Copy files from tutorial to new case folder
         QString tutorialPath = field("tutorialPath").toString();
         files = m_system->copyTutorialFolders(tutorialPath, checkPath);
+        flag = CaseFlag::NotChecked;
     }
     else if (caseCreationType == CaseCreationType::INTERACTIVE) {
         if (createCase(checkPath)) {
@@ -244,7 +248,6 @@ void NewCaseWizard::accept() {
         // Write geometry file to new case
         QFileInfo info(m_geometryFile);
         if (info.exists() && info.isFile()) {
-
             QString subDir = (isFoundation) ? "/constant/geometry/" :
                                  "/constant/triSurface/";
             QString remotePath = checkPath + subDir + info.fileName();
@@ -270,12 +273,12 @@ void NewCaseWizard::accept() {
 
     // Request case creation
     emit requestCaseCreation(m_caseName, casePath, files, m_targetId,
-                             m_openFoamPath, userName, hostName, port);
+                             m_openFoamPath, flag, userName, hostName, port);
 
     QWizard::accept();
 }
 
-bool NewCaseWizard::createCase(QString newCasePath) {
+bool NewCaseWizard::createCase(const QString& newCasePath) {
     // Check OpenFOAM version
     bool isESI = false;
     QString versionText = "unknown";

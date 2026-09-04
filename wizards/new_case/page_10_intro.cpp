@@ -28,8 +28,8 @@
 #include "wizard_new_case.h"
 
 // Introduction page asks for the case name and platform
-IntroPage::IntroPage(bool isWslAvailable, QWidget *parent):
-    QWizardPage(parent) {
+IntroPage::IntroPage(SystemManager& systemMgr, bool isWslAvailable,
+        QWidget *parent): QWizardPage(parent) {
     // Set title and style
     setTitle(tr("Case Configuration"));
 
@@ -37,10 +37,19 @@ IntroPage::IntroPage(bool isWslAvailable, QWidget *parent):
     QFormLayout* mainLayout = new QFormLayout(this);
     mainLayout->setSpacing(20);
 
+    // Find a name for the initial case
+    QString baseName = "sim";
+    QString caseName = baseName;
+    int counter = 1;
+    while (systemMgr.contains(caseName)) {
+        caseName = baseName + QString::number(counter);
+        counter++;
+    }
+
     // Ask for case folder name
     m_caseNameEdit = new QLineEdit(this);
     mainLayout->addRow(tr("Name of new case:"), m_caseNameEdit);
-    m_caseNameEdit->setText("test");
+    m_caseNameEdit->setText(caseName);
     registerField("caseName", m_caseNameEdit);
 
     // Ask for the target system

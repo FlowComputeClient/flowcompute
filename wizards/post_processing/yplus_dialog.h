@@ -31,18 +31,18 @@ class QListWidget;
 class YPlusDialog : public QDialog {
     Q_OBJECT
  public:
-    YPlusDialog(const QStringList& fields,
+    YPlusDialog(const QStringList& patches,
         CaseIO::YPlusConfig& yPlusConfig, QWidget* parent = nullptr);
     CaseIO::YPlusConfig getFunctionObject() { return m_yPlusConfig; };
 
  private:
-    QStringList m_fields;
+    QStringList m_patches;
     CaseIO::YPlusConfig& m_yPlusConfig;
     QCheckBox *m_logCheck, *m_locationCheck;
     QComboBox *m_executeCombo, *m_writeCombo, *m_modeCombo;
     QDoubleSpinBox *m_executeSpin, *m_writeSpin;
     QLineEdit *m_nameEdit;
-    QListWidget *m_fieldListWidget;
+    QListWidget *m_patchListWidget;
 
  private slots:
     void onOkClicked();

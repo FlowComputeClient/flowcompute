@@ -31,22 +31,23 @@ class QListWidget;
 class ForceCoeffsDialog : public QDialog {
     Q_OBJECT
  public:
-    ForceCoeffsDialog(const QStringList& patches,
+    ForceCoeffsDialog(const QStringList& patches, const QStringList& fields,
         CaseIO::ForceCoeffsConfig& forcesConfig, QWidget* parent = nullptr);
     CaseIO::ForceCoeffsConfig getFunctionObject() {
         return m_forceCoeffsConfig;
     };
 
  private:
-    QStringList m_patches;
+    QStringList m_patches, m_fields;
     CaseIO::ForceCoeffsConfig& m_forceCoeffsConfig;
     QCheckBox *m_porosityCheck, *m_writeFieldsCheck, *m_logCheck;
+    QComboBox *m_pFieldCombo, *m_UFieldCombo, *m_rhoFieldCombo;
     QComboBox *m_flowTypeCombo, *m_executeCombo, *m_writeCombo;
     QDoubleSpinBox *m_rhoInfSpin, *m_pRefSpin, *m_executeSpin, *m_writeSpin;
     QDoubleSpinBox *m_magUInfSpin, *m_lRefSpin, *m_aRefSpin;
     std::array<QDoubleSpinBox*, 3> m_cofrSpin, m_dragSpin, m_liftSpin,
         m_pitchSpin;
-    QLineEdit *m_nameEdit, *m_pNameEdit, *m_rhoEdit, *m_UNameEdit;
+    QLineEdit *m_nameEdit;
     QListWidget *m_patchListWidget;
 
  private slots:

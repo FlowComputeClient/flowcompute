@@ -27,7 +27,6 @@
 
 // Introduction page asks for the case name and platform
 InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
-
     // Set title and style
     setTitle(tr("Interactive Case Builder"));
     setStyleSheet("QRadioButton { padding-left: 15px; }"
@@ -104,7 +103,6 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
     m_turbulenceButtonGroup->addButton(lesButton, 2);
     rasButton->setChecked(true);
 
-    /*
     // Create question for physics
     QLabel* physicsLabel = new QLabel(tr("<b>4. What other physical effects "
                         "should be included in the simulation?</b>"));
@@ -119,6 +117,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
                         "Burning fuels and reacting gases"));
     layout->addWidget(m_combustionCheck);
 
+    /*
     // Select priority of computation speed and accuracy
     QVBoxLayout* priorityLayout = new QVBoxLayout();
     priorityLayout->setSpacing(10);
@@ -160,7 +159,7 @@ InteractivePage::InteractivePage(QWidget *parent): QWizardPage(parent) {
 
     // Combustion shouldn't be enabled for incompressible simulation
     connect(incompressibleButton, &QRadioButton::toggled, this,
-            [=, this](bool checked){
+            [=, this](bool checked) {
         if (checked) {
             m_combustionCheck->setChecked(false);
             m_combustionCheck->setEnabled(false);
@@ -184,11 +183,9 @@ bool InteractivePage::validatePage() {
         static_cast<TurbulenceConfig>(m_turbulenceButtonGroup->checkedId());
     caseConfig->timeConfig =
         static_cast<TimeConfig>(m_timeButtonGroup->checkedId());
-    /*
     caseConfig->heatConfig = m_heatCheck->isChecked();
     caseConfig->radiationConfig = m_radiationCheck->isChecked();
     caseConfig->combustionConfig = m_combustionCheck->isChecked();
-    caseConfig->priorityConfig = m_prioritySlider->value();
-    */
+    // caseConfig->priorityConfig = m_prioritySlider->value();
     return true;
 }

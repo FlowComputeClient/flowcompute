@@ -38,14 +38,14 @@
 #include "wizards/post_processing/page_10_tasks.h"
 
 SolverWizard::SolverWizard(const QString& caseName,
-    const SystemManager& systemMgr,
+    SystemManager& systemMgr,
     const std::vector<FlowCompute::SolverFamily>& families,
     const FlowCompute::TurbulenceDatabase& turbModels,
     const std::map<QString, FlowCompute::TransportPropertyDef>&
         transportProperties,
     const QHash<QString, FlowCompute::FieldDef>& fieldData,
     const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
-    QStringList patchNames, QWidget *parent): QWizard(parent),
+    const QStringList& patchNames, QWidget *parent): QWizard(parent),
         m_caseName(caseName), m_systemMgr(systemMgr), m_families(families),
         m_turbModels(turbModels), m_fieldData(fieldData),
         m_boundaryConditions(boundaryConditions), m_patchNames(patchNames) {
@@ -73,7 +73,8 @@ SolverWizard::SolverWizard(const QString& caseName,
     setPage(Page_Pimple, new PimplePage(this));
     setPage(Page_Piso, new PisoPage(this));
     setPage(Page_Parallel, new ParallelPage(this));
-    setPage(Page_Tasks, new TasksPage(m_patchNames, m_fieldNames, this));
+    setPage(Page_Tasks, new TasksPage(m_patchNames, m_fieldNames,
+                                        m_functionObjects, this));
     setOption(QWizard::NoBackButtonOnStartPage);
 
     // Allow the user to finish the wizard at Page_Parallel
@@ -93,15 +94,15 @@ bool SolverWizard::parseFiles() {
 
     // Declare variables
     QString fileName;
-    QByteArray fileData;
+    std::optional<QByteArray> fileData;
     std::shared_ptr<OpenFoamDictionary> dict;
 
     // boundary file
     fileName = "constant/polyMesh/boundary";
     fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/" + fileName);
-    if (!fileData.isEmpty()) {
-        m_boundaries = CaseIO::parseBoundary(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        m_boundaries = CaseIO::parseBoundary(fileData.value());
     }
     if(m_boundaries.empty()) {
         QMessageBox msgBox(this);
@@ -120,18 +121,22 @@ bool SolverWizard::parseFiles() {
     fileName = "system/controlDict";
     fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/" + fileName);
-    if (!fileData.isEmpty()) {
-        dict = std::make_shared<OpenFoamDictionary>(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        dict = std::make_shared<OpenFoamDictionary>(fileData.value());
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
             m_controlConfig = CaseIO::parseControlDict(dict);
+
+            qDebug() << m_controlConfig.solver;
+            qDebug() << m_controlConfig.writeControl;
+            qDebug() << m_controlConfig.writeCompression;
+
         } else {
             auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
             case CaseIO::ParseErrorAction::EditFile:
-                emit createEditor(EditorType::TEXT, fileName.split('/').last(),
+                emit createTextEditor( fileName.split('/').last(),
                                   m_caseName + "/0.orig", false);
-                reject();
                 return false;
             case CaseIO::ParseErrorAction::Overwrite:
                 break;
@@ -145,8 +150,8 @@ bool SolverWizard::parseFiles() {
     fileName = "constant/turbulenceProperties";
     fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/" + fileName);
-    if (!fileData.isEmpty()) {
-        dict = std::make_shared<OpenFoamDictionary>(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        dict = std::make_shared<OpenFoamDictionary>(fileData.value());
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
             m_physicsConfig = CaseIO::parseTurbulenceProperties(dict);
@@ -154,9 +159,8 @@ bool SolverWizard::parseFiles() {
             auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
             case CaseIO::ParseErrorAction::EditFile:
-                emit createEditor(EditorType::TEXT,
-                    fileName.split('/').last(), m_caseName + "/0.orig", false);
-                reject();
+                emit createTextEditor(fileName.split('/').last(),
+                                      m_caseName + "/0.orig", false);
                 return false;
             case CaseIO::ParseErrorAction::Overwrite:
                 break;
@@ -170,8 +174,8 @@ bool SolverWizard::parseFiles() {
     fileName = "constant/transportProperties";
     fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/" + fileName);
-    if (!fileData.isEmpty()) {
-        dict = std::make_shared<OpenFoamDictionary>(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        dict = std::make_shared<OpenFoamDictionary>(fileData.value());
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
             CaseIO::parseTransportProperties(dict, m_physicsConfig);
@@ -179,9 +183,8 @@ bool SolverWizard::parseFiles() {
             auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
             case CaseIO::ParseErrorAction::EditFile:
-                emit createEditor(EditorType::TEXT,
-                    fileName.split('/').last(), m_caseName + "/0.orig", false);
-                reject();
+                emit createTextEditor(fileName.split('/').last(),
+                                      m_caseName + "/0.orig", false);
                 return false;
             case CaseIO::ParseErrorAction::Overwrite:
                 break;
@@ -199,10 +202,10 @@ bool SolverWizard::parseFiles() {
         if (fileName.endsWith('|')) {
             fileName.chop(1);
         }
-        QByteArray fileData = system->getFileContent(
+        fileData = system->getFileContent(
             casePath + "/" + m_caseName + "/0.orig/" + fileName);
-        if (!fileData.isEmpty()) {
-            auto dict = std::make_shared<OpenFoamDictionary>(fileData);
+        if (fileData && !fileData.value().isEmpty()) {
+            auto dict = std::make_shared<OpenFoamDictionary>(fileData.value());
             if(!dict->hasSyntaxErrors()) {
                 m_dictMap.insert(fileName, dict);
                 CaseIO::FieldData fieldData;
@@ -212,10 +215,8 @@ bool SolverWizard::parseFiles() {
                 auto action = CaseIO::showParsingErrorMessage(fileName, this);
                 switch(action) {
                 case CaseIO::ParseErrorAction::EditFile:
-                    emit createEditor(EditorType::TEXT,
-                        fileName.split('/').last(), m_caseName + "/0.orig",
-                            false);
-                    reject();
+                    emit createTextEditor(fileName.split('/').last(),
+                                          m_caseName + "/0.orig", false);
                     return false;
                 case CaseIO::ParseErrorAction::Overwrite:
                     break;
@@ -230,8 +231,8 @@ bool SolverWizard::parseFiles() {
     fileName = "system/fvSolution";
     fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/" + fileName);
-    if (!fileData.isEmpty()) {
-        dict = std::make_shared<OpenFoamDictionary>(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        dict = std::make_shared<OpenFoamDictionary>(fileData.value());
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
             CaseIO::parseFvSolution(dict, m_mathConfig);
@@ -247,9 +248,8 @@ bool SolverWizard::parseFiles() {
             auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
             case CaseIO::ParseErrorAction::EditFile:
-                emit createEditor(EditorType::TEXT, fileName.split('/').last(),
-                                  m_caseName + "/system", false);
-                reject();
+                emit createTextEditor(fileName.split('/').last(),
+                                      m_caseName + "/system", false);
                 return false;
             case CaseIO::ParseErrorAction::Overwrite:
                 break;
@@ -263,8 +263,8 @@ bool SolverWizard::parseFiles() {
     fileName = "system/decomposeParDict";
     fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/" + fileName);
-    if (!fileData.isEmpty()) {
-        dict = std::make_shared<OpenFoamDictionary>(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        dict = std::make_shared<OpenFoamDictionary>(fileData.value());
         if(!dict->hasSyntaxErrors()) {
             m_dictMap.insert(fileName, dict);
             CaseIO::parseDecomposeParDict(dict, m_parallelConfig);
@@ -280,9 +280,8 @@ bool SolverWizard::parseFiles() {
             auto action = CaseIO::showParsingErrorMessage(fileName, this);
             switch(action) {
             case CaseIO::ParseErrorAction::EditFile:
-                emit createEditor(EditorType::TEXT, fileName.split('/').last(),
-                                  m_caseName + "/system", false);
-                reject();
+                emit createTextEditor(fileName.split('/').last(),
+                                      m_caseName + "/system", false);
                 return false;
             case CaseIO::ParseErrorAction::Overwrite:
                 break;
@@ -363,9 +362,9 @@ void SolverWizard::accept() {
     auto system = m_systemMgr.getSystem(m_caseName);
 
     // Update boundary file
-    QByteArray fileData = system->getFileContent(
+    std::optional<QByteArray> fileData = system->getFileContent(
         casePath + "/" + m_caseName + "/constant/polyMesh/boundary");
-    QByteArray newData = CaseIO::removeEmptyPatches(fileData);
+    QByteArray newData = CaseIO::removeEmptyPatches(fileData.value());
     system->writeData(newData,
         casePath + "/" + m_caseName + "/constant/polyMesh/boundary");
 
@@ -377,16 +376,21 @@ void SolverWizard::accept() {
     }
 
     // Create the text for function objects
-    QString funcText = "FoamFile\n{\n    version 2.0;\n    format ascii;\n"
-       "    class dictionary;\n    object postProcessDict;\n}\n\n" +
-       CaseIO::createFunctionsBlock(tasksPage->getFunctionObjects());
+    QString funcText =
+        CaseIO::createFunctionsBlock(m_functionObjects);
 
     // Update/create controlDict
     QString dictText, fileName = "system/controlDict";
     if (m_dictMap.contains(fileName)) {
+
+        qDebug() << "Running updateControlDict";
+
         dictText = CaseIO::updateControlDict(
             m_dictMap[fileName], m_controlConfig, funcText);
     } else {
+
+        qDebug() << "Running createControlDict";
+
         dictText = CaseIO::createControlDict(
             m_controlConfig, openFoamPath, funcText);
     }
@@ -408,6 +412,7 @@ void SolverWizard::accept() {
         casePath + "/" + m_caseName + "/" + fileName);
 
     // Update/create field files
+    bool createField = false;
     for (auto it = m_boundaryConfig.constBegin();
          it != m_boundaryConfig.constEnd(); ++it) {
         const QString& fieldName = it.key();
@@ -415,9 +420,10 @@ void SolverWizard::accept() {
         fileName = "0.orig/" + fieldName;
         dictText = CaseIO::createFieldFile(fieldName,
             m_boundaryConfig[fieldName], openFoamPath);
-        system->writeData(dictText.toUtf8(),
+        createField |= system->writeData(dictText.toUtf8(),
             casePath + "/" + m_caseName + "/" + fileName);
     }
+    m_systemMgr.setFlag(m_caseName, CaseFlag::HasFieldFiles, createField);
 
     // Update/create fvSolution
     fileName = "system/fvSolution";

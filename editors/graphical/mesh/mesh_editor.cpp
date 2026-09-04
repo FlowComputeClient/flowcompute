@@ -44,13 +44,13 @@ MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
     m_vulkanInstance(instance) {
     // Get the current solver
     QString solver = "simpleFoam";
-    QByteArray fileData = m_targetSystem->getFileContent(casePath +
-            "/system/controlDict");
-    if (!fileData.isEmpty()) {
+    std::optional<QByteArray> fileData =
+        m_targetSystem->getFileContent(casePath + "/system/controlDict");
+    if (fileData && !fileData.value().isEmpty()) {
         QRegularExpression regex("^[ \\t]*application\\s+([^;\\s]+)\\s*;",
                                  QRegularExpression::MultilineOption);
         QRegularExpressionMatch match =
-            regex.match(QString::fromUtf8(fileData));
+            regex.match(QString::fromUtf8(fileData.value()));
         if (match.hasMatch()) {
             solver = match.captured(1);
         }
@@ -61,11 +61,11 @@ MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
     QString modelType = "none";
     fileData = m_targetSystem->getFileContent(casePath +
         "/constant/turbulenceProperties");
-    if (!fileData.isEmpty()) {
+    if (fileData && !fileData.value().isEmpty()) {
         QRegularExpression simTypeRegex(
             "^[ \\t]*simulationType\\s+([^;\\s]+)\\s*;",
                 QRegularExpression::MultilineOption);
-        QString content = QString::fromUtf8(fileData);
+        QString content = QString::fromUtf8(fileData.value());
         QRegularExpressionMatch match = simTypeRegex.match(content);
         if (match.hasMatch()) {
             simulationType = match.captured(1);
@@ -189,10 +189,10 @@ void MeshEditor::updateMesh(std::shared_ptr<RenderData> newMesh) {
 
 void MeshEditor::updatePatches() {
     // Filter empty boundaries and get boundary list
-    QByteArray fileData = m_targetSystem->getFileContent(
+    std::optional<QByteArray> fileData = m_targetSystem->getFileContent(
         m_casePath + "/constant/polyMesh/boundary");
-    if (!fileData.isEmpty()) {
-        m_boundaries = CaseIO::parseBoundary(fileData);
+    if (fileData && !fileData.value().isEmpty()) {
+        m_boundaries = CaseIO::parseBoundary(fileData.value());
         // auto [newData, m_boundaries] =
         //   SolverIO::removeEmptyPatches(fileData);
         // m_mainWin->targetSystems[m_targetId]->writeData(newData, m_casePath
@@ -225,9 +225,10 @@ void MeshEditor::onPatchApply(std::vector<CaseIO::MeshPatch>& patches) {
     });
 
     // Update boundary file
-    QByteArray fileData = m_targetSystem->getFileContent(
+    std::optional<QByteArray> fileData = m_targetSystem->getFileContent(
         m_casePath + "/constant/polyMesh/boundary");
-    CaseIO::BoundaryFileParts parts = CaseIO::splitBoundaryFile(fileData);
+    CaseIO::BoundaryFileParts parts =
+        CaseIO::splitBoundaryFile(fileData.value());
     auto dict = std::make_shared<OpenFoamDictionary>(parts.payload);
     if (!dict->hasSyntaxErrors()) {
         // Create updated text

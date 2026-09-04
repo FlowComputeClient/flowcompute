@@ -1,0 +1,156 @@
+QWidget {
+	background-color: %BACKGROUND%;
+	color: %TEXT%;
+}
+QWidget[widgetType='pane'] {
+	background-color: %PANE%;
+}
+QDialog, QWizard, QWizardPage {
+	background-color: %DIALOG%;
+	color: %TEXT%;
+}
+
+QPushButton {
+	background-color: %BUTTON%;
+	color: %TEXT%;
+	border: 2px solid %BORDER%;
+	padding: 4px 8px;
+	border-radius: 2px;
+}
+QPushButton:hover {
+	background-color: %BUTTON_HOVER%;
+}
+QPushButton:pressed {
+	background-color: %BUTTON_PRESSED%;
+}
+QPushButton:disabled {
+	color: %DISABLED_TEXT%;
+	border: 1px solid %BORDER%;
+}
+
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit {
+	background-color: %INPUT%;
+	color: %TEXT%;
+	border: 1px solid %BORDER%;
+	padding: 4px;
+}
+
+QTabBar {
+	background-color: %TAB_BAR%;
+}
+QTabBar::tab {
+	background-color: %TAB%;
+	color: %TAB_TEXT%;
+	padding: 6px 16px;
+	border: 1px solid transparent;
+}
+QTabBar::tab:selected {
+	background-color: %SELECTED_TAB%;
+	color: %TAB_TEXT%;
+	font-weight: bold;
+	border-top: 2px solid %HIGHLIGHT%;
+	border-left: 1px solid %BORDER%;
+	border-right: 1px solid %BORDER%;
+}
+
+QTreeView, QTableView, QListWidget {
+	background-color: %BACKGROUND%;
+	color: %TEXT%;
+	border: 1px solid %BORDER%;
+	gridline-color: %BORDER%;
+}
+QTreeView::item, QTableView::item, QListWidget::item {
+	color: %TEXT%;
+}
+
+QTreeView::item:disabled, QTableView::item:disabled,
+        QListWidget::item:disabled, QLabel::disabled, QSpinBox::disabled,
+	QDoubleSpinBox::disabled {
+	color: %DISABLED_TEXT%;
+}
+
+QTreeView::item:selected, QTableView::item:selected,
+	QListWidget::item:selected {
+	background-color: %SELECTION%;
+	color: %SELECTED_TEXT%;
+	font-weight: bold;
+}
+
+QTreeView::item:hover {
+	color: %SELECTED_TEXT%;
+}
+
+QGroupBox {
+    border: 1px solid %BORDER%;
+    border-radius: 4px;
+    margin-top: 2ex;
+    font-weight: bold;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    padding: 0 5px;
+}
+
+QGroupBox > * {
+    font-weight: normal;
+}
+
+QRadioButton::indicator {
+	width: 14px;
+	height: 14px;
+	border-radius: 8px;
+	border: 1px solid %DISABLED_TEXT%;
+	background-color: %TAB_BAR%;
+}
+
+QRadioButton::indicator:checked {
+	background-color: qradialgradient(
+		cx: 0.5, cy: 0.5, radius: 0.4,
+		fx: 0.5, fy: 0.5, stop: 0 %HIGHLIGHT%, stop: 0.6 %HIGHLIGHT%,
+		stop: 0.7 transparent, stop: 1 transparent);
+	border: 1px solid %HIGHLIGHT%;
+}
+
+QCheckBox::indicator {
+	width: 14px;
+	height: 14px;
+	border: 1px solid %DISABLED_TEXT%;
+	background-color: %TAB_BAR%;
+}
+
+QCheckBox::indicator:checked {
+	background-color: %HIGHLIGHT%;
+}
+
+QFrame[lineStyle='hline'] {
+	background-color: %HIGHLIGHT%;
+	border: none;
+	max-height: 2px;
+}
+
+QToolBar {
+	border: none;
+}
+
+QMenu::item:disabled {
+	color: %DISABLED_TEXT%;
+}
+
+QMenu::item:selected {
+	color: %SELECTED_TEXT%;
+}
+
+QLabel, QCheckBox {
+	background-color: transparent;
+}
+
+FileChangedBanner {
+        background-color: %PANE%;
+	border: 1px solid %BORDER%;
+}
+
+FileChangedBanner QLabel {
+        color: %SELECTED_TEXT%;
+	font-weight: bold;
+}

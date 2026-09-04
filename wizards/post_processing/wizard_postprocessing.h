@@ -20,6 +20,8 @@
 
 #include <QWizard>
 
+#include "parser/function_object.h"
+#include "parser/open_foam_dictionary.h"
 #include "systems/system_manager.h"
 
 enum {
@@ -34,13 +36,19 @@ class PostprocessingWizard : public QWizard {
     PostprocessingWizard(const QString& caseName, const QStringList& patches,
         const QStringList& fields, const SystemManager& systemMgr,
         QWidget *parent);
+    bool parseFile();
 
+ signals:
+    void createTextEditor(QString& fileName, const QString& path,
+                          bool logMessage);
  protected:
     void accept() override;
 
  private:
     const QString& m_caseName;
     const SystemManager& m_systemMgr;
+    std::shared_ptr<OpenFoamDictionary> m_postProcessDict;
+    std::vector<std::unique_ptr<CaseIO::FunctionObject>> m_functionObjects;
 };
 
 #endif  // WIZARDS_POST_PROCESSING_WIZARD_POSTPROCESSING_H_

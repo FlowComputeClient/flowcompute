@@ -141,6 +141,7 @@ BlockMeshPage1::BlockMeshPage1(const SystemManager& systemMgr,
 }
 
 void BlockMeshPage1::initializePage() {
+    qDebug() << "2.5";
 
     // Access block mesh configuration structure
     meshWizard = qobject_cast<MeshWizard*>(wizard());
@@ -149,6 +150,8 @@ void BlockMeshPage1::initializePage() {
         return;
     }
     m_cfg = &(meshWizard->getBlockMeshConfig());
+
+    qDebug() << "3";
 
     {
         const QSignalBlocker blocker(m_scaleFactorCombo);
@@ -165,8 +168,12 @@ void BlockMeshPage1::initializePage() {
         }
     }
 
+    qDebug() << "3.5";
+
     // Set bounding box values
     setBoundingBox();
+
+    qDebug() << "4";
 }
 
 void BlockMeshPage1::setBoundingBox() {
@@ -176,7 +183,7 @@ void BlockMeshPage1::setBoundingBox() {
     QStringList geometryFiles = geometryPage->getGeometryFiles();
 
     // Get bounding boxes of geometry files
-    QByteArray fileData;
+    std::optional<QByteArray> fileData;
     QVector<BoundingBox> boxes;
     CaseData caseData = m_systemMgr.getData(caseName);
     QString openFoamPath = caseData.openFoamPath;
@@ -199,7 +206,7 @@ void BlockMeshPage1::setBoundingBox() {
         fileData = m_systemMgr.getSystem(caseName)->getFileContent(
             fullPath + "/" + file);
         if(file.endsWith(".stl")) {
-            metrics = StlReader::readMetrics(fileData);
+            metrics = StlReader::readMetrics(fileData.value());
             boxes.emplaceBack(metrics.bbox);
             meshWizard->getGeometryMap().insert(file, metrics);
         }

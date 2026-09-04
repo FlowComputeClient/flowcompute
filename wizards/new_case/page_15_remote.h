@@ -51,7 +51,7 @@ class RemotePage : public QWizardPage {
 
  private slots:
     void onConnectClicked();
-    void onAuthFinished(bool isConnected, QString errorMsg);
+    void onAuthFinished(bool isConnected, const QString& errorMsg);
 };
 
 #endif  // PAGE_15_REMOTE_H_

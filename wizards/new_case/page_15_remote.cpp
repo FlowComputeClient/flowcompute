@@ -133,7 +133,7 @@ void RemotePage::onConnectClicked() {
     });
 }
 
-void RemotePage::onAuthFinished(bool isConnected, QString errorMsg) {
+void RemotePage::onAuthFinished(bool isConnected, const QString& errorMsg) {
     // Retrieve results
     m_isConnected = isConnected;
 

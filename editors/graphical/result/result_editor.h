@@ -30,7 +30,7 @@ class ResultEditor : public QWidget {
 
  public:
     ResultEditor(const QStringList& timeFolders,
-        QString timeFolder, std::shared_ptr<RenderData> renderData,
+        const QString& timeFolder, std::shared_ptr<RenderData> renderData,
         const QString& casePath, QVulkanInstance* instance,
         QWidget* parent = nullptr);
     void updateResult(std::shared_ptr<RenderData> newData);

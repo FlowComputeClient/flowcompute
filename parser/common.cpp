@@ -84,8 +84,8 @@ QString CaseIO::createFoamFooter() {
                    "* * * * * * * * * * //\n");
 }
 
-CaseIO::ParseErrorAction CaseIO::showParsingErrorMessage(QString fileName,
-                                                       QWidget* parent) {
+CaseIO::ParseErrorAction CaseIO::showParsingErrorMessage(
+    const QString& fileName, QWidget* parent) {
     // Create dialog
     QMessageBox errorDialog(parent);
     errorDialog.setWindowTitle(
@@ -95,7 +95,7 @@ CaseIO::ParseErrorAction CaseIO::showParsingErrorMessage(QString fileName,
                     "Utils", "<b>Failed to parse %1.</b>")).arg(fileName));
     errorDialog.setInformativeText(
         QCoreApplication::translate("Utils",
-                                    "The file may contain syntax errors or unsupported keywords."));
+            "The file may contain syntax errors or unsupported keywords."));
     errorDialog.setIcon(QMessageBox::Warning);
 
     // Add the custom choices and assign them roles

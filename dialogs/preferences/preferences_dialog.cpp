@@ -21,10 +21,12 @@
 #include <QDialogButtonBox>
 #include <QFormLayout>
 
+// Allow user to set preferences
 PreferencesDialog::PreferencesDialog(QWidget* parent): QDialog(parent) {
     setWindowTitle(tr("Preferences"));
     setMinimumWidth(300);
 
+    // Create the layout
     QFormLayout* layout = new QFormLayout(this);
 
     // Select the theme
@@ -42,6 +44,7 @@ PreferencesDialog::PreferencesDialog(QWidget* parent): QDialog(parent) {
     connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 }
 
+// Return the user's selected theme
 QString PreferencesDialog::getTheme() const {
     if (m_themeCombo) {
         return m_themeCombo->currentText();

@@ -199,7 +199,10 @@ void VulkanWindow::applyTheme(const QString& theme) {
         m_clearColor = newClearColor;
         m_isThemeDirty.store(true, std::memory_order_release);
     }
-    requestUpdate();
+
+    if (isExposed()) {
+        requestUpdate();
+    }
 }
 
 std::array<float, 3> VulkanWindow::getClearColor() {

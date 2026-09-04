@@ -33,6 +33,7 @@ class GeometryPage : public QWizardPage {
  public:
     explicit GeometryPage(const QString& caseName,
         const SystemManager& systemMgr, QWidget *parent);
+    ~GeometryPage();
     QString getCaseName() { return m_caseName; };
     QStringList getGeometryFiles() { return m_geometryFiles; };
     int nextId() const override;

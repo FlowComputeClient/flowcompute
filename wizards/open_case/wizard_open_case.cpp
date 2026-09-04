@@ -27,7 +27,7 @@
 
 // Wizard to open an existing case
 OpenCaseWizard::OpenCaseWizard(TargetType targetType, SystemManager& systemMgr,
-    QString openFoamPath, QWidget *parent): QWizard(parent),
+    const QString& openFoamPath, QWidget *parent): QWizard(parent),
     m_targetType(targetType), m_systemMgr(systemMgr),
     m_openFoamPath(openFoamPath) {
     // Configure wizard appearance
@@ -96,7 +96,7 @@ void OpenCaseWizard::accept() {
 
     // Request case creation
     emit requestCaseCreation(caseName, casePath, caseFiles, targetId,
-                             m_openFoamPath, userName, hostName, port);
+            m_openFoamPath, CaseFlag::NotChecked, userName, hostName, port);
 
     QWizard::accept();
 }

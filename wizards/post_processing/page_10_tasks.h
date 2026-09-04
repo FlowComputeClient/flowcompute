@@ -31,12 +31,13 @@ class TasksPage : public QWizardPage {
 
  public:
     explicit TasksPage(const QStringList& patchNames,
-        const QStringList& fieldNames, QWidget *parent);
-    std::vector<std::unique_ptr<CaseIO::FunctionObject>> getFunctionObjects();
+        const QStringList& fieldNames,
+        std::vector<std::unique_ptr<CaseIO::FunctionObject>>& functionObjects,
+        QWidget *parent);
 
  protected:
     void initializePage() override;
-    bool validatePage() override;
+    // bool validatePage() override;
 
  private:
     const QStringList& m_patchNames;
@@ -44,16 +45,14 @@ class TasksPage : public QWizardPage {
     QTableWidget* m_taskTable;
 
     // Structures for function objects
-    CaseIO::ForcesConfig m_forcesConfig;
-    CaseIO::ForceCoeffsConfig m_forceCoeffsConfig;
-    CaseIO::FieldMinMaxConfig m_fieldMinMaxConfig;
-    CaseIO::ProbesConfig m_probesConfig;
-    CaseIO::SurfacesConfig m_surfacesConfig;
-    CaseIO::YPlusConfig m_yPlusConfig;
-    std::vector<std::unique_ptr<CaseIO::FunctionObject>> m_functionObjects;
+    std::vector<std::unique_ptr<CaseIO::FunctionObject>>& m_functionObjects;
 
     // launch dialog for given type
-    QStringList launchDialog(int typeIndex, int vectorIndex);
+    CaseIO::FunctionObject* launchDialog(int rawTypeIndex, int vectorIndex);
+
+    // Update dialog with a function object
+    void updateTable(const QString& taskName, const QString& taskType,
+                        CaseIO::FunctionObject* funcObjPtr);
 
  private slots:
     void addTask();

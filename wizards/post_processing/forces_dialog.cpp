@@ -27,13 +27,15 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QMetaEnum>
 #include <QString>
 #include <QVBoxLayout>
 
 ForcesDialog::ForcesDialog(const QStringList& patches,
-    CaseIO::ForcesConfig& forcesConfig, QWidget* parent): m_patches(patches),
-    m_forcesConfig(forcesConfig), QDialog(parent) {
+    const QStringList& fields, CaseIO::ForcesConfig& forcesConfig,
+    QWidget* parent): QDialog(parent), m_patches(patches), m_fields(fields),
+    m_forcesConfig(forcesConfig) {
     // Set title and style
     setWindowTitle(tr("Forces Function Configuration"));
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
@@ -114,14 +116,20 @@ ForcesDialog::ForcesDialog(const QStringList& patches,
     mainLayout->addWidget(fieldGroup);
 
     // Set name for p
-    m_pNameEdit = new QLineEdit(this);
-    m_pNameEdit->setText(m_forcesConfig.pName);
-    fieldLayout->addRow(tr("Name for pressure (p): "), m_pNameEdit);
+    m_pFieldCombo = new QComboBox(this);
+    int index = m_fields.indexOf("p");
+    if (index > 0)
+        m_fields.move(index, 0);
+    m_pFieldCombo->addItems(m_fields);
+    fieldLayout->addRow(tr("Pressure field (p): "), m_pFieldCombo);
 
     // Set name for U
-    m_UNameEdit = new QLineEdit(this);
-    m_UNameEdit->setText(m_forcesConfig.UName);
-    fieldLayout->addRow(tr("Name for velocity (U): "), m_UNameEdit);
+    m_UFieldCombo = new QComboBox(this);
+    index = m_fields.indexOf("U");
+    if (index > 0)
+        m_fields.move(index, 0);
+    m_UFieldCombo->addItems(m_fields);
+    fieldLayout->addRow(tr("Velocity field (U): "), m_UFieldCombo);
 
     // pRef
     m_pRefSpin = new QDoubleSpinBox(this);
@@ -131,13 +139,19 @@ ForcesDialog::ForcesDialog(const QStringList& patches,
     m_pRefSpin->setValue(m_forcesConfig.pRef);
     fieldLayout->addRow(tr("Reference Pressure (pRef): "), m_pRefSpin);
 
-    // Set flow type
-    m_flowTypeCombo = new QComboBox(this);
-    m_flowTypeCombo->addItems(
-        {"Incompressible (constant)", "Compressible (Field Name)"} );
-    fieldLayout->addRow(tr("Flow type: "), m_flowTypeCombo);
+    // Set rho field
+    m_rhoFieldCombo = new QComboBox(this);
+    QStringList rhoFields = m_fields;
+    index = rhoFields.indexOf("rho");
+    if (index > 0) {
+        rhoFields.move(index, 0);
+    }
+    rhoFields.prepend("rhoInf");
+    m_rhoFieldCombo->addItems(rhoFields);
+    m_rhoFieldCombo->setCurrentIndex(0);
+    fieldLayout->addRow(tr("Density field (rho): "), m_rhoFieldCombo);
 
-    // rhoInf (Incompressible only)
+    // rhoInf
     m_rhoInfSpin = new QDoubleSpinBox(this);
     m_rhoInfSpin->setRange(0.001, 20000.0);
     m_rhoInfSpin->setDecimals(3);
@@ -145,25 +159,16 @@ ForcesDialog::ForcesDialog(const QStringList& patches,
     m_rhoInfSpin->setValue(m_forcesConfig.rhoInf);
     fieldLayout->addRow(tr("Reference Density (rhoInf): "), m_rhoInfSpin);
 
-    // rho (Compressible only)
-    m_rhoEdit = new QLineEdit(this);
-    m_rhoEdit->setText(m_forcesConfig.rhoName);
-    fieldLayout->addRow(tr("Density field: "), m_rhoEdit);
-
-    // Respond to flow type changes
-    connect(m_flowTypeCombo,
+    // Respond to rho field change
+    connect(m_rhoFieldCombo,
         QOverload<int>::of(&QComboBox::currentIndexChanged),
-        this, [this, fieldLayout](int index) {
-        bool isIncompressible = (index == 0);
-        fieldLayout->setRowVisible(m_rhoInfSpin, isIncompressible);
-        fieldLayout->setRowVisible(m_rhoEdit, !isIncompressible);
-    });
-
-    // Set initial state
-    int initialMode = m_forcesConfig.rhoName.isEmpty() ? 0 : 1;
-    m_flowTypeCombo->setCurrentIndex(initialMode);
-    fieldLayout->setRowVisible(m_rhoInfSpin, (initialMode == 0));
-    fieldLayout->setRowVisible(m_rhoEdit, (initialMode == 1));
+        this, [this, fieldLayout](int idx) {
+            bool isRhoInf = (idx == 0);
+            m_rhoInfSpin->setEnabled(isRhoInf);
+            if (QWidget* label = fieldLayout->labelForField(m_rhoInfSpin)) {
+                label->setEnabled(isRhoInf);
+            }
+        });
 
     // Geometry group
     QGroupBox* geomGroup = new QGroupBox(tr("Geometry and Integration"), this);
@@ -172,9 +177,9 @@ ForcesDialog::ForcesDialog(const QStringList& patches,
     mainLayout->addWidget(geomGroup);
 
     // Create widget for patches
-    m_patchesListWidget = new QListWidget(this);
+    m_patchListWidget = new QListWidget(this);
     for (const QString& patch : std::as_const(m_patches)) {
-        QListWidgetItem* item = new QListWidgetItem(patch, m_patchesListWidget);
+        QListWidgetItem* item = new QListWidgetItem(patch, m_patchListWidget);
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
         if (m_forcesConfig.patches.contains(patch)) {
             item->setCheckState(Qt::Checked);
@@ -184,11 +189,11 @@ ForcesDialog::ForcesDialog(const QStringList& patches,
     }
 
     // Display four patches at a time
-    if (m_patchesListWidget->count() > 0) {
-        int itemHeight = m_patchesListWidget->sizeHintForRow(0);
-        m_patchesListWidget->setMaximumHeight((itemHeight * 4) + 5);
+    if (m_patchListWidget->count() > 0) {
+        int itemHeight = m_patchListWidget->sizeHintForRow(0);
+        m_patchListWidget->setMaximumHeight((itemHeight * 4) + 5);
     }
-    geomLayout->addRow(tr("Boundary patches:"), m_patchesListWidget);
+    geomLayout->addRow(tr("Boundary patches:"), m_patchListWidget);
 
     // Set center of rotation
     QHBoxLayout* cofrLayout = new QHBoxLayout;
@@ -223,13 +228,27 @@ ForcesDialog::ForcesDialog(const QStringList& patches,
 }
 
 void ForcesDialog::onOkClicked() {
+    // Make sure a name has been provided
+    if (m_nameEdit->text().isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("A name must be provided for the post-processing task."));
+        return;
+    }
+
     // Get list of patches
     QStringList selectedPatches;
-    for (int i = 0; i < m_patchesListWidget->count(); ++i) {
-        QListWidgetItem* item = m_patchesListWidget->item(i);
+    for (int i = 0; i < m_patchListWidget->count(); ++i) {
+        QListWidgetItem* item = m_patchListWidget->item(i);
         if (item->checkState() == Qt::Checked) {
             selectedPatches << item->text();
         }
+    }
+
+    // Make sure at least one patch has been selected
+    if (selectedPatches.isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("At least one patch must be selected."));
+        return;
     }
 
     // Update the ForcesConfig structure
@@ -246,9 +265,9 @@ void ForcesDialog::onOkClicked() {
     m_forcesConfig.writeFields = m_writeFieldsCheck->isChecked();
     m_forcesConfig.logOutput = m_logCheck->isChecked();
 
-    m_forcesConfig.pName = m_pNameEdit->text();
-    m_forcesConfig.UName = m_UNameEdit->text();
-    m_forcesConfig.rhoName = m_rhoEdit->text();
+    m_forcesConfig.pName = m_pFieldCombo->currentText();
+    m_forcesConfig.UName = m_UFieldCombo->currentText();
+    m_forcesConfig.rhoName = m_rhoFieldCombo->currentText();
     m_forcesConfig.rhoInf = m_rhoInfSpin->value();
     m_forcesConfig.pRef = m_pRefSpin->value();
 

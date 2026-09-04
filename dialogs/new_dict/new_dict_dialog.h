@@ -25,6 +25,7 @@ class QLineEdit;
 class QComboBox;
 
 class NewDictDialog : public QDialog {
+    Q_OBJECT
  public:
     NewDictDialog(const QString& caseName, const QString& openFoamPath,
         QWidget* parent = nullptr);

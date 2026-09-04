@@ -16,246 +16,21 @@ add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 qt_standard_project_setup()
 
-find_package(ZLIB REQUIRED)
-
+# Tree-sitter library
 add_library(tree_sitter OBJECT third_party/tree_sitter/src/lib.c)
 target_include_directories(tree_sitter PUBLIC third_party/tree_sitter/include)
 
-# Suppress warnings cross-platform for third-party C code
+# Suppress warnings for C code
 set(C_WARNING_SUPPRESSION $<$<CXX_COMPILER_ID:MSVC>:/w> $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>)
 target_compile_options(tree_sitter PRIVATE ${C_WARNING_SUPPRESSION})
 
-qt_add_executable(FlowCompute
-    main.cpp
-    main_window.cpp
-    main_window.h
-    main_window_slots.cpp
-    app_icon.rc
-    resources.qrc
-    core_types.h
-
-    dialogs/login/login_dialog.h
-    dialogs/login/login_dialog.cpp
-
-    dialogs/new_dict/new_dict_dialog.h
-	dialogs/new_dict/new_dict_dialog.cpp
-
-    dialogs/preferences/preferences_dialog.h
-    dialogs/preferences/preferences_dialog.cpp
-
-    dialogs/run_mesh/run_mesh_dialog.h
-    dialogs/run_mesh/run_mesh_dialog.cpp
-
-    dialogs/run_solver/run_solver_dialog.h
-    dialogs/run_solver/run_solver_dialog.cpp
-
-    dialogs/selection/selection_dialog.h
-    dialogs/selection/selection_dialog.cpp
-
-    dialogs/utility_output/utility_output_dialog.h
-    dialogs/utility_output/utility_output_dialog.cpp
-
-    editors/graphical/patch_palette.h
-    editors/graphical/patch_palette.cpp
-    editors/graphical/table_delegate.h
-    editors/graphical/table_delegate.cpp
-
-    editors/graphical/mesh/mesh_editor.h
-    editors/graphical/mesh/mesh_editor.cpp
-    editors/graphical/mesh/mesh_left_pane.h
-    editors/graphical/mesh/mesh_left_pane.cpp
-
-    editors/graphical/result/result_editor.h
-    editors/graphical/result/result_editor.cpp
-    editors/graphical/result/result_left_pane.h
-    editors/graphical/result/result_left_pane.cpp
-    editors/graphical/result/color_bar_widget.h
-    editors/graphical/result/color_bar_widget.cpp
-
-    editors/graphical/surface/surface_editor.cpp
-    editors/graphical/surface/surface_editor.h
-    editors/graphical/surface/surface_left_pane.h
-    editors/graphical/surface/surface_left_pane.cpp
-
-    editors/graphical/vulkan/vulkan_window.h
-    editors/graphical/vulkan/vulkan_window.cpp
-    editors/graphical/vulkan/vulkan_renderer.h
-    editors/graphical/vulkan/vulkan_renderer.cpp
-    editors/graphical/vulkan/vulkan_renderer_resources.cpp
-
-    editors/text/text_editor.h
-    editors/text/text_editor.cpp
-    editors/text/tree_sitter_highlighter.h
-    editors/text/tree_sitter_highlighter.cpp
-
-    editors/tab_bar.h
-    editors/tab_bar.cpp
-    editors/tab_widget.h
-    editors/tab_widget.cpp
-
-    geometry/graphic_data.h
-    geometry/mesh/mesh_reader.h
-    geometry/mesh/mesh_reader.cpp
-    geometry/stl/stl_reader.h
-    geometry/stl/stl_reader.cpp
-    geometry/obj/obj_reader.h
-    geometry/obj/obj_reader.cpp
-
-    parser/parser.c
-    parser/open_foam_dictionary.h
-    parser/open_foam_dictionary.cpp
-    parser/block_mesh_dict.h
-    parser/block_mesh_dict.cpp
-    parser/boundary.h
-    parser/boundary.cpp
-    parser/common.h
-    parser/common.cpp
-    parser/control_dict.h
-    parser/control_dict.cpp
-    parser/decompose_par_dict.h
-    parser/decompose_par_dict.cpp
-    parser/field.h
-    parser/field.cpp
-    parser/function_object.h
-    parser/function_object.cpp
-    parser/fv_solution.h
-    parser/fv_solution.cpp
-    parser/snappy_hex_mesh_dict.h
-    parser/snappy_hex_mesh_dict.cpp
-    parser/surface_feature.h
-    parser/surface_feature.cpp
-    parser/surface_patch_dict.h
-    parser/surface_patch_dict.cpp
-    parser/transport_properties.h
-    parser/transport_properties.cpp
-    parser/turbulence_properties.h
-    parser/turbulence_properties.cpp
-
-    systems/local_system.h
-    systems/local_system.cpp
-    systems/local_system_mesh.cpp
-    systems/remote_system.h
-    systems/remote_system.cpp
-    systems/system_manager.h
-    systems/system_manager.cpp
-    systems/target_system.h
-    systems/wsl_system.h
-    systems/wsl_system.cpp
-
-    views/console/console.h
-    views/console/console.cpp
-
-    views/navigator/node_data.h
-    views/navigator/navigator_model.h
-    views/navigator/navigator_model.cpp
-    views/navigator/case_navigator.h
-    views/navigator/case_navigator.cpp
-    views/navigator/case_navigator_delegate.h
-    views/navigator/case_navigator_delegate.cpp
-    views/navigator/node_data.cpp
-
-    wizards/mesh/wizard_mesh.h
-    wizards/mesh/wizard_mesh.cpp
-    wizards/mesh/page_10_geometry.h
-    wizards/mesh/page_10_geometry.cpp
-    wizards/mesh/page_20_blockmesh.h
-    wizards/mesh/page_20_blockmesh.cpp
-    wizards/mesh/page_30_blockmesh.h
-    wizards/mesh/page_30_blockmesh.cpp
-    wizards/mesh/page_40_surface_feature.h
-    wizards/mesh/page_40_surface_feature.cpp
-    wizards/mesh/page_50_castellation.h
-    wizards/mesh/page_50_castellation.cpp
-    wizards/mesh/page_60_snapcontrol.h
-    wizards/mesh/page_60_snapcontrol.cpp
-    wizards/mesh/page_70_layercontrol.h
-    wizards/mesh/page_70_layercontrol.cpp
-
-    wizards/new_case/wizard_new_case.h
-    wizards/new_case/wizard_new_case.cpp
-    wizards/new_case/page_10_intro.h
-    wizards/new_case/page_10_intro.cpp
-    wizards/new_case/page_15_remote.h
-    wizards/new_case/page_15_remote.cpp
-    wizards/new_case/page_20_tutorial.h
-    wizards/new_case/page_20_tutorial.cpp
-    wizards/new_case/page_30_interactive.h
-    wizards/new_case/page_30_interactive.cpp
-    wizards/new_case/page_40_project.cpp
-    wizards/new_case/page_40_project.h
-    wizards/new_case/template_strings.h
-
-    wizards/open_case/wizard_open_case.h
-    wizards/open_case/wizard_open_case.cpp
-    wizards/open_case/page_20_casefolder.h
-    wizards/open_case/page_20_casefolder.cpp
-
-    wizards/post_processing/forces_dialog.h
-    wizards/post_processing/forces_dialog.cpp
-    wizards/post_processing/force_coeffs_dialog.h
-    wizards/post_processing/force_coeffs_dialog.cpp
-    wizards/post_processing/field_minmax_dialog.h
-    wizards/post_processing/field_minmax_dialog.cpp
-    wizards/post_processing/page_10_tasks.h
-    wizards/post_processing/page_10_tasks.cpp
-    wizards/post_processing/page_20_time_region.h
-    wizards/post_processing/page_20_time_region.cpp
-    wizards/post_processing/probes_dialog.h
-    wizards/post_processing/probes_dialog.cpp
-    wizards/post_processing/surfaces_dialog.h
-    wizards/post_processing/surfaces_dialog.cpp
-    wizards/post_processing/add_surface_dialog.h
-    wizards/post_processing/add_surface_dialog.cpp
-    wizards/post_processing/wizard_postprocessing.h
-    wizards/post_processing/wizard_postprocessing.cpp
-    wizards/post_processing/task_structs.h
-    wizards/post_processing/yplus_dialog.h
-    wizards/post_processing/yplus_dialog.cpp
-
-    wizards/solver/wizard_solver.h
-    wizards/solver/wizard_solver.cpp
-    wizards/solver/page_10_control.cpp
-    wizards/solver/page_10_control.h
-    wizards/solver/page_20_transient.h
-    wizards/solver/page_20_transient.cpp
-    wizards/solver/page_30_physics.cpp
-    wizards/solver/page_30_physics.h
-    wizards/solver/page_40_boundary.cpp
-    wizards/solver/page_40_boundary.h
-    wizards/solver/page_50_algorithm.cpp
-    wizards/solver/page_50_algorithm.h
-    wizards/solver/page_70_pimple.h
-    wizards/solver/page_70_pimple.cpp
-    wizards/solver/page_60_simple.h
-    wizards/solver/page_60_simple.cpp
-    wizards/solver/page_80_piso.h
-    wizards/solver/page_80_piso.cpp
-    wizards/solver/page_90_parallel.cpp
-    wizards/solver/page_90_parallel.h
-)
-
-target_compile_options(FlowCompute PRIVATE
-    $<$<COMPILE_LANGUAGE:C>:${C_WARNING_SUPPRESSION}>
-)
-
-target_include_directories(FlowCompute PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/parser
-)
-
-target_link_libraries(FlowCompute PRIVATE
-    Qt::Core Qt::Widgets Qt::Network Qt::Concurrent
-    tree_sitter
-)
-
 # Access libssh and zlib
+find_package(ZLIB REQUIRED)
 if(WIN32)
     find_package(libssh REQUIRED)
-    target_link_libraries(FlowCompute PRIVATE ssh ZLIB::ZLIB)
 elseif(UNIX)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBSSH REQUIRED IMPORTED_TARGET libssh)
-    target_link_libraries(FlowCompute PRIVATE PkgConfig::LIBSSH ZLIB::ZLIB)
 endif()
 
 # Find the Vulkan shader compiler
@@ -270,76 +45,126 @@ if(NOT GLSL_VALIDATOR)
     message(FATAL_ERROR "glslangValidator not found! Make sure the Vulkan SDK is in your system PATH.")
 endif()
 
-# Shader source files
-set(SHADER_SOURCES
-    "shaders/axis/axis.vert"
-    "shaders/axis/axis.frag"
-    "shaders/model/model.vert"
-    "shaders/model/model.frag"
-    "shaders/mesh/mesh.vert"
-    "shaders/mesh/mesh.frag"
-    "shaders/color/color.vert"
-    "shaders/color/color.frag"
-    "shaders/lines/lines.vert"
-    "shaders/lines/lines.frag"
+# Add subdirectories
+add_subdirectory(dialogs)
+add_subdirectory(editors)
+add_subdirectory(geometry)
+add_subdirectory(parser)
+add_subdirectory(shaders)
+add_subdirectory(systems)
+add_subdirectory(views)
+add_subdirectory(wizards)
+
+qt_add_executable(FlowCompute
+    main.cpp
+    main_window.cpp
+    main_window.h
+    main_window_slots.cpp
+    app_icon.rc
+    resources.qrc
+    core_types.h
+
 )
 
-set(SPIRV_FILES "")
+# SPIR-V files will be generated at build time
+set_source_files_properties(${COMPILED_SPIRV_FILES} PROPERTIES GENERATED ON)
 
-# Create a command for each shader
-foreach(SHADER ${SHADER_SOURCES})
-    get_filename_component(SHADER_DIR ${SHADER} DIRECTORY)
-    get_filename_component(SHADER_EXT ${SHADER} LAST_EXT)
-    string(SUBSTRING ${SHADER_EXT} 1 -1 OUT_NAME)
-    set(SPIRV_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${SHADER_DIR}/${OUT_NAME}.spv")
-    add_custom_command(
-        OUTPUT ${SPIRV_FILE}
-        COMMAND ${GLSL_VALIDATOR} -V ${CMAKE_CURRENT_SOURCE_DIR}/${SHADER} -o ${SPIRV_FILE}
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${SHADER}
-        COMMENT "Compiling Vulkan shader: ${SHADER} -> ${SHADER_DIR}/${OUT_NAME}.spv"
-    )
-    list(APPEND SPIRV_FILES ${SPIRV_FILE})
-endforeach()
+# Bundle the .spv files as resources
+qt_add_resources(FlowCompute "compiled_shaders"
+    PREFIX "/"
+    BASE "${CMAKE_CURRENT_BINARY_DIR}/shaders"
+    FILES ${COMPILED_SPIRV_FILES}
+)
 
-# Group all shader commands into a single target
-set_property(TARGET FlowCompute APPEND PROPERTY AUTORCC_DEPENDS ${SPIRV_FILES})
+target_compile_definitions(FlowCompute PRIVATE
+    APP_VERSION="${PROJECT_VERSION}"
+)
+
+target_include_directories(FlowCompute PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/parser
+)
+
+add_dependencies(FlowCompute CompileShaders)
+
+target_link_libraries(FlowCompute PRIVATE
+    Dialogs Editors Geometry Parser Systems Views Wizards
+    Qt6::Widgets Qt6::Core
+)
 
 # Installation and deployment
 install(TARGETS FlowCompute
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    COMPONENT FlowComputeCore
 )
 
+# Deploy Qt dependencies
 qt_generate_deploy_app_script(
     TARGET FlowCompute
     OUTPUT_SCRIPT deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
+    NO_TRANSLATIONS
 )
-install(SCRIPT ${deploy_script})
 
-install(FILES
-    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/z.dll"
-    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/ssh.dll"
-    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/libcrypto-3-x64.dll"
-    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/libssl-3-x64.dll"
-    "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/legacy.dll"
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
+# Link the script to the component
+install(SCRIPT ${deploy_script} COMPONENT FlowComputeCore)
+
+if(WIN32)
+    # Install targets
+    install(FILES
+        $<TARGET_RUNTIME_DLLS:FlowCompute>
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT FlowComputeCore
+    )
+
+    # Catch transitive dependencies
+    if(DEFINED VCPKG_TARGET_TRIPLET)
+        set(VCPKG_BIN_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin/")
+    else()
+        set(VCPKG_BIN_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/")
+    endif()
+
+    install(DIRECTORY "${VCPKG_BIN_DIR}"
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT FlowComputeCore
+        FILES_MATCHING PATTERN "*.dll"
+    )
+endif()
 
 install(PROGRAMS
     "${CMAKE_SOURCE_DIR}/server/wsl_server"
     DESTINATION ${CMAKE_INSTALL_BINDIR}
+    COMPONENT FlowComputeCore
 )
 
-# IFW configuration
+# CPack configuration
 set(CPACK_GENERATOR "IFW")
 set(CPACK_PACKAGE_NAME "FlowCompute")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "FlowCompute")
 set(CPACK_PACKAGE_VERSION "0.9.0")
-set(CPACK_PACKAGE_VENDOR "FlowCompute Project")
-set(CPACK_IFW_ROOT "C:/QtInstaller/Tools/QtInstallerFramework/4.11")
+set(CPACK_PACKAGE_VENDOR "FlowCompute LLC")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Open-source client for OpenFOAM.")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+
+# IFW Configuration
+file(TO_CMAKE_PATH "$ENV{IFW_PATH}" CLEAN_IFW_PATH)
+set(CPACK_IFW_ROOT "${CLEAN_IFW_PATH}")
+set(CPACK_IFW_PACKAGE_TITLE "FlowCompute")
 set(CPACK_IFW_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/images/flowcompute.ico")
+set(CPACK_IFW_PACKAGE_STYLE_SHEET "${CMAKE_SOURCE_DIR}/installer_style.qss")
+set(CPACK_IFW_PACKAGE_CONTROL_SCRIPT "${CMAKE_SOURCE_DIR}/control_script.qs")
+set(CPACK_IFW_PACKAGE_WIZARD_STYLE "Classic")
+set(CPACK_IFW_PACKAGE_WIZARD_DEFAULT_WIDTH 700)
+set(CPACK_IFW_PACKAGE_WIZARD_DEFAULT_HEIGHT 400)
 
 include(CPack)
 include(CPackIFW)
+
+cpack_ifw_configure_component(FlowComputeCore
+    DISPLAY_NAME "FlowCompute"
+    DESCRIPTION "The core executable and configuration files."
+    LICENSES "LGPLv3" "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+    FORCED_INSTALLATION
+)

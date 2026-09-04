@@ -38,6 +38,7 @@ SnapControlPage::SnapControlPage(QWidget *parent): QWizardPage(parent) {
     QGroupBox* snapBox = new QGroupBox(tr("Snapping Iterations"), this);
     layout->addWidget(snapBox);
     QFormLayout* snapLayout = new QFormLayout(snapBox);
+    snapLayout->setSpacing(15);
 
     // Number of smoothing iterations
     smoothingBox = new QSpinBox(snapBox);
@@ -69,6 +70,7 @@ SnapControlPage::SnapControlPage(QWidget *parent): QWizardPage(parent) {
     QGroupBox* edgeBox = new QGroupBox(tr("Feature Edge Resolution"), this);
     layout->addWidget(edgeBox);
     QFormLayout* edgeLayout = new QFormLayout(edgeBox);
+    edgeLayout->setSpacing(15);
 
     // Whether the mesher should read edges from eMesh file
     explicitSnapBox = new QCheckBox(tr("Snap to explicit feature "

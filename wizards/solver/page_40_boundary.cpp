@@ -215,13 +215,13 @@ void BoundaryPage::initializePage() {
 }
 
 bool BoundaryPage::validatePage() {
+    if (!m_cfg)
+        return false;
+
+    // Set wizard fields
+    solverWizard->setFieldNames(m_fieldList);
 
     return true;
-
-    if (!m_cfg) { return false; }
-
-    // Update wizard fields
-    solverWizard->setFieldNames(m_fieldList);
 
     // Iterate through fields
     for (auto fieldIt = m_cfg->begin(); fieldIt != m_cfg->end(); ++fieldIt) {

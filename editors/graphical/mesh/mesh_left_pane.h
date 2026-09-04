@@ -34,7 +34,7 @@ class MeshLeftPane : public QWidget {
     Q_OBJECT
 
  public:
-    explicit MeshLeftPane(QStringList fields,
+    explicit MeshLeftPane(const QStringList& fields,
       const QHash<QString, FlowCompute::FieldDef>& fieldData,
       const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
       QWidget* parent = nullptr);

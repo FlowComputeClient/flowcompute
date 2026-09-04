@@ -22,6 +22,7 @@
 
 // Custom tab bar moves the close button
 class TabBar : public QTabBar {
+    Q_OBJECT
  public:
     using QTabBar::QTabBar;
 

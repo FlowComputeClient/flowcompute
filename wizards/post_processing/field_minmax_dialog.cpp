@@ -27,6 +27,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QMetaEnum>
 #include <QString>
 #include <QVBoxLayout>
@@ -157,6 +158,13 @@ FieldMinMaxDialog::FieldMinMaxDialog(const QStringList& fields,
 }
 
 void FieldMinMaxDialog::onOkClicked() {
+    // Make sure a name has been provided
+    if (m_nameEdit->text().isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("A name must be provided for the post-processing task."));
+        return;
+    }
+
     // Get list of fields
     QStringList selectedFields;
     for (int i = 0; i < m_fieldListWidget->count(); ++i) {
@@ -164,6 +172,13 @@ void FieldMinMaxDialog::onOkClicked() {
         if (item->checkState() == Qt::Checked) {
             selectedFields << item->text();
         }
+    }
+
+    // Make sure a field has been selected
+    if (selectedFields.isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("One or more fields must be selected."));
+        return;
     }
 
     // Update the FieldMinMaxConfig structure

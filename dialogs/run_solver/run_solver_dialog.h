@@ -54,7 +54,7 @@ class RunSolverDialog : public QDialog {
 
  private slots:
     void onOkClicked();
-    void onCaseChanged(QString caseName);
+    void onCaseChanged(const QString& caseName);
     void potentialCheckToggled(bool enabled);
     void simulationCheckToggled(bool state);
 };

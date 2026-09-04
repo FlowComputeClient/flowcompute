@@ -37,9 +37,11 @@
 
 // Configure post-processing tasks
 TasksPage::TasksPage(const QStringList& patchNames,
-        const QStringList& fieldNames, QWidget *parent):
-        m_patchNames(patchNames), m_fieldNames(fieldNames),
-        QWizardPage(parent) {
+    const QStringList& fieldNames,
+    std::vector<std::unique_ptr<CaseIO::FunctionObject>>& functionObjects,
+    QWidget *parent): QWizardPage(parent), m_patchNames(patchNames),
+    m_fieldNames(fieldNames), m_functionObjects(functionObjects) {
+
     // Set title
     setTitle(tr("Post-Processing Tasks"));
 
@@ -81,6 +83,34 @@ TasksPage::TasksPage(const QStringList& patchNames,
     setLayout(mainLayout);
 }
 
+void TasksPage::initializePage() {
+    // Populate list of fields if empty
+    if (m_fieldNames.isEmpty()) {
+
+        // Access wizard
+        QWizard* parentWizard = wizard();
+        if (!parentWizard)
+            return;
+
+        // Make sure the parent is the SolverWizard
+        SolverWizard* solverWizard = qobject_cast<SolverWizard*>(parentWizard);
+        if (solverWizard) {
+            m_fieldNames = solverWizard->getFieldNames();
+        }
+    }
+
+    // Populate list of function objects
+    for ( const auto& funcObject: m_functionObjects ) {
+        // Convert function object type to string
+        QString typeStr =
+            QMetaEnum::fromType<CaseIO::FunctionObject::FuncObjType>().
+            valueToKey(static_cast<int>(funcObject->type));
+
+        // Update table
+        updateTable(funcObject->name, typeStr, funcObject.get());
+    }
+}
+
 void TasksPage::addTask() {
     // Create task list
     QStringList taskList = {
@@ -110,13 +140,22 @@ void TasksPage::addTask() {
 
     // Get selection and launch dialog
     int index = selectionDialog.getSelectedIndex();
-    QStringList res = launchDialog(index, -1);
-    if (res.size() < 2) {
-        return;
-    }
-    QString taskName = res[0];
-    QString taskType = res[1];
+    CaseIO::FunctionObject* obj = launchDialog(index, -1);
+    if (obj) {
+        // Get string for type
+        QString typeStr =
+            QMetaEnum::fromType<CaseIO::FunctionObject::FuncObjType>().
+                valueToKey(index);
 
+        // Update table
+        updateTable(obj->name, typeStr, obj);
+    }
+}
+
+void TasksPage::updateTable(const QString& taskName, const QString& taskType,
+                            CaseIO::FunctionObject* funcObjPtr) {
+    if (taskName.isEmpty() || !funcObjPtr)
+        return;
     // Add a row to the table
     if (!taskName.isEmpty()) {
         int row = m_taskTable->rowCount();
@@ -137,9 +176,8 @@ void TasksPage::addTask() {
         m_taskTable->setCellWidget(row, 2, editButton);
 
         // Respond when Edit is pressed
-        connect(editButton,
-                &QPushButton::clicked, this, [this, editButton, taskType]() {
-            // Dynamically find current row
+        connect(editButton, &QPushButton::clicked, this,
+                [this, editButton, taskType, funcObjPtr]() {
             int currentRow = -1;
             for (int i = 0; i < m_taskTable->rowCount(); ++i) {
                 if (m_taskTable->cellWidget(i, 2) == editButton) {
@@ -147,19 +185,15 @@ void TasksPage::addTask() {
                     break;
                 }
             }
-            if (currentRow == -1)
-                return;
+            if (currentRow == -1) return;
 
-            // Launch dialog for given type
             QMetaEnum metaEnum =
                 QMetaEnum::fromType<CaseIO::FunctionObject::FuncObjType>();
-            QByteArray typeBytes = taskType.toUtf8();
-            int typeIndex = metaEnum.keyToValue(typeBytes.constData());
+            int typeIndex = metaEnum.keyToValue(taskType.toUtf8().constData());
 
-            QStringList editRes = launchDialog(typeIndex, currentRow);
-            if (editRes.size() == 2 && !editRes[0].isEmpty()) {
-                m_taskTable->item(currentRow, 0)->setText(editRes[0]);
-            }
+            CaseIO::FunctionObject* obj = launchDialog(typeIndex, currentRow);
+            if (obj)
+                m_taskTable->item(currentRow, 0)->setText(obj->name);
         });
 
         // Add the delete button
@@ -167,9 +201,8 @@ void TasksPage::addTask() {
         m_taskTable->setCellWidget(row, 3, deleteButton);
 
         // Respond when the Delete button is pressed
-        connect(deleteButton,
-            &QPushButton::clicked, this, [this, deleteButton]() {
-            // Dynamically find current row
+        connect(deleteButton, &QPushButton::clicked, this,
+                [this, deleteButton, funcObjPtr]() {
             int currentRow = -1;
             for (int i = 0; i < m_taskTable->rowCount(); ++i) {
                 if (m_taskTable->cellWidget(i, 3) == deleteButton) {
@@ -180,145 +213,163 @@ void TasksPage::addTask() {
             if (currentRow == -1)
                 return;
 
-            // Remove function object from vector
-            m_functionObjects.erase(m_functionObjects.begin() + currentRow);
+            auto it =
+                std::find_if(m_functionObjects.begin(), m_functionObjects.end(),
+               [funcObjPtr](
+                const std::unique_ptr<CaseIO::FunctionObject>& ptr) {
+                   return ptr.get() == funcObjPtr;
+               });
 
-            // Delete row from table
+            if (it != m_functionObjects.end()) {
+                m_functionObjects.erase(it);
+            }
+
+            // Remove row from table
             m_taskTable->removeRow(currentRow);
         });
     }
 }
 
 // Launch dialog for the given patch type
-QStringList TasksPage::launchDialog(int typeIndex, int vectorIndex) {
-    QString taskName;
-    QString taskType;
-    switch (typeIndex) {
-    case 0: {
-        ForcesDialog dlg = ForcesDialog(m_patchNames, m_forcesConfig, this);
-        dlg.exec();
-        m_forcesConfig = dlg.getFunctionObject();
-        taskName = m_forcesConfig.name;
-        taskType = "forces";
-        if (vectorIndex == -1) {
-            m_functionObjects.push_back(
-                std::make_unique<CaseIO::ForcesConfig>(m_forcesConfig));
-        } else {
-            m_functionObjects[vectorIndex] =
-                std::make_unique<CaseIO::ForcesConfig>(m_forcesConfig);
-        }
-        break;
-    }
-    case 1: {
-        ForceCoeffsDialog dlg =
-            ForceCoeffsDialog(m_patchNames, m_forceCoeffsConfig, this);
-        dlg.exec();
-        m_forceCoeffsConfig = dlg.getFunctionObject();
-        taskName = m_forceCoeffsConfig.name;
-        taskType = "forceCoeffs";
-        if (vectorIndex == -1) {
-            m_functionObjects.push_back(
-                std::make_unique<CaseIO::ForceCoeffsConfig>(
-                    m_forceCoeffsConfig));
-        } else {
-            m_functionObjects[vectorIndex] =
-                std::make_unique<CaseIO::ForceCoeffsConfig>(
-                    m_forceCoeffsConfig);
-        }
-        break;
-    }
-    case 2: {
-        FieldMinMaxDialog dlg =
-            FieldMinMaxDialog(m_fieldNames, m_fieldMinMaxConfig, this);
-        dlg.exec();
-        m_fieldMinMaxConfig = dlg.getFunctionObject();
-        taskName = m_fieldMinMaxConfig.name;
-        taskType = "fieldMinMax";
-        if (vectorIndex == -1) {
-            m_functionObjects.push_back(
-                std::make_unique<CaseIO::FieldMinMaxConfig>(
-                    m_fieldMinMaxConfig));
-        } else {
-            m_functionObjects[vectorIndex] =
-                std::make_unique<CaseIO::FieldMinMaxConfig>(
-                    m_fieldMinMaxConfig);
-        }
-        break;
-    }
-    case 3: {
-        ProbesDialog dlg =
-            ProbesDialog(m_fieldNames, m_probesConfig, this);
-        dlg.exec();
-        m_probesConfig = dlg.getFunctionObject();
-        taskName = m_probesConfig.name;
-        taskType = "probes";
-        if (vectorIndex == -1) {
-            m_functionObjects.push_back(
-                std::make_unique<CaseIO::ProbesConfig>(m_probesConfig));
-        } else {
-            m_functionObjects[vectorIndex] =
-                std::make_unique<CaseIO::ProbesConfig>(m_probesConfig);
-        }
-        break;
-    }
-    case 4: {
-        SurfacesDialog dlg =
-            SurfacesDialog(m_fieldNames, m_surfacesConfig, this);
-        dlg.exec();
-        m_surfacesConfig = dlg.getFunctionObject();
-        taskName = m_surfacesConfig.name;
-        taskType = "surfaces";
-        if (vectorIndex == -1) {
-            m_functionObjects.push_back(
-                std::make_unique<CaseIO::SurfacesConfig>(m_surfacesConfig));
-        } else {
-            m_functionObjects[vectorIndex] =
-                std::make_unique<CaseIO::SurfacesConfig>(m_surfacesConfig);
-        }
-        break;
-    }
-    case 5: {
-        YPlusDialog dlg =
-            YPlusDialog(m_patchNames, m_yPlusConfig, this);
-        dlg.exec();
-        m_yPlusConfig = dlg.getFunctionObject();
-        taskName = m_yPlusConfig.name;
-        taskType = "yPlus";
-        if (vectorIndex == -1) {
-            m_functionObjects.push_back(
-                std::make_unique<CaseIO::YPlusConfig>(m_yPlusConfig));
-        } else {
-            m_functionObjects[vectorIndex] =
-                std::make_unique<CaseIO::YPlusConfig>(m_yPlusConfig);
-        }
-        break;
-    }
-    };
-    return {taskName, taskType};
-}
+CaseIO::FunctionObject* TasksPage::launchDialog(int rawTypeIndex, int vectorIndex) {
+    auto type = static_cast<CaseIO::FunctionObject::FuncObjType>(rawTypeIndex);
+    CaseIO::FunctionObject* updatedObject = nullptr;
 
-void TasksPage::initializePage() {
-    // Populate list of fields if empty
-    if (m_fieldNames.isEmpty()) {
-
-        // Access wizard
-        QWizard* parentWizard = wizard();
-        if (!parentWizard)
-            return;
-
-        // Make sure the parent is the SolverWizard
-        SolverWizard* solverWizard = qobject_cast<SolverWizard*>(parentWizard);
-        if (solverWizard) {
-            m_fieldNames = solverWizard->getFieldNames();
+    switch (type) {
+    case CaseIO::FunctionObject::FuncObjType::forces: {
+        CaseIO::ForcesConfig config;
+        if (vectorIndex != -1) {
+            auto* existing = static_cast<CaseIO::ForcesConfig*>(
+                m_functionObjects[vectorIndex].get());
+            config = *existing;
         }
+
+        ForcesDialog dlg(m_patchNames, m_fieldNames, config, this);
+        if (dlg.exec() != QDialog::Accepted)
+            return nullptr;
+
+        auto newConfig =
+            std::make_unique<CaseIO::ForcesConfig>(dlg.getFunctionObject());
+        updatedObject = newConfig.get();
+
+        if (vectorIndex == -1)
+            m_functionObjects.push_back(std::move(newConfig));
+        else m_functionObjects[vectorIndex] = std::move(newConfig);
+        break;
     }
-}
+    case CaseIO::FunctionObject::FuncObjType::forceCoeffs: {
+        CaseIO::ForceCoeffsConfig config;
+        if (vectorIndex != -1) {
+            auto* existing =
+                static_cast<CaseIO::ForceCoeffsConfig*>(
+                    m_functionObjects[vectorIndex].get());
+            config = *existing;
+        }
 
-std::vector<std::unique_ptr<CaseIO::FunctionObject>>
-    TasksPage::getFunctionObjects() {
-    return std::move(m_functionObjects);
-}
+        ForceCoeffsDialog dlg(m_patchNames, m_fieldNames, config, this);
+        if (dlg.exec() != QDialog::Accepted)
+            return nullptr;
 
-bool TasksPage::validatePage() {
-    return true;
+        auto newConfig =
+            std::make_unique<CaseIO::ForceCoeffsConfig>(
+                dlg.getFunctionObject());
+        updatedObject = newConfig.get();
+
+        if (vectorIndex == -1)
+            m_functionObjects.push_back(std::move(newConfig));
+        else m_functionObjects[vectorIndex] = std::move(newConfig);
+        break;
+    }
+    case CaseIO::FunctionObject::FuncObjType::fieldMinMax: {
+        CaseIO::FieldMinMaxConfig config;
+        if (vectorIndex != -1) {
+            auto* existing =
+                static_cast<CaseIO::FieldMinMaxConfig*>(
+                    m_functionObjects[vectorIndex].get());
+            config = *existing;
+        }
+
+        FieldMinMaxDialog dlg(m_fieldNames, config, this);
+        if (dlg.exec() != QDialog::Accepted)
+            return nullptr;
+
+        auto newConfig =
+            std::make_unique<CaseIO::FieldMinMaxConfig>(
+                dlg.getFunctionObject());
+        updatedObject = newConfig.get();
+
+        if (vectorIndex == -1)
+            m_functionObjects.push_back(std::move(newConfig));
+        else m_functionObjects[vectorIndex] = std::move(newConfig);
+        break;
+    }
+    case CaseIO::FunctionObject::FuncObjType::probes: {
+        CaseIO::ProbesConfig config;
+        if (vectorIndex != -1) {
+            auto* existing =
+                static_cast<CaseIO::ProbesConfig*>(
+                    m_functionObjects[vectorIndex].get());
+            config = *existing;
+        }
+
+        ProbesDialog dlg(m_fieldNames, config, this);
+        if (dlg.exec() != QDialog::Accepted)
+            return nullptr;
+
+        auto newConfig =
+            std::make_unique<CaseIO::ProbesConfig>(dlg.getFunctionObject());
+        updatedObject = newConfig.get();
+
+        if (vectorIndex == -1)
+            m_functionObjects.push_back(std::move(newConfig));
+        else m_functionObjects[vectorIndex] = std::move(newConfig);
+        break;
+    }
+    case CaseIO::FunctionObject::FuncObjType::surfaces: {
+        CaseIO::SurfacesConfig config;
+        if (vectorIndex != -1) {
+            auto* existing =
+                static_cast<CaseIO::SurfacesConfig*>(
+                    m_functionObjects[vectorIndex].get());
+            config = *existing;
+        }
+
+        SurfacesDialog dlg(m_fieldNames, config, this);
+        if (dlg.exec() != QDialog::Accepted)
+            return nullptr;
+
+        auto newConfig =
+            std::make_unique<CaseIO::SurfacesConfig>(dlg.getFunctionObject());
+        updatedObject = newConfig.get();
+
+        if (vectorIndex == -1)
+            m_functionObjects.push_back(std::move(newConfig));
+        else m_functionObjects[vectorIndex] = std::move(newConfig);
+        break;
+    }
+    case CaseIO::FunctionObject::FuncObjType::yPlus: {
+        CaseIO::YPlusConfig config;
+        if (vectorIndex != -1) {
+            auto* existing =
+                static_cast<CaseIO::YPlusConfig*>(
+                    m_functionObjects[vectorIndex].get());
+            config = *existing;
+        }
+
+        YPlusDialog dlg(m_patchNames, config, this);
+        if (dlg.exec() != QDialog::Accepted)
+            return nullptr;
+
+        auto newConfig =
+            std::make_unique<CaseIO::YPlusConfig>(dlg.getFunctionObject());
+        updatedObject = newConfig.get();
+
+        if (vectorIndex == -1)
+            m_functionObjects.push_back(std::move(newConfig));
+        else m_functionObjects[vectorIndex] = std::move(newConfig);
+        break;
+    }
+    }
+
+    return updatedObject;
 }

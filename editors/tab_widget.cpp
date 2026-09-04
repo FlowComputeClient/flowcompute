@@ -33,42 +33,20 @@ TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
     // Configure behavior
     setMovable(true);
     setTabsClosable(true);
-    connect(this, &QTabWidget::tabCloseRequested, this, &TabWidget::destroyTab);
-
-    /*
-    // Set style
-    setStyleSheet(
-        "QTabBar {"
-        "    background: #E6E6E6;"
-        "}"
-        "QTabBar::tab {"
-        "    background: #DCDCDC;"
-        "    font: bold;"
-        "    color: #404040;"
-        "    padding: 6px 12px;"
-        "    margin-right: 2px;"
-        "    border: 1px solid #C0C0C0;"
-        "    border-top-left-radius: 8px;"
-        "    border-top-right-radius: 8px;"
-        "    border-bottom: none;"
-        "}"
-        "QTabBar::tab:selected {"
-        "    color: #000000;"
-        "    background: #FFFFFF;"
-        "}"
-        "QTextEdit, QPlainTextEdit {"
-        "    color: black;"
-        "    background-color: white;"
-        "}"
-        "QTabWidget::pane {"
-        "    border: 1px solid #C0C0C0;"
-        "}"
-        "QMessageBox { color: #000000; }"
-        );
-    */
+    connect(this, &QTabWidget::tabCloseRequested, this, [this](int index) {
+        destroyTab(index, false);
+    });
 }
 
 TabWidget::~TabWidget() {}
+
+void TabWidget::tabInserted(int index) {
+    // Always call the base class implementation first
+    QTabWidget::tabInserted(index);
+
+    // Retrieve the name of the newly added tab
+    QString name = tabText(index);
+}
 
 void TabWidget::closeAllTabs() {
     for (int i = this->count() - 1; i >= 0; --i) {
@@ -111,18 +89,25 @@ bool TabWidget::promptToSave(int index) {
     return true;
 }
 
-void TabWidget::destroyTab(int index) {
-    if (!promptToSave(index)) {
+void TabWidget::destroyTab(int index, bool force) {
+    // Skip the prompt if forced
+    if (!force && !promptToSave(index)) {
         return;
     }
+
+    // Get the unique ID
+    QString uniqueId = this->tabBar()->tabData(index).toString();
+
+    // Notify MainWindow
+    emit tabClosedSuccessfully(uniqueId);
 
     // Access the tab's editor
     QWidget* editorWidget = this->widget(index);
 
-    // Remove the tab from the visual UI
-    this->removeTab(index);
+    // Remove the tab
+    removeTab(index);
 
-    // Safely delete the text editor from memory
+    // Delete the widget
     if (editorWidget) {
         editorWidget->deleteLater();
     }

@@ -27,13 +27,14 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMessageBox>
 #include <QMetaEnum>
 #include <QString>
 #include <QVBoxLayout>
 
 // Configures the yPlus function object
-YPlusDialog::YPlusDialog(const QStringList& fields,
-    CaseIO::YPlusConfig& yPlusConfig, QWidget* parent): m_fields(fields),
+YPlusDialog::YPlusDialog(const QStringList& patches,
+    CaseIO::YPlusConfig& yPlusConfig, QWidget* parent): m_patches(patches),
     m_yPlusConfig(yPlusConfig), QDialog(parent) {
     // Set title and style
     setWindowTitle(tr("Wall Distance Validation"));
@@ -102,17 +103,23 @@ YPlusDialog::YPlusDialog(const QStringList& fields,
     m_logCheck->setChecked(m_yPlusConfig.logOutput);
     timingLayout->addRow(m_logCheck);
 
-    /*
-    // Geometry group
-    QGroupBox* fieldGroup = new QGroupBox(tr("Field Configuration"), this);
-    QFormLayout* fieldLayout = new QFormLayout(fieldGroup);
-    mainLayout->addWidget(fieldGroup);
+    // Patch selection group
+    QGroupBox* patchGroup = new QGroupBox(tr("Wall Patches"), this);
+    QVBoxLayout* patchLayout = new QVBoxLayout(patchGroup);
+    mainLayout->addWidget(patchGroup);
 
-    // Location
-    m_locationCheck = new QCheckBox(tr("Location"), this);
-    m_locationCheck->setChecked(m_yPlusConfig.location);
-    fieldLayout->addRow(m_locationCheck);
-    */
+    m_patchListWidget = new QListWidget(this);
+    for (const QString& field : std::as_const(m_patches)) {
+        QListWidgetItem* item = new QListWidgetItem(field, m_patchListWidget);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        // Check if the patch is already in the config
+        if (m_yPlusConfig.patches.contains(field)) {
+            item->setCheckState(Qt::Checked);
+        } else {
+            item->setCheckState(Qt::Unchecked);
+        }
+    }
+    patchLayout->addWidget(m_patchListWidget);
 
     // Create OK/Cancel buttons
     QDialogButtonBox* buttonBox = new QDialogButtonBox(
@@ -128,13 +135,28 @@ YPlusDialog::YPlusDialog(const QStringList& fields,
 }
 
 void YPlusDialog::onOkClicked() {
-    // Get list of fields
-    QStringList selectedFields;
-    for (int i = 0; i < m_fieldListWidget->count(); ++i) {
-        QListWidgetItem* item = m_fieldListWidget->item(i);
+    // Make sure a name has been provided
+    if (m_nameEdit->text().isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("A name must be provided for the post-processing task."));
+        return;
+    }
+
+    // Get list of patches
+    QStringList selectedPatches;
+    for (int i = 0; i < m_patchListWidget->count(); ++i) {
+        QListWidgetItem* item = m_patchListWidget->item(i);
         if (item->checkState() == Qt::Checked) {
-            selectedFields << item->text();
+            selectedPatches << item->text();
         }
+    }
+    m_yPlusConfig.patches = selectedPatches;
+
+    // Make sure at least one patch has been selected
+    if (selectedPatches.isEmpty()) {
+        QMessageBox::critical(this, tr("Missing Item"),
+            tr("At least one patch must be selected."));
+        return;
     }
 
     // Update the YPlusConfig structure
@@ -149,4 +171,5 @@ void YPlusDialog::onOkClicked() {
         static_cast<CaseIO::FunctionObject::ControlType>(writeVal);
     m_yPlusConfig.writeInterval = m_writeSpin->value();
     m_yPlusConfig.logOutput = m_logCheck->isChecked();
+    accept();
 }
