@@ -18,7 +18,7 @@ target_link_libraries(Systems PUBLIC Qt6::Concurrent Qt6::Network PRIVATE Qt6::W
 if(WIN32)
     target_link_libraries(Systems PUBLIC ssh)
 elseif(UNIX)
-    target_link_libraries(Systems PUBLIC PkgConfig::LIBSSH)
+    target_link_libraries(Systems PUBLIC PkgConfig::LIBSSH Dialogs)
 endif()
 
 # Include folders

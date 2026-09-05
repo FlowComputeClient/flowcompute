@@ -86,7 +86,7 @@ target_link_libraries(Wizards PRIVATE Qt6::Widgets Qt6::Concurrent)
 if(WIN32)
     target_link_libraries(Wizards PUBLIC ssh)
 elseif(UNIX)
-    target_link_libraries(Wizards PUBLIC PkgConfig::LIBSSH)
+    target_link_libraries(Wizards PUBLIC PkgConfig::LIBSSH Parser)
 endif()
 
 # Include folders

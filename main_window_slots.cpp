@@ -838,25 +838,27 @@ void MainWindow::createResultEditor(const QString& caseName, bool logMessage) {
 // Save file content to server
 void MainWindow::saveFile() {
     int index = m_tabWidget->currentIndex();
-    QString tabId = m_tabWidget->tabBar()->tabData(index).toString();
+    QString tabPath = m_tabWidget->tabBar()->tabData(index).toString();
 
     // Look up data
-    if (m_tabMap.contains(tabId)) {
+    if (m_tabMap.contains(tabPath)) {
         // Construct the remote path
-        TabData tabData = m_tabMap[tabId];
-        QString caseName = tabId.split("/")[0];
+        TabData tabData = m_tabMap[tabPath];
+        QString caseName = tabPath.split("/")[0];
         QString fullPath =
-            m_systemMgr.getData(caseName).casePath + "/" + tabId;
+            m_systemMgr.getData(caseName).casePath + "/" + tabPath;
 
         // Save data for text editor
         if (tabData.type == EditorType::TEXT) {
-            TextEditor* editor =
-                qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
+            TextWidget* widget =
+                qobject_cast<TextWidget*>(m_tabWidget->currentWidget());
+            TextEditor* editor = widget->editor();
             if (editor) {
                 bool save =
                     m_systemMgr.getSystem(caseName)->writeData(
                         editor->toPlainText().toUtf8(), fullPath);
-                if (save) editor->document()->setModified(false);
+                if (save)
+                    editor->document()->setModified(false);
             }
             return;
         }

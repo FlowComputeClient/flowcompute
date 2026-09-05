@@ -862,12 +862,12 @@ void CaseNavigator::addNewItem(NewItemType itemType) {
             QString absolutePath = caseData.casePath + "/" +
                                         relativePath + "/" + dictName;
             if (system->writeData(dictContent.toUtf8(), absolutePath)) {
-                emit logMessage(tr("Created %1").arg(absolutePath));
+                emit logMessage(tr("Created %1\n").arg(absolutePath));
 
                 // Refresh children and expand node
                 refresh(parentNode);
             } else {
-                emit logMessage(tr("Failed to create %1").arg(absolutePath));
+                emit logMessage(tr("Failed to create %1\n").arg(absolutePath));
             }
         } else {
             edit(newIndex);
@@ -899,7 +899,7 @@ bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
     QString caseName = node->getCase();
     auto system = m_systemMgr.getSystem(caseName);
     if (!system) {
-        emit logMessage(tr("Failed to connect to %1.").arg(caseName));
+        emit logMessage(tr("Failed to connect to %1.\n").arg(caseName));
         return false;
     }
 
@@ -930,9 +930,10 @@ bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
         if (success) {
             node->name = newName;
             node->setText(newName);
-            emit logMessage(tr("Created %1/%2").arg(newPath, newName));
+            emit logMessage(tr("Created %1/%2\n").arg(newPath, newName));
         } else {
-            emit logMessage(tr("Failed to create %1/%2").arg(newPath, newName));
+            emit logMessage(
+                tr("Failed to create %1/%2\n").arg(newPath, newName));
         }
         return success;
     } else {
@@ -949,7 +950,7 @@ bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
         QStringList res = m_systemMgr.getSystem(caseName)->
                           processPaths(str, PathOperationType::RENAME);
         if (!res.isEmpty() && res[0] == "0") {
-            emit logMessage(tr("Renamed %1 to %2").arg(oldPath, newPath));
+            emit logMessage(tr("Renamed %1 to %2\n").arg(oldPath, newPath));
 
             // Update the node's name
             node->name = newName;
@@ -960,7 +961,7 @@ bool CaseNavigator::renameNode(NodeData* node, const QString& newName) {
             return true;
         } else {
             emit logMessage(
-                tr("Failed to rename %1 to %2").arg(oldPath, newPath));
+                tr("Failed to rename %1 to %2\n").arg(oldPath, newPath));
             return false;
         }
     }
@@ -1191,7 +1192,7 @@ void CaseNavigator::deleteFile() {
         auto system = m_systemMgr.getSystem(caseName);
         if (!system) {
             emit logMessage(
-                QString(tr("Failed to connect to %1.")).arg(caseName));
+                QString(tr("Failed to connect to %1.\n")).arg(caseName));
             continue;
         }
 
@@ -1224,10 +1225,10 @@ void CaseNavigator::deleteFile() {
                         emit removeFile(relPath, isCase);
                     }
                 }
-                emit logMessage(QString(tr("Deleted %1")).arg(filePath));
+                emit logMessage(QString(tr("Deleted %1\n")).arg(filePath));
             } else {
                 emit logMessage(
-                    QString(tr("Failed to delete %1")).arg(filePath));
+                    QString(tr("Failed to delete %1\n")).arg(filePath));
             }
         }
     }

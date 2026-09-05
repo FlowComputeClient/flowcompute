@@ -251,7 +251,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             if (!m_utilMap.contains(data.openFoamPath)) {
                 m_utilMap[data.openFoamPath] = QMap<QString, bool>();
             }
-            log(QString(tr("Server unreachable for case %1.").arg(caseName)));
+            log(QString(tr("Server unreachable for case %1.\n").arg(caseName)));
         } else if (data.targetId ==
                    static_cast<int>(TargetType::REMOTE_LINUX)) {
             casePresent = true;
@@ -363,9 +363,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // Configure undo/redo actions
     connect(m_tabWidget, &QTabWidget::currentChanged, this,
         [=, this](int index) {
-        TextEditor* editor =
-            qobject_cast<TextEditor*>(m_tabWidget->widget(index));
-        if (editor) {
+        TextWidget* widget =
+            qobject_cast<TextWidget*>(m_tabWidget->widget(index));
+        if (widget) {
+            TextEditor* editor = widget->editor();
             m_undoAction->setEnabled(editor->document()->isUndoAvailable());
             m_redoAction->setEnabled(editor->document()->isRedoAvailable());
         } else {
@@ -445,9 +446,6 @@ void MainWindow::createActions() {
     m_cutAction->setShortcuts(QKeySequence::Cut);
     m_cutAction->setStatusTip(tr("Cut"));
     connect(m_cutAction, &QAction::triggered, this, [this]() {
-
-        qDebug() << "Running cut operation";
-
         QWidget* focused = QApplication::focusWidget();
         if (!focused || qobject_cast<QMenu*>(focused)) {
             if (QWidget* activeWindow = QApplication::activeWindow()) {
@@ -455,7 +453,8 @@ void MainWindow::createActions() {
             }
         }
 
-        if (!focused) return;
+        if (!focused)
+            return;
 
         // Check the Case Navigator
         if (m_navigator == focused || m_navigator->isAncestorOf(focused)) {
@@ -466,8 +465,8 @@ void MainWindow::createActions() {
         // Check the TextEditor
         QWidget* current = focused;
         while (current) {
-            if (auto* editor = qobject_cast<TextEditor*>(current)) {
-                editor->cut();
+            if (TextWidget* widget = qobject_cast<TextWidget*>(current)) {
+                widget->editor()->cut();
                 return;
             }
             current = current->parentWidget();
@@ -492,8 +491,8 @@ void MainWindow::createActions() {
         // Check the TextEditor
         QWidget* current = focused;
         while (current) {
-            if (auto* editor = qobject_cast<TextEditor*>(current)) {
-                editor->copy();
+            if (auto* widget = qobject_cast<TextWidget*>(current)) {
+                widget->editor()->copy();
                 return;
             }
             current = current->parentWidget();
@@ -519,8 +518,8 @@ void MainWindow::createActions() {
         // Check the TextEditor
         QWidget* current = focused;
         while (current) {
-            if (auto* editor = qobject_cast<TextEditor*>(current)) {
-                editor->paste();
+            if (auto* widget = qobject_cast<TextWidget*>(current)) {
+                widget->editor()->paste();
                 return;
             }
             current = current->parentWidget();
@@ -830,18 +829,18 @@ void MainWindow::createToolBar() {
 
 // Undo action in text editor
 void MainWindow::undo() {
-    TextEditor* editor =
-        qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
-    if (editor)
-        editor->undo();
+    TextWidget* widget =
+        qobject_cast<TextWidget*>(m_tabWidget->currentWidget());
+    if (widget)
+        widget->editor()->undo();
 }
 
 // Redo action in text editor
 void MainWindow::redo() {
-    TextEditor* editor =
-        qobject_cast<TextEditor*>(m_tabWidget->currentWidget());
-    if (editor)
-        editor->redo();
+    TextWidget* widget =
+        qobject_cast<TextWidget*>(m_tabWidget->currentWidget());
+    if (widget)
+        widget->editor()->redo();
 }
 
 // Upload file or folder

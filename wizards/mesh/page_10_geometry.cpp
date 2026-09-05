@@ -159,17 +159,12 @@ void GeometryPage::caseChanged(const QString& caseName) {
 }
 
 bool GeometryPage::validatePage() {
-
-    qDebug() << "validate: 0";
-
     // Update wizard
     meshWizard->m_runBlockMesh = m_blockMeshCheck->isChecked();
     meshWizard->m_runExtract = m_extractCheck->isChecked();
     meshWizard->m_runCastellated = m_castellatedCheck->isChecked();
     meshWizard->m_runSnap = m_snapCheck->isChecked();
     meshWizard->m_runLayers = m_layersCheck->isChecked();
-
-    qDebug() << "validate: 1";
 
     // Set case name
     m_caseName = m_caseCombo->currentText();
@@ -189,8 +184,6 @@ bool GeometryPage::validatePage() {
     } else {
         m_geometryFiles.sort();
     }
-
-    qDebug() << "validate: 2";
 
     return meshWizard->loadParseFiles();
 }

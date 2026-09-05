@@ -141,8 +141,6 @@ BlockMeshPage1::BlockMeshPage1(const SystemManager& systemMgr,
 }
 
 void BlockMeshPage1::initializePage() {
-    qDebug() << "2.5";
-
     // Access block mesh configuration structure
     meshWizard = qobject_cast<MeshWizard*>(wizard());
     if (!meshWizard) {
@@ -150,8 +148,6 @@ void BlockMeshPage1::initializePage() {
         return;
     }
     m_cfg = &(meshWizard->getBlockMeshConfig());
-
-    qDebug() << "3";
 
     {
         const QSignalBlocker blocker(m_scaleFactorCombo);
@@ -168,12 +164,8 @@ void BlockMeshPage1::initializePage() {
         }
     }
 
-    qDebug() << "3.5";
-
     // Set bounding box values
     setBoundingBox();
-
-    qDebug() << "4";
 }
 
 void BlockMeshPage1::setBoundingBox() {
@@ -322,9 +314,10 @@ bool BlockMeshPage1::validatePage() {
 
 void BlockMeshPage1::onTargetCellSizeEdited() {
     double currentScale = getCurrentScaleFactor(m_scaleFactorCombo->currentText());
-    if (currentScale <= 0.0) currentScale = 1.0; // Safety fallback
+    if (currentScale <= 0.0)
+        currentScale = 1.0;
 
-    // Update the absolute base size based on the user's manual input
+    // Update the absolute base size
     m_baseCellSize = targetCellSizeSpin->value() * currentScale;
 
     // Chain the cell count update

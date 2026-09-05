@@ -60,11 +60,14 @@ qt_add_executable(FlowCompute
     main_window.cpp
     main_window.h
     main_window_slots.cpp
-    app_icon.rc
     resources.qrc
     core_types.h
 
 )
+
+if(WIN32)
+    target_sources(FlowCompute PRIVATE app_icon.rc)
+endif()
 
 # SPIR-V files will be generated at build time
 set_source_files_properties(${COMPILED_SPIRV_FILES} PROPERTIES GENERATED ON)
