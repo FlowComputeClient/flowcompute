@@ -36,7 +36,7 @@
 		}
 	},
 	"graphicalEditor": {
-		"viewportClear": "#1A1A1F",
+		"viewportClear": "#28282E",
 		"wireframeBase": "#00FFCC",
 		"selectionHighlight": "#FF5500"
 	}

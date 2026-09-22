@@ -80,6 +80,10 @@ QTreeView, QTableView, QListWidget {
 	gridline-color: %BORDER%;
 }
 
+QAbstractScrollArea {
+    border: none;
+}
+
 QTreeView::item, QTableView::item, QListWidget::item {
 	color: %TEXT%;
 }
@@ -175,4 +179,15 @@ FileChangedBanner {
 FileChangedBanner QLabel {
         color: %SELECTED_TEXT%;
 	font-weight: bold;
+}
+
+QScrollBar::handle {
+        background: %PANE%;
+	border: 1px solid %BORDER%;
+}
+
+QScrollBar::add-line, QScrollBar::sub-line {
+        border: none;
+	background: none;
+	height: 0px;
 }

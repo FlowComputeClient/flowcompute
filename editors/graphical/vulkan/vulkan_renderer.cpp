@@ -84,6 +84,12 @@ void VulkanRenderer::initResources() {
     PatchPalette::ensureCapacity(m_renderData->patches.size());
 }
 
+bool isSrgbFormat(VkFormat format) {
+    return format == VK_FORMAT_B8G8R8A8_SRGB ||
+           format == VK_FORMAT_R8G8B8A8_SRGB ||
+           format == VK_FORMAT_A8B8G8R8_SRGB_PACK32;
+}
+
 void VulkanRenderer::startNextFrame() {
     // Check swapchain size
     const QSize size = m_window->swapChainImageSize();
@@ -95,6 +101,14 @@ void VulkanRenderer::startNextFrame() {
     // Set theme
     if (m_window->takeThemeDirtyFlag()) {
         m_clearColor = m_window->getClearColor();
+
+        // Update colors if necessary
+        VkFormat swapchainFormat = m_window->colorFormat();
+        if (isSrgbFormat(swapchainFormat)) {
+            m_clearColor[0] = std::pow(m_clearColor[0], 1.9f);
+            m_clearColor[1] = std::pow(m_clearColor[1], 1.9f);
+            m_clearColor[2] = std::pow(m_clearColor[2], 1.9f);
+        }
     }
 
     // Check if mesh data has changed

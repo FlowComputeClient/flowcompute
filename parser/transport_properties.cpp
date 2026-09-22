@@ -74,6 +74,11 @@ QString CaseIO::createTransportProperties(const TransportConfig& cfg,
     writeEntry("transportModel", enumToString(cfg.transportModel,
                                               "Newtonian"), true);
 
+    // Add entry for the Foundation version (>13)
+    if (!isOpenCFD) {
+        writeEntry("viscosityModel", "constant");
+    }
+
     // Iterate through the fluid properties map
     if (!cfg.fluidProperties.isEmpty()) {
         for (auto it = cfg.fluidProperties.cbegin();

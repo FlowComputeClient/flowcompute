@@ -528,6 +528,7 @@ void SolverWizard::accept() {
 
     // Update/create fvSolution
     fileName = "system/fvSolution";
+
     dictText = CaseIO::createFvSolution(m_mathConfig, openFoamPath,
                     m_isCompressible, !m_isSteadyState, m_isOpenCFD);
     system->writeData(dictText.toUtf8(),

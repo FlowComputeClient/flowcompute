@@ -44,9 +44,9 @@ SurfaceEditor::SurfaceEditor(SystemManager& systemMgr, const QString& caseName,
 
     // Create widgets for the left pane
     m_leftPane = new SurfaceLeftPane(this);
-    m_leftPane->setFixedWidth(180);
     m_leftPane->setPatchNames(m_patchNames);
     m_leftPane->setBounds(bounds);
+    m_leftPane->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Expanding);
 
     // Create Vulkan window
     QWidget* rightPane;

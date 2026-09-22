@@ -17,10 +17,13 @@
 
 #include "editors/tab_widget.h"
 
+#include <QCoreApplication>
+#include <QEventLoop>
 #include <QMainWindow>
 #include <QMenu>
 #include <QMessageBox>
 #include <QStringBuilder>
+#include <QTimer>
 
 #include "editors/tab_bar.h"
 
@@ -62,22 +65,35 @@ TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
 
         // Execute menu at global cursor position
         QAction* selectedAction = menu.exec(customTabBar->mapToGlobal(pos));
+        if (!selectedAction) return;
+
+        QList<QWidget*> tabsToClose;
 
         // Iterate backward to prevent index shifting bugs
         if (selectedAction == closeOthersAction) {
-            for (int i = count() - 1; i >= 0; --i) {
-                if (i != clickedIndex) {
-                    destroyTab(i, false);
-                }
+            for (int i = 0; i < count(); ++i) {
+                if (i != clickedIndex) tabsToClose.append(widget(i));
             }
         } else if (selectedAction == closeAllAction) {
-            for (int i = count() - 1; i >= 0; --i) {
-                destroyTab(i, false);
+            for (int i = 0; i < count(); ++i) {
+                tabsToClose.append(widget(i));
             }
         } else if (selectedAction == closeRightAction) {
-            for (int i = count() - 1; i > clickedIndex; --i) {
-                destroyTab(i, false);
+            for (int i = clickedIndex + 1; i < count(); ++i) {
+                tabsToClose.append(widget(i));
             }
+        }
+
+        // Delay between closing tabs
+        int delayMs = 0;
+        for (QWidget* tabWidget : tabsToClose) {
+            QTimer::singleShot(delayMs, this, [this, tabWidget]() {
+                int currentIndex = this->indexOf(tabWidget);
+                if (currentIndex != -1) {
+                    destroyTab(currentIndex, false);
+                }
+            });
+            delayMs += 50;
         }
     });
 }
@@ -147,6 +163,10 @@ void TabWidget::destroyTab(int index, bool force) {
 
     // Access the tab's editor
     QWidget* editorWidget = this->widget(index);
+
+    if (editorWidget) {
+        editorWidget->hide();
+    }
 
     // Remove the tab
     removeTab(index);

@@ -17,7 +17,9 @@
 
 #include "local_system.h"
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QEventLoop>
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
@@ -211,14 +213,17 @@ int LocalSystem::launchShortUtility(const QString& cmd, QString& output) {
     process.setProcessChannelMode(QProcess::MergedChannels);
     process.start("bash", QStringList() << "-c" << cmd);
 
-    // Wait for the process to finish
-    if (!process.waitForFinished(-1)) {
-        output = "Error: Process failed to execute or timed out.";
-        return -2;
+    // Wait in 100ms chunks, draining the buffer and keeping the GUI alive
+    while (!process.waitForFinished(100)) {
+        output.append(QString::fromUtf8(process.readAll()));
+
+        // Process pending GUI events so the OS doesn't flag the app as frozen
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
     }
 
-    // Populate the reference string with the stdout/stderr
-    output = QString::fromUtf8(process.readAll()).trimmed();
+    // Catch any remaining output after the process officially terminates
+    output.append(QString::fromUtf8(process.readAll()));
+    output = output.trimmed();
 
     // Check if the process crashed
     if (process.exitStatus() != QProcess::NormalExit) {

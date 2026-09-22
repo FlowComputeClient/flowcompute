@@ -40,7 +40,7 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     setProperty("widgetType", "pane");
 
     // Set dimensions
-    int buttonWidth = 130;
+    int buttonWidth = 150;
     int spinBoxWidth = 80;
 
     layout->addSpacing(10);
@@ -163,7 +163,7 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     m_patchTable->setStyleSheet("QTableView::item { padding-left: 10px; }");
     m_patchTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     layout->addWidget(m_patchTable);
-    // m_patchTable->setShowGrid(false);
+    m_patchTable->setFixedWidth(190);
 
     // Enable the Apply Changes button when a patch name is changed
     connect(m_patchTable, &QTableWidget::itemChanged,

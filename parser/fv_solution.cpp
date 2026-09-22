@@ -43,9 +43,7 @@ void CaseIO::parseFvSolution(std::shared_ptr<OpenFoamDictionary> dict,
                              MathConfig& cfg) {
     if (!dict) return;
 
-    // ==========================================
-    // 1. Parse Linear Solvers & Tolerances
-    // ==========================================
+    // Parse Linear Solvers & Tolerances
     QStringList solverKeys = dict->getDictKeys("solvers");
     for (const QString& rawKey : std::as_const(solverKeys)) {
         QString path = "solvers/" + rawKey;
@@ -121,9 +119,7 @@ void CaseIO::parseFvSolution(std::shared_ptr<OpenFoamDictionary> dict,
         }
     }
 
-    // ==========================================
-    // 2. Parse Relaxation Factors
-    // ==========================================
+    // Parse Relaxation Factors
     QStringList relFields = dict->getDictKeys("relaxationFactors/fields");
     for (const QString& rf : std::as_const(relFields)) {
         double val = dict->getNumber("relaxationFactors/fields/" + rf);
@@ -155,9 +151,6 @@ void CaseIO::parseFvSolution(std::shared_ptr<OpenFoamDictionary> dict,
         }
     }
 
-    // ==========================================
-    // 3. Parse Algorithm Controls
-    // ==========================================
     // Determine which algorithm block is present
     if (!dict->getDictKeys("SIMPLE").isEmpty()) {
         SimpleConfig algo;
