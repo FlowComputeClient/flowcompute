@@ -41,7 +41,6 @@ ProjectPage::ProjectPage(QWidget *parent): QWizardPage(parent) {
     layout->addWidget(new QLabel(tr("Geometry files:")), 0, 0);
     m_geometryFileEdit = new QLineEdit(this);
     m_geometryFileEdit->setReadOnly(true);
-    // m_geometryFileEdit->setText("C:/demo/y_junction.stl");
     registerField("geometryFile", m_geometryFileEdit);
     layout->addWidget(m_geometryFileEdit, 0, 1);
 
@@ -54,13 +53,13 @@ ProjectPage::ProjectPage(QWidget *parent): QWizardPage(parent) {
             QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
 
         // Create the file dialog
-        QString geometryFilePath = QFileDialog::getOpenFileName(
-            this, tr("Select a File"), homeDir, "Geometry files (*.stl *.obj)");
+        QString geometryFilePath = QFileDialog::getOpenFileName(this,
+            tr("Select a Surface File"), homeDir,
+                "Geometry files (*.stl *.obj *.stlb)");
 
         // Update the text edit with the path
-        if (!geometryFilePath.isEmpty()) {
+        if (!geometryFilePath.isEmpty())
             m_geometryFileEdit->setText(geometryFilePath);
-        }
     });
     layout->addWidget(browseButton, 0, 2);
 

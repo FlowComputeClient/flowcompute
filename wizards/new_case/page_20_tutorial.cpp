@@ -57,7 +57,7 @@ void TutorialPage::initializePage() {
 }
 
 int TutorialPage::nextId() const {
-    return static_cast<int>(WizardPage::Page_Project);
+    return static_cast<int>(NewCasePage::Page_Project);
 }
 
 void TutorialPage::onTreeSelectionChanged() {

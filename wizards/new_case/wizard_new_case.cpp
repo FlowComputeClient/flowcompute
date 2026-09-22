@@ -41,15 +41,15 @@ NewCaseWizard::NewCaseWizard(SystemManager& systemMgr, QWidget *parent):
     bool isWslAvailable = systemMgr.checkWsl();
 
     // Add pages
-    setPage(static_cast<int>(WizardPage::Page_Intro),
+    setPage(static_cast<int>(NewCasePage::Page_Intro),
             new IntroPage(systemMgr, isWslAvailable, this));
-    setPage(static_cast<int>(WizardPage::Page_Remote),
+    setPage(static_cast<int>(NewCasePage::Page_Remote),
             new RemotePage(systemMgr, this));
-    setPage(static_cast<int>(WizardPage::Page_Tutorial),
+    setPage(static_cast<int>(NewCasePage::Page_Tutorial),
             new TutorialPage(this));
-    setPage(static_cast<int>(WizardPage::Page_Interactive),
+    setPage(static_cast<int>(NewCasePage::Page_Interactive),
             new InteractivePage(this));
-    setPage(static_cast<int>(WizardPage::Page_Project),
+    setPage(static_cast<int>(NewCasePage::Page_Project),
             new ProjectPage(this));
     setOption(QWizard::NoBackButtonOnStartPage);
 
@@ -70,7 +70,7 @@ QStringList NewCaseWizard::getTutorials() {
 
 bool NewCaseWizard::validateCurrentPage() {
     // Validate first page
-    if (currentId() == static_cast<int>(WizardPage::Page_Intro)) {
+    if (currentId() == static_cast<int>(NewCasePage::Page_Intro)) {
         // Read registered fields
         m_caseName = field("caseName").toString();
         m_targetId = static_cast<TargetType>(field("targetSystemId").toInt());
@@ -92,9 +92,6 @@ bool NewCaseWizard::validateCurrentPage() {
         int count = 0;
         QString newName;
         if (m_systemMgr.contains(m_caseName)) {
-
-            qDebug() << "m_systemMgr contains case name";
-
             count = 1;
             while (true) {
                 newName = m_caseName + "_" + QString::number(count++);
@@ -110,7 +107,7 @@ bool NewCaseWizard::validateCurrentPage() {
             QString msg = tr("There is already a case named '%1'.\n"
                              "Create '%2' instead?").arg(m_caseName, newName);
             reply = QMessageBox::question(this, tr("Existing Case Detected"),
-                                          msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+                msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
 
             // Fail validation if the response is no
             if (reply == QMessageBox::No) {
@@ -125,7 +122,7 @@ bool NewCaseWizard::validateCurrentPage() {
             return true;
         }
         return checkOpenFoam();
-    } else if (currentId() == static_cast<int>(WizardPage::Page_Remote)) {
+    } else if (currentId() == static_cast<int>(NewCasePage::Page_Remote)) {
         return checkOpenFoam();
     }
 
@@ -149,9 +146,31 @@ bool NewCaseWizard::checkOpenFoam() {
             return false;
         }
         m_openFoamPath = selectionDialog.getSelectedItem();
-        return !m_openFoamPath.isEmpty();
     } else {
         m_openFoamPath = ofList[0];
+    }
+
+    // Check OpenFOAM release and version
+    QRegularExpression re("openfoam-?v?(\\d+)",
+                          QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch match = re.match(m_openFoamPath.split("/").last());
+
+    if (match.hasMatch()) {
+        QString digits = match.captured(1);
+        int versionNumber = digits.toInt();
+
+        // OpenCFD uses YYMM, Foundation uses NN
+        if (versionNumber > 100) {
+            m_isOpenCFD = true;
+            m_openFoamVersion = "v" + digits;
+        } else {
+            m_isOpenCFD = false;
+            m_openFoamVersion = digits;
+        }
+        m_cfg.isOpenCFD = m_isOpenCFD;
+    } else {
+        qWarning() << "Warning: Could not parse OpenFOAM version from path: "
+                   << m_openFoamPath;
     }
     return true;
 }
@@ -171,64 +190,82 @@ void NewCaseWizard::accept() {
 
     // Handle existing case
     if (result == "0") {
-
-        // Search for unique case name
         bool uniqueCase = false;
         int count = 1;
         while (!uniqueCase) {
-            QStringList testList = {
-                 checkPath + "_" + QString::number(count),
-                 checkPath + "_" + QString::number(count + 1),
-                 checkPath + "_" + QString::number(count + 2),
-                 checkPath + "_" + QString::number(count + 3),
-                 checkPath + "_" + QString::number(count + 4)};
-            QString testCase = testList.join('\n');
+            QStringList testList;
+            for (int i = 0; i < 5; ++i) {
+                testList << checkPath + "_" + QString::number(count + i);
+            }
 
-            // Check if any paths already exist
-            results = m_system->processPaths(testCase,
-                                             PathOperationType::CHECK);
-            for (int i=0; i<5; i++) {
+            QString testCase = testList.join('\n');
+            results =
+                m_system->processPaths(testCase, PathOperationType::CHECK);
+            for (int i = 0; i < results.size(); ++i) {
                 if (results[i] == "-1") {
                     result = QString::number(count + i);
                     uniqueCase = true;
                     break;
                 }
             }
-            count += 5;
+            if (!uniqueCase) count += 5;
         }
 
-        QMessageBox::StandardButton reply;
+        // Create message box
         QString msg =
             tr("The folder '%1' already exists in the selected directory.\n"
-               "Create '%2' instead?").arg(m_caseName,
-                     m_caseName + "_" + result);
-
-        reply = QMessageBox::question(this, tr("Existing Case Detected"), msg,
-                                      QMessageBox::Yes | QMessageBox::No);
-
-        // End wizard if the response is no
-        if (reply == QMessageBox::No) {
+            "Create '%2' instead?").arg(m_caseName, m_caseName + "_" + result);
+        if (QMessageBox::question(this, tr("Existing Case Detected"), msg,
+            QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
             return;
-        } else {
-            m_caseName = m_caseName + "_" + result;
         }
+
+        m_caseName = m_caseName + "_" + result;
+        checkPath = QDir(casePath).filePath(m_caseName);
     }
 
     // Determine the path of the new case
-    checkPath = casePath + "/" + m_caseName;
-
-    QStringList files;
+    QStringList openFolders;
     CaseFlags flag = CaseFlag::Initial;
+    CaseType type;
     if (caseCreationType == CaseCreationType::TUTORIAL) {
-
         // Copy files from tutorial to new case folder
         QString tutorialPath = field("tutorialPath").toString();
-        files = m_system->copyTutorialFolders(tutorialPath, checkPath);
+        m_system->copyTutorialFolders(tutorialPath, checkPath);
         flag = CaseFlag::NotChecked;
+        type = m_systemMgr.updateType(m_targetId, checkPath, m_isOpenCFD);
     }
     else if (caseCreationType == CaseCreationType::INTERACTIVE) {
         if (createCase(checkPath)) {
-            files = { "0.orig", "constant", "system", "Allclean|", "Allrun|" };
+            // Set case type
+            type.setFlag(Transient,
+                         m_cfg.timeConfig == TimeConfig::Transient);
+            type.setFlag(Compressible,
+                         m_cfg.flowConfig == FlowConfig::Compressible);
+            type.setFlag(Multiphase,
+                         m_cfg.phaseConfig == PhaseConfig::MultiPhase);
+            type.setFlag(TurbulenceRAS,
+                         m_cfg.turbulenceConfig == TurbulenceConfig::RAS);
+            type.setFlag(TurbulenceLES,
+                         m_cfg.turbulenceConfig == TurbulenceConfig::LES);
+            type.setFlag(FluidHeat,
+                         m_cfg.heatConfig == HeatConfig::FluidHeat);
+            type.setFlag(ConjugateHeat,
+                         m_cfg.heatConfig == HeatConfig::ConjugateHeat);
+            type.setFlag(MeshMRF,
+                         m_cfg.meshConfig == MeshConfig::DynamicMRF);
+            type.setFlag(MeshAMI,
+                         m_cfg.meshConfig == MeshConfig::DynamicAMI);
+            type.setFlag(MeshOverset,
+                         m_cfg.meshConfig == MeshConfig::DynamicOverset);
+            type.setFlag(MeshDeforming,
+                         m_cfg.meshConfig == MeshConfig::Deformable);
+            type.setFlag(Radiation, m_cfg.radiationConfig);
+            type.setFlag(Combustion, m_cfg.combustionConfig);
+            type.setFlag(Buoyancy, m_cfg.buoyancyConfig);
+            type.setFlag(Lagrangian, m_cfg.particlesConfig);
+            type.setFlag(IsOpenCFD, m_cfg.isOpenCFD);
+            openFolders = { m_caseName };
         } else {
             QMessageBox::critical(this, tr("Case Creation Issue"),
                                   tr("Failed to create case folder"));
@@ -238,18 +275,11 @@ void NewCaseWizard::accept() {
 
     // Copy geometry file if given
     if (!m_geometryFile.isEmpty()) {
-
-        // Determine which OpenFOAM release is used
-        QString dirName = QDir(m_openFoamPath).dirName();
-        const QRegularExpression foundationRegex("^openfoam\\d{2}$",
-            QRegularExpression::CaseInsensitiveOption);
-        bool isFoundation = foundationRegex.match(dirName).hasMatch();
-
         // Write geometry file to new case
         QFileInfo info(m_geometryFile);
         if (info.exists() && info.isFile()) {
-            QString subDir = (isFoundation) ? "/constant/geometry/" :
-                                 "/constant/triSurface/";
+            QString subDir = (m_isOpenCFD) ? "/constant/triSurface/" :
+                                 "/constant/geometry/";
             QString remotePath = checkPath + subDir + info.fileName();
             bool success = m_system->writeData(m_geometryFile, remotePath);
             if (!success) {
@@ -272,39 +302,14 @@ void NewCaseWizard::accept() {
     }
 
     // Request case creation
-    emit requestCaseCreation(m_caseName, casePath, files, m_targetId,
-                             m_openFoamPath, flag, userName, hostName, port);
-
+    emit requestCaseCreation(m_caseName, casePath, openFolders, m_targetId,
+        m_openFoamPath, flag, type, userName, hostName, port);
     QWizard::accept();
 }
 
 bool NewCaseWizard::createCase(const QString& newCasePath) {
-    // Check OpenFOAM version
-    bool isESI = false;
-    QString versionText = "unknown";
-    QRegularExpression re("openfoam-?v?(\\d+)",
-                          QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch match = re.match(m_openFoamPath.split("/").last());
-
-    if (match.hasMatch()) {
-        QString digits = match.captured(1);
-        int versionNumber = digits.toInt();
-
-        // ESI/Keysight uses YYMM
-        if (versionNumber > 100) {
-            isESI = true;
-            versionText = "v" + digits;
-        } else {
-            isESI = false;
-            versionText = digits;
-        }
-    } else {
-        qWarning() << "Warning: Could not parse OpenFOAM version from path: "
-                   << m_openFoamPath;
-    }
-
     // Determine the appropriate website based on the fork
-    QString websiteText = isESI ? "www.openfoam.com" : "www.openfoam.org";
+    QString websiteText = m_isOpenCFD ? "www.openfoam.com" : "www.openfoam.org";
 
     // Create directories
     QStringList newDirs = { newCasePath, newCasePath + "/constant",
@@ -314,7 +319,7 @@ bool NewCaseWizard::createCase(const QString& newCasePath) {
                                                  PathOperationType::CREATE);
 
     if (!results.contains("-1")) {
-        createCaseFiles(newCasePath, versionText, websiteText);
+        createCaseFiles(newCasePath, m_openFoamVersion, websiteText);
         return true;
     } else {
         QMessageBox::critical(this, tr("Case Creation Issue"),
@@ -324,87 +329,140 @@ bool NewCaseWizard::createCase(const QString& newCasePath) {
 }
 
 void NewCaseWizard::createCaseFiles(const QString& newCasePath,
-        const QString& versionText, const QString& websiteText) {
-
+                                    const QString& versionText,
+                                    const QString& websiteText) {
     // Configuration strings
     QString versionPadded = QString("%1").arg(versionText, -38);
     QString websitePadded = QString("%1").arg(websiteText, -38);
-    QString turbName, turbDict, cleanCommand, meshText, solverText, fieldsText;
+    QString turbName, turbDict, cleanCommand, meshText, fieldsText;
     QString endTimeText, deltaText, writeControlText, writeIntervalText;
-    QString ddtScheme = "Euler",
-        divUScheme = "bounded Gauss upwind", schemeText;
-    QString orthoScheme, pText, alphaText, algoText, rhoText, eqText,
-        fileText, filePath;
+    QString ddtScheme = "Euler", divPhiU, divPhik, schemeText, orthoScheme;
+    QString pText, alphaText, algoText, relaxText, fluxField = "p;";
+    QString executableName, controlDictSolverBlock;
 
-    // Flow type check
-    switch(m_caseConfig.flowConfig) {
-    case FlowConfig::Incompressible:
-        pText = pTextIncompressible;
-        switch(m_caseConfig.timeConfig) {
-        case TimeConfig::SteadyState:
-            solverText = "simpleFoam";
-            break;
-        case TimeConfig::Transient:
-            solverText = "pimpleFoam";
-            break;
-        }
-        break;
-    case FlowConfig::Compressible:
+    // Solver selection
+    if (m_cfg.heatConfig == HeatConfig::ConjugateHeat) {
+        // Multi-region conjugate heat transfer
         pText = pTextCompressible;
-        rhoText = "        rho             0.1;";
-        eqText = "        \"(e|h)\"         0.7;";
-        switch(m_caseConfig.timeConfig) {
-        case TimeConfig::SteadyState:
-            solverText = "rhoSimpleFoam";
-            break;
-        case TimeConfig::Transient:
-            solverText = "rhoPimpleFoam";
-            break;
+        schemeText = schemeTextCompressible;
+        fluxField = "p;\n    rho;";
+        if (m_cfg.timeConfig == TimeConfig::SteadyState) {
+            executableName = m_cfg.isOpenCFD
+                ? "chtMultiRegionSimpleFoam" : "foamRun";
+            controlDictSolverBlock = m_cfg.isOpenCFD
+                ? "chtMultiRegionSimpleFoam;"
+                : "foamRun;\nsolver          fluidSolid;";
+        } else {
+            executableName = m_cfg.isOpenCFD ? "chtMultiRegionFoam" : "foamRun";
+            controlDictSolverBlock = m_cfg.isOpenCFD ? "chtMultiRegionFoam;"
+                : "foamRun;\nsolver          fluidSolid;";
         }
-        break;
-    case FlowConfig::Multiphase:
+    }
+    else if (m_cfg.phaseConfig == PhaseConfig::MultiPhase) {
+        // Multiphase logic
         pText = pTextMultiphase;
         fieldsText = fieldsTextMultiphase;
-        solverText = "interFoam";
         schemeText = schemeTextMultiphase;
         alphaText = alphaTextMultiphase;
-        break;
+        fluxField = "p_rgh;";
+
+        if (m_cfg.flowConfig == FlowConfig::Incompressible) {
+            executableName = m_cfg.isOpenCFD ? "interFoam" : "foamRun";
+            controlDictSolverBlock = m_cfg.isOpenCFD ? "interFoam;"
+                : "foamRun;\nsolver          incompressibleVoF;";
+        } else {
+            executableName = m_cfg.isOpenCFD ?
+                "compressibleInterFoam" : "foamRun";
+            controlDictSolverBlock = m_cfg.isOpenCFD ? "compressibleInterFoam;"
+                : "foamRun;\nsolver          compressibleVoF;";
+        }
+    }
+    else if (m_cfg.heatConfig == HeatConfig::FluidHeat) {
+        // Single-region fluid heat transfer
+        pText = pTextCompressible;
+        if (m_cfg.flowConfig == FlowConfig::Incompressible) {
+            // Uses Boussinesq approximation for incompressible thermal flows
+            alphaText = alphaTextBoussinesq;
+            executableName = (m_cfg.timeConfig == TimeConfig::SteadyState)
+             ? (m_cfg.isOpenCFD ? "buoyantBoussinesqSimpleFoam" : "foamRun")
+             : (m_cfg.isOpenCFD ? "buoyantBoussinesqPimpleFoam" : "foamRun");
+            controlDictSolverBlock = m_cfg.isOpenCFD ? executableName + ";"
+                : "foamRun;\nsolver          fluid;";
+        } else {
+            fluxField = "p;\n    rho;";
+            alphaText = alphaTextCompressible;
+            schemeText = schemeTextCompressible;
+            pText = pTextCompressible;
+            executableName = (m_cfg.timeConfig == TimeConfig::SteadyState)
+            ? (m_cfg.isOpenCFD ? "rhoSimpleFoam" : "foamRun")
+            : (m_cfg.isOpenCFD ? "rhoPimpleFoam" : "foamRun");
+            controlDictSolverBlock = m_cfg.isOpenCFD ? executableName + ";"
+                : "foamRun;\nsolver          fluid;";
+        }
+    }
+    else {
+        // Isothermal, single-phase logic (NoHeat)
+        if (m_cfg.flowConfig == FlowConfig::Compressible) {
+            pText = pTextCompressible;
+            alphaText = alphaTextCompressible;
+            schemeText = schemeTextCompressible;
+            fluxField = "p;\n    rho;";
+            executableName = (m_cfg.timeConfig == TimeConfig::SteadyState)
+             ? (m_cfg.isOpenCFD ? "rhoSimpleFoam" : "foamRun")
+             : (m_cfg.isOpenCFD ? "rhoPimpleFoam" : "foamRun");
+            controlDictSolverBlock = m_cfg.isOpenCFD ? executableName + ";"
+                : "foamRun;\nsolver          fluid;";
+        } else {
+            pText = pTextIncompressible;
+            executableName = (m_cfg.timeConfig == TimeConfig::SteadyState)
+             ? (m_cfg.isOpenCFD ? "simpleFoam" : "foamRun")
+             : (m_cfg.isOpenCFD ? "pimpleFoam" : "foamRun");
+            controlDictSolverBlock = m_cfg.isOpenCFD ? executableName + ";"
+                : "foamRun;\nsolver          incompressibleFluid;";
+        }
+    }
+    if ((m_cfg.isOpenCFD) && (m_cfg.flowConfig == FlowConfig::Compressible)) {
+        schemeText += "\n    div(((rho*nuEff)*dev2(T(grad(U))))) Gauss linear;";
     }
 
     // Turbulence check
-    switch(m_caseConfig.turbulenceConfig) {
+    bool isSteady = (m_cfg.timeConfig == TimeConfig::SteadyState);
+    switch(m_cfg.turbulenceConfig) {
     case TurbulenceConfig::Laminar:
         turbName = "laminar";
+        divPhiU = isSteady ? "bounded Gauss limitedLinearV 1" :
+                      "Gauss limitedLinearV 1";
         break;
     case TurbulenceConfig::RAS:
         turbName = "RAS";
+        divPhiU = isSteady ? "bounded Gauss upwind" : "Gauss upwind";
+        divPhik = isSteady ? "bounded Gauss upwind" : "Gauss upwind";
         turbDict = turbDictRAS;
         break;
     case TurbulenceConfig::LES:
-        ddtScheme = "backward";
-        divUScheme = "Gauss LUST grad(U)";
         turbName = "LES";
+        ddtScheme = "backward";
+        divPhiU = "Gauss LUST grad(U)";
+        divPhik = "Gauss upwind";
         turbDict = turbDictLES;
         break;
     }
 
     // Time check
-    switch(m_caseConfig.timeConfig) {
-    case TimeConfig::SteadyState:
+    if (isSteady) {
         ddtScheme = "steadyState";
         endTimeText = "500";
         deltaText = "1";
         writeControlText = "timeStep";
         writeIntervalText = "50";
         algoText = algoTextSimple;
-        break;
-    case TimeConfig::Transient:
+        relaxText = relaxTextSimple;
+    } else {
         endTimeText = "10.0";
         deltaText = "0.001";
         writeControlText = "adjustableRunTime";
         writeIntervalText = "0.1";
         algoText = algoTextPimple;
-        break;
     }
 
     // Geometry check
@@ -414,33 +472,41 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
         meshText = meshTextGeometry;
     } else {
         orthoScheme = "orthogonal";
-        if ((m_caseConfig.flowConfig == FlowConfig::Compressible) ||
-            (m_caseConfig.flowConfig == FlowConfig::Incompressible)) {
+        if ((m_cfg.flowConfig == FlowConfig::Compressible) ||
+            (m_cfg.flowConfig == FlowConfig::Incompressible)) {
             cleanCommand = "cleanCase0";
         }
     }
 
+    // Check if thermophysicalProperties file is necessary
+    bool thermoFile = (m_cfg.flowConfig == FlowConfig::Compressible) ||
+                      (m_cfg.heatConfig == HeatConfig::FluidHeat) ||
+                      (m_cfg.heatConfig == HeatConfig::ConjugateHeat);
+
     // Initialize map of files
-    QMap<QString, QStringList> configMap;
-    configMap["transportProperties"] = { "/constant/", versionPadded,
-                                        websitePadded };
+    QMap<QString, QStringList> configMap;    
+    if (!thermoFile) {
+        QString transportName = (m_cfg.isOpenCFD) ? "transportProperties" :
+                                    "physicalProperties";
+        configMap[transportName] = { "/constant/", versionPadded };
+    }
     configMap["turbulenceProperties"] = { "/constant/", versionPadded,
                                          websitePadded, turbName, turbDict };
     configMap["Allclean"] = { "/", cleanCommand };
-    configMap["Allrun"] = { "/", meshText, fieldsText, solverText };
+    configMap["Allrun"] = { "/", meshText, fieldsText, executableName };
     configMap["controlDict"] = { "/system/", versionPadded, websitePadded,
-                                solverText, endTimeText, deltaText,
+                                controlDictSolverBlock, endTimeText, deltaText,
                                 writeControlText, writeIntervalText };
     configMap["fvSchemes"] = { "/system/", versionPadded, websitePadded,
-                              ddtScheme, divUScheme, schemeText, orthoScheme };
+            ddtScheme, fluxField, divPhiU, divPhik, schemeText, orthoScheme };
     configMap["fvSolution"] = { "/system/", versionPadded, websitePadded,
-                               pText, alphaText,algoText, rhoText, eqText };
+                               pText, alphaText, algoText, relaxText };
     configMap["blockMeshDict"] = { "/system/", versionPadded, websitePadded };
 
     // Update template files
     QFile templateFile;
-    for( auto const& fileName: configMap.keys() ) {
-
+    QString fileText, filePath;
+    for( auto& fileName: configMap.keys() ) {
         // Read template file to string
         templateFile.setFileName(":/template/" + fileName);
         if (!templateFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -454,7 +520,8 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
         // Update string
         QStringList cfgList = configMap[fileName];
         for (int i = 1; i < cfgList.size(); ++i) {
-            fileText = fileText.arg(cfgList[i]);
+            QString placeholder = QString("%%1").arg(i);
+            fileText.replace(placeholder, cfgList[i]);
         }
 
         // Write string to file on server

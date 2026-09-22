@@ -52,10 +52,6 @@ QStringList LocalSystem::processPaths(const QString& pathString,
         for (const auto& entry : fs::directory_iterator(home_dir, options)) {
             std::string item_name = entry.path().filename().string();
             if (!item_name.empty() && item_name.front() == '.') continue;
-
-            if (ends_with(item_name, "_patched.stl") ||
-                ends_with(item_name, "_tmp.stl")) continue;
-
             if (entry.is_regular_file()) item_name += "|";
             result.append(QString::fromStdString(item_name));
         }

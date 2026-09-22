@@ -34,13 +34,36 @@ enum CaseFlag {
 Q_DECLARE_FLAGS(CaseFlags, CaseFlag)
 Q_DECLARE_OPERATORS_FOR_FLAGS(CaseFlags)
 
+// Store case properties
+enum CaseProperty {
+    Transient             = 1 << 0,
+    Compressible          = 1 << 1,
+    Multiphase            = 1 << 2,
+    TurbulenceRAS         = 1 << 3,
+    TurbulenceLES         = 1 << 4,
+    FluidHeat             = 1 << 5,
+    ConjugateHeat         = 1 << 6,
+    MeshMRF               = 1 << 7,
+    MeshAMI               = 1 << 8,
+    MeshOverset           = 1 << 9,
+    MeshDeforming         = 1 << 10,
+    Radiation             = 1 << 11,
+    Combustion            = 1 << 12,
+    Buoyancy              = 1 << 13,
+    Lagrangian            = 1 << 14,
+    IsOpenCFD             = 1 << 15
+};
+Q_DECLARE_FLAGS(CaseType, CaseProperty)
+Q_DECLARE_OPERATORS_FOR_FLAGS(CaseType)
+
 // Store information about case
 struct CaseData {
     QString casePath;
-    QStringList caseFiles;
+    QStringList openFolders;
     int targetId;
     QString openFoamPath;
     CaseFlags caseFlags;
+    CaseType caseType;
     QString userName;
     QString hostName;
     int port;
@@ -119,6 +142,70 @@ class SystemManager {
     void setDefaultUser(const QString& user) { m_defaultUser = user; }
     QString getDefaultHost() { return m_defaultHost; }
     QString getDefaultUser() { return m_defaultUser; }
+
+    // Working with expanded folders
+    void addOpenFolder(const QString& caseName, const QString& path);
+    void removeOpenFolder(const QString& caseName, const QString& path);
+    void updateOpenFolders(const QString& caseName, const QStringList& folders);
+
+    // Case type functions
+    CaseType updateType(int targetId, const QString& casePath, bool isOpenCFD);
+    void setCaseType(const QString& caseName, CaseType type);
+    bool testCaseFlag(const QString& caseName, CaseType flags) const;
+    bool isLaminar(const QString& caseName) const;
+
+    bool isOpenCFD(const QString& caseName) const {
+        return testCaseFlag(caseName, IsOpenCFD);
+    }
+
+    bool isSteadyState(const QString& caseName) const {
+        return !testCaseFlag(caseName, Transient);
+    }
+
+    bool isTransient(const QString& caseName) const {
+        return testCaseFlag(caseName, Transient);
+    }
+
+    bool isCompressible(const QString& caseName) const {
+        return testCaseFlag(caseName, Compressible);
+    }
+
+    bool isMultiphase(const QString& caseName) const {
+        return testCaseFlag(caseName, Multiphase);
+    }
+
+    bool isRAS(const QString& caseName) const {
+        return testCaseFlag(caseName, TurbulenceRAS);
+    }
+
+    bool isLES(const QString& caseName) const {
+        return testCaseFlag(caseName, TurbulenceLES);
+    }
+
+    bool hasFluidHeatTransfer(const QString& caseName) const {
+        return testCaseFlag(caseName, FluidHeat);
+    }    
+
+    bool hasRadiation(const QString& caseName) const {
+        return testCaseFlag(caseName, Radiation);
+    }
+
+    bool hasCombustion(const QString& caseName) const {
+        return testCaseFlag(caseName, Combustion);
+    }
+
+    bool hasBuoyancy(const QString& caseName) const {
+        return testCaseFlag(caseName, Buoyancy);
+    }
+
+    bool isDynamicMesh(const QString& caseName) const {
+        return testCaseFlag(caseName,
+            MeshAMI | MeshDeforming | MeshOverset | MeshMRF);
+    }
+
+    bool isLagrangian(const QString& caseName) const {
+        return testCaseFlag(caseName, Lagrangian);
+    }
 
  private:
     QString m_serverVersion = "1.0.0", m_defaultHost, m_defaultUser;

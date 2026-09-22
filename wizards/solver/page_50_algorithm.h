@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef WIZARDS_SOLVER_PAGE_50_ALGORITHM_H_
-#define WIZARDS_SOLVER_PAGE_50_ALGORITHM_H_
+#ifndef WIZARDS_SOLVER_PAGE_40_ALGORITHM_H_
+#define WIZARDS_SOLVER_PAGE_40_ALGORITHM_H_
 
 #include <QWizardPage>
 
@@ -39,18 +39,20 @@ class AlgorithmPage : public QWizardPage {
     Q_OBJECT
 
  public:
-    explicit AlgorithmPage(QWidget *parent);
+    explicit AlgorithmPage(
+         const QHash<QString, FlowCompute::FieldDef>& fieldData,
+         QWidget *parent);
     int nextId() const override;
 
  protected:
     void initializePage() override;
-    // bool validatePage() override;
 
  private:
     SolverWizard* m_solverWizard;
     CaseIO::MathConfig* m_cfg;
     QString m_currentField;
     CaseIO::FieldMathConfig* m_currentMathConfig;
+    QHash<QString, FlowCompute::FieldDef> m_fieldData;
 
     QButtonGroup *m_relaxGroup;
     QCheckBox *m_finalIterationCheck;
@@ -72,4 +74,4 @@ class AlgorithmPage : public QWizardPage {
     void solverChanged(int);
 };
 
-#endif  // WIZARDS_SOLVER_PAGE_50_ALGORITHM_H_
+#endif  // WIZARDS_SOLVER_PAGE_40_ALGORITHM_H_

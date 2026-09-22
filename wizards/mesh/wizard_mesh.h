@@ -45,7 +45,7 @@ class MeshWizard : public QWizard {
         QWidget *parent);
 
     // Load and parse mesh files
-    bool loadParseFiles();
+    bool parseFiles();
 
     // Get mesh data
     QMap<QString, GeometryMetrics>& getGeometryMap() { return m_geometryMap; };
@@ -75,6 +75,7 @@ class MeshWizard : public QWizard {
     QString m_caseName, m_casePath;
     QMap<QString, GeometryMetrics> m_geometryMap;
     QMap<QString, std::shared_ptr<OpenFoamDictionary>> m_dictMap;
+    bool m_isOpenCFD;
 
     // Mesh file structures
     CaseIO::BlockMeshConfig m_blockMeshConfig;

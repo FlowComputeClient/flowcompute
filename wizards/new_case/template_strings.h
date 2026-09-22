@@ -20,27 +20,88 @@
 
 #include <QString>
 
-const QString algoTextPimple = R"(
+const QString algoTextSimple = R"FOAM(
+SIMPLE
+{
+    nNonOrthogonalCorrectors     0;
+    residualControl
+    {
+        p                     1e-4;
+        U                     1e-4;
+        "(e|h|T)"             1e-4;
+        "(k|omega|epsilon)"   1e-4;
+    }
+}
+)FOAM";
+
+const QString algoTextPimple = R"FOAM(
 PIMPLE
 {
-    momentumPredictor        yes;
-    nOuterCorrectors         2;
-    nCorrectors              2;
-)";
+    momentumPredictor          yes;
+    nOuterCorrectors             2;
+    nCorrectors                  2;
+    nNonOrthogonalCorrectors     1;
+    residualControl
+    {
+        p                     1e-4;
+        U                     1e-4;
+        "(e|h|T)"             1e-4;
+        "(k|omega|epsilon)"   1e-4;
+    }
+}
+)FOAM";
 
-const QString algoTextSimple = R"(
-SIMPLE
-{)";
+const QString alphaTextCompressible = R"FOAM(
+    rho
+    {
+        solver          diagonal;
+    }
+
+    "(e|h)"
+    {
+        solver          GAMG;
+        smoother        DICGaussSeidel;
+        tolerance       1e-6;
+        relTol          0.1;
+    }
+)FOAM";
+
+const QString alphaTextBoussinesq = R"(
+    T
+    {
+        solver          smoothSolver;
+        smoother        symGaussSeidel;
+        tolerance       1e-5;
+        relTol          0.1;
+    }
+)";
 
 const QString alphaTextMultiphase = R"(
     alpha.water
     {
         solver          smoothSolver;
         smoother        symGaussSeidel;
-        tolerance       1e-08;
+        tolerance       1e-8;
         relTol          0;
     }
 )";
+
+const QString relaxTextSimple = R"FOAM(
+// Under-relaxation factors used to improve stability
+relaxationFactors
+{
+    fields
+    {
+        p                   0.3;
+    }
+    equations
+    {
+        U                   0.7;
+        "(e|h|T)"           0.7;
+        "(k|omega|epsilon)" 0.7;
+    }
+}
+)FOAM";
 
 const QString cleanCommandGeneral = R"(
 # Clean standard case files and mesh
@@ -69,15 +130,9 @@ const QString pTextIncompressible = R"(
     p
     {
         solver          GAMG;
-        tolerance       1e-7;
+        tolerance       1e-5;
         relTol          0.01;
         smoother        GaussSeidel;
-    }
-
-    pFinal
-    {
-        $p;
-        relTol          0;
     }
 )";
 
@@ -85,15 +140,9 @@ const QString pTextCompressible = R"(
     p
     {
         solver          GAMG;
-        tolerance       1e-8;
+        tolerance       1e-5;
         relTol          0.05;
-        smoother        DICGaussSeidel;
-    }
-
-    pFinal
-    {
-        $p;
-        relTol          0;
+        smoother        GaussSeidel;
     }
 )";
 
@@ -103,7 +152,7 @@ const QString pTextMultiphase = R"(
         solver          GAMG;
         tolerance       1e-7;
         relTol          0.01;
-        smoother        DICGaussSeidel;
+        smoother        GaussSeidel;
     }
 
     p_rghFinal
@@ -115,10 +164,12 @@ const QString pTextMultiphase = R"(
     }
 )";
 
-const QString schemeTextMultiphase = R"(
-    div(phi,alpha)  Gauss vanLeer;
-    div(phirb,alpha) Gauss interfaceCompression;
-)";
+const QString schemeTextMultiphase =
+    R"(div(phi,alpha)  Gauss vanLeer;
+    div(phirb,alpha) Gauss interfaceCompression;)";
+
+const QString schemeTextCompressible =
+    R"(div(phi,K)       bounded Gauss upwind;)";
 
 const QString turbDictLES = R"(
 LES

@@ -17,11 +17,12 @@
 
 #include "wizard_open_case.h"
 
-#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QRegularExpression>
 
+#include "dialogs/selection/selection_dialog.h"
 #include "wizards/new_case/page_15_remote.h"
 #include "wizards/open_case/page_20_casefolder.h"
 
@@ -36,10 +37,45 @@ OpenCaseWizard::OpenCaseWizard(TargetType targetType, SystemManager& systemMgr,
 
     // Add pages
     if (targetType == TargetType::REMOTE_LINUX) {
-        addPage(new RemotePage(systemMgr, this));
+        setPage(static_cast<int>(OpenCasePage::Page_Remote),
+            new RemotePage(systemMgr, this));
     }
-    addPage(new CaseFolderPage(targetType, systemMgr, this));
+    setPage(static_cast<int>(OpenCasePage::Page_CaseFolder),
+        new CaseFolderPage(targetType, systemMgr, this));
     setOption(QWizard::NoBackButtonOnStartPage);
+}
+
+bool OpenCaseWizard::validateCurrentPage() {
+    // Validate remote page
+    if (currentId() == static_cast<int>(OpenCasePage::Page_Remote)) {
+        return checkOpenFoam();
+    }
+    return QWizard::validateCurrentPage();
+}
+
+bool OpenCaseWizard::checkOpenFoam() {
+    // Determine OpenFOAM installation
+    QStringList ofList =
+        m_systemMgr.getSystem(
+            static_cast<int>(TargetType::REMOTE_LINUX))->findOpenFoam();
+    if(ofList.empty()) {
+        QMessageBox::critical(this, tr("Missing OpenFOAM"),
+                              tr("No OpenFOAM installations detected..."));
+        m_openFoamPath = "";
+        return false;
+    } else if (ofList.size() > 1) {
+        // Create selection dialog
+        SelectionDialog selectionDialog(
+            tr("Multiple OpenFOAM Installations Detected"),
+            tr("Select one of the following:"), ofList, this);
+        if (selectionDialog.exec() != QDialog::Accepted) {
+            return false;
+        }
+        m_openFoamPath = selectionDialog.getSelectedItem();
+    } else {
+        m_openFoamPath = ofList[0];
+    }
+    return true;
 }
 
 void OpenCaseWizard::accept() {
@@ -81,6 +117,16 @@ void OpenCaseWizard::accept() {
         }
     }
 
+    // Determine OpenFOAM version
+    bool isOpenCFD = true;
+    QRegularExpression re("openfoam-?v?(\\d+)",
+                          QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch match = re.match(m_openFoamPath.split("/").last());
+    if (match.hasMatch()) {
+        QString digits = match.captured(1);
+        isOpenCFD = digits.toInt() > 100;
+    }
+
     // Get credentials for remote cases
     int port = 0;
     QString userName = "", hostName = "";
@@ -91,12 +137,16 @@ void OpenCaseWizard::accept() {
         port = field("port").toInt();
     }
 
+    // Get case type fields
+    CaseType type =
+        m_systemMgr.updateType(targetId, casePath + "/" + caseName, isOpenCFD);
+
     // Get files in existing case
     QStringList caseFiles = system->processPaths(path, PathOperationType::LIST);
 
     // Request case creation
     emit requestCaseCreation(caseName, casePath, caseFiles, targetId,
-            m_openFoamPath, CaseFlag::NotChecked, userName, hostName, port);
+        m_openFoamPath, CaseFlag::NotChecked, type, userName, hostName, port);
 
     QWizard::accept();
 }

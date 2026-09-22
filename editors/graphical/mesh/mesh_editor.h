@@ -34,9 +34,6 @@ class MeshEditor : public QWidget {
  public:
     explicit MeshEditor(std::shared_ptr<RenderData> RenderData,
         const QString& casePath, std::shared_ptr<TargetSystem> targetSystem,
-        const std::vector<FlowCompute::SolverFamily>& families,
-        const FlowCompute::TurbulenceDatabase& turbModels,
-        const QHash<QString, FlowCompute::FieldDef>& fieldData,
         const std::vector<FlowCompute::BoundaryConditionDef>&
                             boundaryConditions,
         QVulkanInstance* instance, QWidget* parent = nullptr);
@@ -59,18 +56,11 @@ class MeshEditor : public QWidget {
     QString m_casePath;
     std::vector<std::string> m_patchNames;
 
-    std::vector<FlowCompute::SolverFamily> m_families;
-    FlowCompute::TurbulenceDatabase m_turbModels;
     std::vector<CaseIO::MeshPatch> m_boundaries;
-    QHash<QString, FlowCompute::FieldDef> m_fieldData;
 
     VulkanWindow* m_vulkanWindow;
     QVulkanInstance* m_vulkanInstance;
     std::shared_ptr<RenderData> m_renderData;
-
-    QStringList getSolverFields(const QString& solver);
-    QStringList getTurbulenceFields(const QString& simulationType,
-                                    const QString& modelType);
     void updatePatches();
 
  private slots:

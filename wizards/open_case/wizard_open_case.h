@@ -22,6 +22,11 @@
 
 #include "systems/system_manager.h"
 
+enum class OpenCasePage {
+    Page_Remote = 0,
+    Page_CaseFolder = 1
+};
+
 class OpenCaseWizard : public QWizard {
     Q_OBJECT
 
@@ -32,16 +37,20 @@ class OpenCaseWizard : public QWizard {
  signals:
     void requestCaseCreation(QString caseName, QString casePath,
         QStringList caseFiles, int systemId, QString openFoamPath,
-        CaseFlag flag, QString userName, QString hostName, int port);
+        CaseFlag flag, CaseType type, QString userName, QString hostName,
+        int port);
     void logMessage(const QString& msg);
 
  protected:
     void accept() override;
+    bool validateCurrentPage() override;
 
  private:
     SystemManager& m_systemMgr;
     TargetType m_targetType;
     QString m_openFoamPath;
+
+    bool checkOpenFoam();
 };
 
 #endif  // WIZARDS_OPEN_CASE_WIZARD_OPEN_CASE_H_

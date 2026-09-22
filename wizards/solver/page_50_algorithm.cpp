@@ -40,8 +40,9 @@
 #include "wizards/solver/page_80_piso.h"
 
 // Introduction page asks for the case name and platform
-AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {
-
+AlgorithmPage::AlgorithmPage(
+    const QHash<QString, FlowCompute::FieldDef>& fieldData,
+    QWidget *parent): QWizardPage(parent), m_fieldData(fieldData) {
     // Set title
     setTitle(tr("Global Algorithm Configuration (fvSolution)"));
 
@@ -67,7 +68,6 @@ AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {
 
     // Create list widget
     m_fieldListWidget = new QListWidget(listContainer);
-    m_fieldListWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
     listLayout->addWidget(m_fieldListWidget);
 
     // Right side
@@ -82,7 +82,7 @@ AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {
     // Set solver
     m_solverCombo = new QComboBox(configPage);
     QMetaEnum solverEnum =
-        QMetaEnum::fromType<CaseIO::FieldMathConfig::LinearSolver>();
+        QMetaEnum::fromType<FlowCompute::LinearSolver>();
     for (int i = 0; i < solverEnum.keyCount(); ++i) {
         m_solverCombo->addItem(solverEnum.key(i), solverEnum.value(i));
     }
@@ -101,7 +101,7 @@ AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {
         QListWidgetItem* currentItem = m_fieldListWidget->currentItem();
         if (index < 0 || !currentItem || !m_cfg) return;
         auto precond =
-            static_cast<CaseIO::FieldMathConfig::Preconditioner>(
+            static_cast<FlowCompute::Preconditioner>(
             m_preconditionerSmootherCombo->itemData(index).toInt());
         m_cfg->fieldMathConfigs[currentItem->text()].preconditioner = precond;
     });
@@ -181,7 +181,8 @@ AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {
     connect(m_finalIterationCheck, &QCheckBox::toggled, this,
     [this](bool checked) {
         QListWidgetItem* currentItem = m_fieldListWidget->currentItem();
-        if (!currentItem || !m_cfg) return;
+        if (!currentItem || !m_cfg)
+            return;
         m_cfg->fieldMathConfigs[currentItem->text()].hasFinalOverride = checked;
         m_finalAbsTolEdit->setEnabled(checked);
         m_finalRelTolEdit->setEnabled(checked);
@@ -220,7 +221,7 @@ AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {
     // Add the completed form to the stacked widget
     m_solverStack->addWidget(configPage);
 
-    // Sizing hints (1:4 ratio to keep the right-hand panel spacious)
+    // Sizing hints
     mainSplitter->setStretchFactor(0, 1);
     mainSplitter->setStretchFactor(1, 3);
 
@@ -231,23 +232,106 @@ AlgorithmPage::AlgorithmPage(QWidget *parent): QWizardPage(parent) {
 
 void AlgorithmPage::initializePage() {
     m_solverWizard = qobject_cast<SolverWizard*>(this->wizard());
-    if (!m_solverWizard) return;
+    if (!m_solverWizard)
+        return;
     m_cfg = &(m_solverWizard->getMathConfig());
 
-    // Get fields
+    // Get fields from solver
     QStringList fields = m_solverWizard->getFieldNames();
+
+    // Filter out derived fields (except rho)
+    QMutableStringListIterator i(fields);
+    while (i.hasNext()) {
+        QString fieldName = i.next();
+        if (m_fieldData.contains(fieldName)) {
+            const FlowCompute::FieldDef& defData = m_fieldData.value(fieldName);
+            if (defData.solver == FlowCompute::LinearSolver::NONE &&
+                fieldName != "rho") {
+                i.remove();
+            }
+        }
+    }
+
+    // Filter fields in MathConfig - don't remove rho
+    for (auto it = m_cfg->fieldMathConfigs.begin();
+         it != m_cfg->fieldMathConfigs.end(); ) {
+        if ((it.key() != "rho") && (!fields.contains(it.key())))
+            it = m_cfg->fieldMathConfigs.erase(it);
+        else
+            ++it;
+    }
+
+    // Add missing required fields
+    for (const QString& fieldName : std::as_const(fields)) {
+        if (!m_cfg->fieldMathConfigs.contains(fieldName)) {
+            CaseIO::FieldMathConfig newMathConfig;
+
+            // Check for entry in fields.json
+            if (m_fieldData.contains(fieldName)) {
+                const FlowCompute::FieldDef& defData =
+                    m_fieldData.value(fieldName);
+
+                // Map the fvSolution data if a solver exists
+                if (defData.solver != FlowCompute::LinearSolver::NONE ||
+                    fieldName == "rho") {
+                    newMathConfig.solver = defData.solver;
+                    newMathConfig.smoother = defData.smoother;
+                    newMathConfig.preconditioner = defData.preconditioner;
+                    newMathConfig.absTolerance = defData.absTolerance;
+                    newMathConfig.relTolerance = defData.relTolerance;
+                    newMathConfig.relaxationFactor = defData.relaxationFactor;
+                    newMathConfig.isFieldsRelaxation =
+                        defData.isFieldsRelaxation;
+                }
+            }
+
+            // Update the map
+            m_cfg->fieldMathConfigs.insert(fieldName, newMathConfig);
+        }
+    }
+
+    // If transient, add final configurations
+    if (!m_solverWizard->isSteadyState()) {
+        for (auto it = m_cfg->fieldMathConfigs.cbegin();
+             it != m_cfg->fieldMathConfigs.cend(); ++it) {
+
+            // Update final configuration
+            QString fieldName = it.key();
+            if (!m_cfg->fieldMathConfigs[fieldName].hasFinalOverride) {
+                m_cfg->fieldMathConfigs[fieldName].hasFinalOverride = true;
+                m_cfg->fieldMathConfigs[fieldName].finalAbsTolerance =
+                    (fieldName == "p") ? 1e-7 : 1e-6;
+                m_cfg->fieldMathConfigs[fieldName].finalRelTolerance = 0.0;
+            }
+        }
+    }
+
+    // Rename the "T" field if necessary
+    if (m_cfg->fieldMathConfigs.contains("T") &&
+        m_solverWizard->isThermoRequired()) {
+        auto& thermoCfg = m_solverWizard->getThermoConfig();
+        CaseIO::FieldMathConfig energyConfig =
+            m_cfg->fieldMathConfigs.take("T");
+
+        // Determine the new energy field
+        if (thermoCfg.thermoType.energy == "sensibleInternalEnergy") {
+            m_cfg->fieldMathConfigs.insert("e", energyConfig);
+        } else if (thermoCfg.thermoType.energy == "sensibleEnthalpy") {
+            m_cfg->fieldMathConfigs.insert("h", energyConfig);
+        }
+    }
 
     // Configure field list widget
     m_fieldListWidget->blockSignals(true);
     m_fieldListWidget->clear();
     m_fieldListWidget->addItem("< default >");
-    m_fieldListWidget->addItems(fields);
+    m_fieldListWidget->addItems(m_cfg->fieldMathConfigs.keys());
     m_fieldListWidget->blockSignals(false);
 
     // Add default field to state
     if (!m_cfg->fieldMathConfigs.contains("< default >")) {
         m_cfg->fieldMathConfigs.insert("< default >",
-                                       CaseIO::FieldMathConfig());
+            CaseIO::FieldMathConfig());
     }
 
     // Lambda to populate residual controls
@@ -267,7 +351,6 @@ void AlgorithmPage::initializePage() {
 
     // Update layout according to solver algorithm
     m_algorithm = m_solverWizard->getSolverAlgorithm();
-
     if (m_algorithm == FlowCompute::Algorithm::SIMPLE) {
         if (!std::holds_alternative<CaseIO::SimpleConfig>(
             m_cfg->algorithmConfig)) {
@@ -275,9 +358,13 @@ void AlgorithmPage::initializePage() {
         }
         CaseIO::SimpleConfig& cfg =
             std::get<CaseIO::SimpleConfig>(m_cfg->algorithmConfig);
-        if (cfg.resControls.empty()) {
+        if (cfg.resControls.empty())
             populateResiduals(cfg);
-        }
+
+        // Enable relaxation settings
+        m_relaxationSpin->setEnabled(true);
+        m_fieldsRadio->setEnabled(true);
+        m_equationsRadio->setEnabled(true);
     }
     else if (m_algorithm == FlowCompute::Algorithm::PIMPLE) {
         if (!std::holds_alternative<CaseIO::PimpleConfig>(
@@ -286,15 +373,24 @@ void AlgorithmPage::initializePage() {
         }
         CaseIO::PimpleConfig& cfg =
             std::get<CaseIO::PimpleConfig>(m_cfg->algorithmConfig);
-        if (cfg.resControls.empty()) {
-            populateResiduals(cfg);
-        }
+        if (cfg.resControls.empty())
+            populateResiduals(cfg);          
+
+        // Enable relaxation settings
+        m_relaxationSpin->setEnabled(true);
+        m_fieldsRadio->setEnabled(true);
+        m_equationsRadio->setEnabled(true);
     }
     else if (m_algorithm == FlowCompute::Algorithm::PISO) {
         if (!std::holds_alternative<CaseIO::PisoConfig>(
                 m_cfg->algorithmConfig)) {
             m_cfg->algorithmConfig = CaseIO::PisoConfig();
         }
+
+        // Disable relaxation settings
+        m_relaxationSpin->setEnabled(false);
+        m_fieldsRadio->setEnabled(false);
+        m_equationsRadio->setEnabled(false);
     }
 
     // Start event processing
@@ -317,9 +413,9 @@ int AlgorithmPage::nextId() const {
 
 // Respond when a field is selected
 void AlgorithmPage::fieldSelectionChanged() {
-
     QList<QListWidgetItem*> items = m_fieldListWidget->selectedItems();
-    if (items.isEmpty()) { return; }
+    if (items.isEmpty())
+        return;
 
     // Use the first selected item to populate the UI baseline
     QString displayField = items.first()->text();
@@ -356,13 +452,12 @@ void AlgorithmPage::fieldSelectionChanged() {
         m_equationsRadio->setChecked(true);
     }
 
-    // Final iterations settings
-    if (displayField == "< default >") {
+    // Final iteration settings
+    m_finalIterationCheck->setText(tr("Enable %1Final").arg(displayField));
+    if ((displayField == "< default >") || (m_solverWizard->isSteadyState())) {
         // Disable and explain why
         m_finalIterationCheck->setEnabled(false);
         m_finalIterationCheck->setChecked(false);
-        m_finalIterationCheck->setText(
-            tr("Enable Final Iteration (Per-field only)"));
         m_finalAbsTolEdit->setEnabled(false);
         m_finalRelTolEdit->setEnabled(false);
         m_finalAbsTolEdit->clear();
@@ -370,8 +465,6 @@ void AlgorithmPage::fieldSelectionChanged() {
     } else {
         // Enable and dynamically set the field name
         m_finalIterationCheck->setEnabled(true);
-        m_finalIterationCheck->setText(tr("Enable %1Final").arg(displayField));
-
         if (displayConfig.hasFinalOverride) {
             m_finalIterationCheck->setChecked(true);
             m_finalAbsTolEdit->setEnabled(true);
@@ -411,13 +504,12 @@ void AlgorithmPage::fieldSelectionChanged() {
 
 // Respond when a solver is selected
 void AlgorithmPage::solverChanged(int index) {
-
     QListWidgetItem* currentItem = m_fieldListWidget->currentItem();
     if (index < 0 || !currentItem || !m_cfg) return;
 
     // Get the selected solver
     QVariant data = m_solverCombo->itemData(index);
-    auto solver = static_cast<CaseIO::FieldMathConfig::LinearSolver>(index);
+    auto solver = static_cast<FlowCompute::LinearSolver>(index);
 
     // Update state data
     m_cfg->fieldMathConfigs[currentItem->text()].solver = solver;
@@ -428,9 +520,9 @@ void AlgorithmPage::solverChanged(int index) {
     // Populate the preconditionerSmoother combo box
     m_preconditionerSmootherCombo->clear();
 
-    if (solver == CaseIO::FieldMathConfig::LinearSolver::PCG ||
-        solver == CaseIO::FieldMathConfig::LinearSolver::PBiCG ||
-        solver == CaseIO::FieldMathConfig::LinearSolver::PBiCGStab) {
+    if (solver == FlowCompute::LinearSolver::PCG ||
+        solver == FlowCompute::LinearSolver::PBiCG ||
+        solver == FlowCompute::LinearSolver::PBiCGStab) {
 
         m_preconditionerSmootherLabel->setText(tr("Preconditioner: "));
         m_preconditionerSmootherLabel->show();
@@ -438,7 +530,7 @@ void AlgorithmPage::solverChanged(int index) {
 
         // Populate with preconditioners
         QMetaEnum precondEnum =
-            QMetaEnum::fromType<CaseIO::FieldMathConfig::Preconditioner>();
+            QMetaEnum::fromType<FlowCompute::Preconditioner>();
         for (int i = 0; i < precondEnum.keyCount() - 1; ++i) {
             m_preconditionerSmootherCombo->addItem(precondEnum.key(i),
                                                    precondEnum.value(i));
@@ -447,7 +539,7 @@ void AlgorithmPage::solverChanged(int index) {
         // Safely set preconditioner from state using findData
         auto savedPrecond =
             m_cfg->fieldMathConfigs[currentItem->text()].preconditioner;
-        if (savedPrecond != CaseIO::FieldMathConfig::Preconditioner::NONE) {
+        if (savedPrecond != FlowCompute::Preconditioner::NONE) {
             int comboIndex =
                 m_preconditionerSmootherCombo->findData(
                     static_cast<int>(savedPrecond));
@@ -457,12 +549,12 @@ void AlgorithmPage::solverChanged(int index) {
         } else if (m_preconditionerSmootherCombo->count() > 0) {
             m_preconditionerSmootherCombo->setCurrentIndex(0);
             m_cfg->fieldMathConfigs[currentItem->text()].preconditioner =
-                static_cast<CaseIO::FieldMathConfig::Preconditioner>(
+                static_cast<FlowCompute::Preconditioner>(
                     m_preconditionerSmootherCombo->itemData(0).toInt());
         }
     }
-    else if (solver == CaseIO::FieldMathConfig::LinearSolver::smoothSolver ||
-        solver == CaseIO::FieldMathConfig::LinearSolver::GAMG) {
+    else if (solver == FlowCompute::LinearSolver::smoothSolver ||
+        solver == FlowCompute::LinearSolver::GAMG) {
 
         m_preconditionerSmootherLabel->setText(tr("Smoother: "));
         m_preconditionerSmootherLabel->show();
@@ -470,7 +562,7 @@ void AlgorithmPage::solverChanged(int index) {
 
         // Populate with smoothers
         QMetaEnum smootherEnum =
-            QMetaEnum::fromType<CaseIO::FieldMathConfig::Smoother>();
+            QMetaEnum::fromType<FlowCompute::Smoother>();
         for (int i = 0; i < smootherEnum.keyCount() - 1; ++i) {
             m_preconditionerSmootherCombo->addItem(smootherEnum.key(i),
                                                    smootherEnum.value(i));
@@ -479,7 +571,7 @@ void AlgorithmPage::solverChanged(int index) {
         // Safely set smoother from state using findData
         auto savedSmoother =
             m_cfg->fieldMathConfigs[currentItem->text()].smoother;
-        if (savedSmoother != CaseIO::FieldMathConfig::Smoother::NONE) {
+        if (savedSmoother != FlowCompute::Smoother::NONE) {
             int comboIndex = m_preconditionerSmootherCombo->findData(
                 static_cast<int>(savedSmoother));
             if (comboIndex >= 0) {
@@ -488,7 +580,7 @@ void AlgorithmPage::solverChanged(int index) {
         } else if (m_preconditionerSmootherCombo->count() > 0) {
             m_preconditionerSmootherCombo->setCurrentIndex(0);
             m_cfg->fieldMathConfigs[currentItem->text()].smoother =
-                static_cast<CaseIO::FieldMathConfig::Smoother>(
+                static_cast<FlowCompute::Smoother>(
                     m_preconditionerSmootherCombo->itemData(0).toInt());
         }
     }

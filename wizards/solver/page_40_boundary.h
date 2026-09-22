@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef WIZARDS_SOLVER_PAGE_40_BOUNDARY_H_
-#define WIZARDS_SOLVER_PAGE_40_BOUNDARY_H_
+#ifndef WIZARDS_SOLVER_PAGE_50_BOUNDARY_H_
+#define WIZARDS_SOLVER_PAGE_50_BOUNDARY_H_
 
 #include <QWizardPage>
 
@@ -46,7 +46,7 @@ protected:
     bool validatePage() override;
 
 private:
-    SolverWizard* solverWizard;
+    SolverWizard* m_solverWizard;
     QHash<QString, CaseIO::FieldData>* m_cfg;
     QString m_currentField, m_currentPatch;
 
@@ -75,4 +75,4 @@ private slots:
     void onPatchTypeChanged(const QString& text);
 };
 
-#endif  // WIZARDS_SOLVER_PAGE_40_BOUNDARY_H_
+#endif  // WIZARDS_SOLVER_PAGE_50_BOUNDARY_H_

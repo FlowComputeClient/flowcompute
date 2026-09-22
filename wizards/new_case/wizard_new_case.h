@@ -22,7 +22,7 @@
 
 #include "systems/system_manager.h"
 
-enum class WizardPage {
+enum class NewCasePage {
     Page_Intro = 0,
     Page_Remote = 1,
     Page_Tutorial = 2,
@@ -37,8 +37,7 @@ enum class CaseCreationType {
 
 enum class FlowConfig {
     Incompressible = 0,
-    Compressible,
-    Multiphase
+    Compressible
 };
 
 enum class TurbulenceConfig {
@@ -52,14 +51,38 @@ enum class TimeConfig {
     Transient
 };
 
+enum class PhaseConfig {
+    SinglePhase,
+    MultiPhase
+};
+
+enum class HeatConfig {
+    NoHeat,
+    FluidHeat,
+    ConjugateHeat
+};
+
+enum class MeshConfig {
+    Static,
+    DynamicMRF,
+    DynamicAMI,
+    DynamicOverset,
+    Deformable
+};
+
 struct CaseConfig {
     FlowConfig flowConfig;
     TurbulenceConfig turbulenceConfig;
     TimeConfig timeConfig;
+    PhaseConfig phaseConfig;
+    HeatConfig heatConfig;
+    MeshConfig meshConfig;
     int priorityConfig;
-    bool heatConfig;
+    bool isOpenCFD;
     bool radiationConfig;
     bool combustionConfig;
+    bool buoyancyConfig;
+    bool particlesConfig;
 };
 
 class NewCaseWizard : public QWizard {
@@ -70,12 +93,13 @@ class NewCaseWizard : public QWizard {
     QStringList processPaths(const QString& path);
     QStringList getTutorials();
     QStringList findOpenFoam();
-    CaseConfig& getCaseConfig() { return m_caseConfig; };
+    CaseConfig& getCaseConfig() { return m_cfg; };
 
  signals:
     void requestCaseCreation(QString caseName, QString casePath,
         QStringList caseFiles, int systemId, QString openFoamPath,
-        CaseFlags flag, QString userName, QString hostName, int port);
+        CaseFlags flag, CaseType type, QString userName, QString hostName,
+        int port);
 
  protected:
     void accept() override;
@@ -85,15 +109,16 @@ class NewCaseWizard : public QWizard {
     SystemManager& m_systemMgr;
     TargetType m_targetId;
     std::shared_ptr<TargetSystem> m_system;
-    QString m_openFoamPath, m_caseName;
-    CaseConfig m_caseConfig;
-    QString m_geometryFile;
+    CaseConfig m_cfg;
+    QString m_geometryFile, m_openFoamPath, m_openFoamVersion, m_caseName;
+    bool m_isOpenCFD;
 
     bool checkOpenFoam();
 
     // Create template case
     bool createCase(const QString& newCasePath);
-    void createCaseFiles(const QString&, const QString&, const QString&);
+    void createCaseFiles(const QString& newCasePath,
+        const QString& versionText, const QString& websiteText);
 
 };
 

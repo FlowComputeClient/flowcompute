@@ -40,9 +40,9 @@ class CaseNavigator : public QTreeView {
         QAction* copyAction, QAction* pasteAction, QAction* uploadAction,
         QAction* downloadAction, QAction* postProcessingAction,
         SystemManager& systemMgr, QWidget *parent = nullptr);
-    void addCase(const QString& caseName, const QStringList& caseFiles,
+    void addCase(const QString& caseName, const QStringList& openFolders,
                  bool disable=false);
-    void expandCase(const QString& caseName);
+    void expandPath(const QString& path);
     QStringList getCases() const;
     QString getSelectedCase();
     void updatePath(const QString& path, const QStringList& children);
@@ -77,24 +77,25 @@ class CaseNavigator : public QTreeView {
     void renameFile(const QString& filePath, const QString& newName);
     void removeFile(const QString& filePath, bool isCase);
     void cutPasteFile(const QString& oldPath, const QString& newPath);
+    void checkUtilities(const QString caseName);
 
  private:
     void createActions();
     void updateActions(NodeData* node);
     void fetchChildren(NodeData* parentNode);
     NodeType checkType(const QString& name, const QString& fullPath);
-    bool checkConnection(const QString& caseName);
-    void refresh(NodeData* node);
+    bool setupConnection(const QString& caseName);
+    void refresh(NodeData* node, bool expand = true);
 
     QStringList m_clipboardPaths;
-    bool m_isClipboardCut = false;
+    bool m_isClipboardCut = false, m_isRestoringState = false;
 
     SystemManager& m_systemMgr;
     NavigatorModel* m_model;
     QStandardItem* m_root;
 
     // Menu and actions
-    QAction *m_newCaseAction, *m_openCaseAction;
+    QAction *m_newCaseAction, *m_openCaseAction, *m_connectAction;
     QAction *m_newFileAction, *m_newFolderAction, *m_newDictAction;
     QAction *m_deleteAction, *m_renameAction, *m_uploadAction;
     QAction *m_downloadAction, *m_refreshAction, *m_postProcessingAction;
@@ -103,8 +104,9 @@ class CaseNavigator : public QTreeView {
     QAction *m_configureSolverAction, *m_runSolverAction, *m_viewResultAction;
 
  private slots:
-    // Slot to catch when a user clicks the expand arrow
+    // Respond when a case or folder is expanded or collapsed
     void onNodeExpanded(const QModelIndex &index);
+    void onNodeCollapsed(const QModelIndex &index);
 
     // Sets selection
     void onSelectionChanged(const QItemSelection &selected,

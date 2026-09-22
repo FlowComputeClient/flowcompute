@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include <QDebug>
 #include <QMetaEnum>
 #include <QRegularExpression>
@@ -6,12 +23,17 @@
 
 CaseIO::ControlConfig CaseIO::parseControlDict(
     std::shared_ptr<OpenFoamDictionary> dict) {
-
     ControlConfig cfg;
-    if (!dict) { return cfg; }
+    if (!dict)
+        return cfg;
 
     // application
-    cfg.solver = dict->getString("application");
+    cfg.application = dict->getString("application");
+    if (cfg.application.startsWith("foam")) {
+        cfg.solver = dict->getString("solver");
+    } else {
+        cfg.solver = "";
+    }
 
     // startFrom
     QString startFromStr = dict->getString("startFrom");
@@ -52,16 +74,16 @@ CaseIO::ControlConfig CaseIO::parseControlDict(
         cfg.deltaT = dT;
     }
 
-    /*
     // Time step adjustment
     QString adjustStr = dict->getString("adjustTimeStep").toLower();
-    config.adjustTimeStep = (adjustStr == "yes" || adjustStr == "true" || adjustStr == "on");
+    cfg.adjustTimeStep =
+        (adjustStr == "yes" || adjustStr == "true" || adjustStr == "on");
 
+    // Max Courant number
     double maxCourant = dict->getNumber("maxCo");
     if (!std::isnan(maxCourant)) {
-        config.maxCo = maxCourant;
+        cfg.maxCo = maxCourant;
     }
-    */
 
     // writeControl
     QString writeControlStr = dict->getString("writeControl");
@@ -113,7 +135,7 @@ CaseIO::ControlConfig CaseIO::parseControlDict(
 }
 
 QString CaseIO::updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
-                        ControlConfig& cfg, const QString& funcString) {
+    ControlConfig& cfg, const QString& funcString) {
     if (!dict)
         return QString();
 
@@ -122,7 +144,10 @@ QString CaseIO::updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
     };
 
     // Update solver application
-    dict->setValue("application", cfg.solver);
+    dict->setValue("application", cfg.application);
+    if (!cfg.solver.isEmpty()) {
+        dict->setValue("solver", cfg.solver);
+    }
 
     // Update Run Control
     dict->setValue("startFrom", enumToString(cfg.startFrom, "startTime"));
@@ -130,6 +155,10 @@ QString CaseIO::updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
     dict->setValue("stopAt", enumToString(cfg.stopAt, "endTime"));
     dict->setValue("endTime", QString::number(cfg.endTime));
     dict->setValue("deltaT", QString::number(cfg.deltaT));
+
+    // Transient fields
+    dict->setValue("adjustTimeStep", boolToString(cfg.adjustTimeStep), true);
+    dict->setValue("maxCo", QString::number(cfg.maxCo), true);
 
     // Update Data Writing
     dict->setValue("writeCompression", boolToString(cfg.writeCompression));
@@ -184,7 +213,6 @@ QString CaseIO::updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
 
 QString CaseIO::createControlDict(const ControlConfig& cfg,
     const QString& openFoamPath, const QString& functionObjects) {
-
     QString dictStr;
     QTextStream out(&dictStr);
 
@@ -198,24 +226,39 @@ QString CaseIO::createControlDict(const ControlConfig& cfg,
     // Helper lambda for booleans
     auto toFoamBool = [](bool val) { return val ? "yes" : "no"; };
 
+    // Helper lambda for precise double conversion
+    auto toPreciseString =
+        [](double val) { return QString::number(val, 'g', 10); };
+
     // Application
     out << "// Simulation executable\n";
-    writeEntry("application", cfg.solver);
+    writeEntry("application", cfg.application);
+    if (!cfg.solver.isEmpty()) {
+        writeEntry("solver", cfg.solver);
+    }
     out << "\n";
 
     // Time control
     out << "// Time control\n";
     writeEntry("startFrom", enumToString(cfg.startFrom, "startTime"));
-    writeEntry("startTime", QString::number(cfg.startTime));
+    writeEntry("startTime", toPreciseString(cfg.startTime));
     writeEntry("stopAt", enumToString(cfg.stopAt, "endTime"));
-    writeEntry("endTime", QString::number(cfg.endTime));
-    writeEntry("deltaT", QString::number(cfg.deltaT));
+    writeEntry("endTime", toPreciseString(cfg.endTime));
+    writeEntry("deltaT", toPreciseString(cfg.deltaT));
+    out << "\n";
+
+    // Transient fields
+    out << "// Transient configuration\n";
+    writeEntry("adjustTimeStep", toFoamBool(cfg.adjustTimeStep));
+    if (cfg.adjustTimeStep) {
+        writeEntry("maxCo", toPreciseString(cfg.maxCo));
+    }
     out << "\n";
 
     // Data writing
     out << "// Data writing\n";
     writeEntry("writeControl", enumToString(cfg.writeControl, "timeStep"));
-    writeEntry("writeInterval", QString::number(cfg.writeInterval));
+    writeEntry("writeInterval", toPreciseString(cfg.writeInterval));
     writeEntry("purgeWrite", QString::number(cfg.purgeWrite));
     out << "\n";
 
@@ -223,19 +266,19 @@ QString CaseIO::createControlDict(const ControlConfig& cfg,
     out << "// Output format\n";
     writeEntry("writeFormat", enumToString(cfg.writeFormat, "binary"));
     writeEntry("writePrecision", "6");
-    writeEntry("writeCompression", cfg.writeCompression ? "on" : "off");
+    writeEntry("writeCompression", toFoamBool(cfg.writeCompression));
     writeEntry("timeFormat", "general");
     writeEntry("timePrecision", "6");
     out << "\n";
 
-    // Standard default entries
+    // Runtime configuration
     out << "// Runtime configuration\n";
     writeEntry("runTimeModifiable", toFoamBool(cfg.runTimeModifiable));
 
-    // Write function objects
+    // Function objects
     out << "\n\n" << functionObjects;
 
-    // Write closing separator
+    // Closing separator
     out << "\n\n" << createFoamFooter();
     return dictStr;
 }

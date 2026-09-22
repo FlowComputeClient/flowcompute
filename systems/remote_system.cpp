@@ -22,14 +22,20 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QThread>
 
-#include <libssh/sftp.h>
 #include <fcntl.h>
 
 namespace fs = std::filesystem;
 
 // Free the session when the class is destroyed
 RemoteSystem::~RemoteSystem() {
+    // Free the SFTP session first
+    if (m_sftp) {
+        sftp_free(m_sftp);
+        m_sftp = nullptr;
+    }
+
     if (m_session) {
         // Disconnect if the session is active
         if (ssh_is_connected(m_session)) {
@@ -89,9 +95,7 @@ bool RemoteSystem::establishSession(const QString& host, const QString& user,
         }
 
         // Update the hosts file
-        if (ssh_session_update_known_hosts(m_session) != SSH_OK) {
-            // Optional: Log a warning that writing to known_hosts failed
-        }
+        ssh_session_update_known_hosts(m_session);
     } else if (state != SSH_KNOWN_HOSTS_OK) {
         errorMessage =
             QObject::tr("Connection aborted: Host key state is invalid.");
@@ -115,6 +119,27 @@ bool RemoteSystem::establishSession(const QString& host, const QString& user,
         ssh_free(m_session);
         return false;
     }
+
+    // Allocate the SFTP subsystem.
+    m_sftp = sftp_new(m_session);
+    if (m_sftp == nullptr) {
+        errorMessage = QObject::tr("Failed to create SFTP session: %1").arg(
+            QString::fromUtf8(ssh_get_error(m_session)));
+        ssh_disconnect(m_session);
+        ssh_free(m_session);
+        return false;
+    }
+
+    if (sftp_init(m_sftp) != SSH_OK) {
+        errorMessage = QObject::tr("Failed to initialize SFTP session: %1").arg(
+            QString::number(sftp_get_error(m_sftp)));
+        sftp_free(m_sftp);
+        m_sftp = nullptr;
+        ssh_disconnect(m_session);
+        ssh_free(m_session);
+        return false;
+    }
+
     return true;
 }
 
@@ -198,7 +223,6 @@ QStringList RemoteSystem::processPaths(const QString& pathString,
     // Rename or Copy operations
     if (opType == PathOperationType::RENAME ||
         opType == PathOperationType::COPY) {
-
         if (targetPaths.size() < 2) {
             return QStringList{"-1", "Insufficient paths provided."};
         }
@@ -386,15 +410,97 @@ int RemoteSystem::launchShortUtility(const QString& cmd, QString& output) {
     ssh_channel_close(channel);
     ssh_channel_free(channel);
 
-    // If the exit status was not sent by the server, it returns -1.
-    if (exitCode == -1) {
+    // Return exit code
+    if (exitCode == -1)
         return -3;
-    }
     return exitCode;
 }
 
 void RemoteSystem::launchLongUtility(const QString& cmd,
         const QString& caseName, UtilityType utilityType) {
+    // Run the libssh execution in a background thread
+    QThread* thread = QThread::create([this, cmd, caseName, utilityType]() {
+
+        if (!m_session || !ssh_is_connected(m_session)) {
+            emit longUtilityError("Session is not established.");
+            emit longUtilityFinished("error", caseName, utilityType);
+            return;
+        }
+
+        ssh_channel channel = ssh_channel_new(m_session);
+        if (!channel) {
+            emit longUtilityError("Failed to create SSH channel.");
+            emit longUtilityFinished("error", caseName, utilityType);
+            return;
+        }
+
+        if (ssh_channel_open_session(channel) != SSH_OK) {
+            emit longUtilityError("Failed to open SSH channel session.");
+            ssh_channel_free(channel);
+            emit longUtilityFinished("error", caseName, utilityType);
+            return;
+        }
+
+        // Merge standard error into standard output
+        QString mergedCmd = cmd + " 2>&1";
+        if (ssh_channel_request_exec(channel,
+                                mergedCmd.toUtf8().constData()) != SSH_OK) {
+            emit longUtilityError("SSH Error: Failed to execute command.");
+            ssh_channel_close(channel);
+            ssh_channel_free(channel);
+            emit longUtilityFinished("error", caseName, utilityType);
+            return;
+        }
+
+        // Read the merged standard output and error
+        char buffer[1024];
+        int nbytes;
+        QByteArray lineBuffer;
+
+        // ssh_channel_read blocks until data is available
+        while ((nbytes = ssh_channel_read(channel, buffer,
+                                          sizeof(buffer), 0)) > 0) {
+            lineBuffer.append(buffer, nbytes);
+
+            // Parse lines
+            int newlineIdx;
+            while ((newlineIdx = lineBuffer.indexOf('\n')) != -1) {
+                QByteArray line = lineBuffer.left(newlineIdx);
+                lineBuffer.remove(0, newlineIdx + 1);
+
+                // Emit signal safely to the main thread
+                emit logMessage(QString::fromUtf8(line).trimmed());
+            }
+        }
+
+        // Catch any remaining characters that didn't terminate with a newline
+        if (!lineBuffer.isEmpty()) {
+            emit logMessage(QString::fromUtf8(lineBuffer).trimmed());
+        }
+
+        // Fetch the bash exit code before closing the channel
+        int exitCode = ssh_channel_get_exit_status(channel);
+
+        // Clean up channel
+        ssh_channel_send_eof(channel);
+        ssh_channel_close(channel);
+        ssh_channel_free(channel);
+
+        // Determine final completion state
+        QString status = "error";
+        if (exitCode == 0) {
+            status = "success";
+        }
+
+        // Emit the final completion state
+        emit longUtilityFinished(status, caseName, utilityType);
+    });
+
+    // Clean up memory automatically when the thread finishes executing
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+
+    // Start the background process
+    thread->start();
 }
 
 QStringList RemoteSystem::getTutorials(const QString& base_path) {
@@ -434,7 +540,6 @@ QStringList RemoteSystem::getTutorials(const QString& base_path) {
 
 void RemoteSystem::processAllrunScript(const QString& scriptPath,
     const QString& projectPath, const QString& originalTutorialPath) {
-
     QString safeScript = scriptPath;
     safeScript.replace("'", "'\\''");
 
@@ -598,6 +703,12 @@ QStringList RemoteSystem::copyTutorialFolders(const QString& tutPath,
 }
 
 bool RemoteSystem::writeData(const QByteArray& data, const QString& filePath) {
+    // Ensure the session is valid
+    if (!m_session || !ssh_is_connected(m_session) || !m_sftp) {
+        emit logMessage("SSH session is not established.");
+        return false;
+    }
+
     // Check if the source path ends with '|' and remove it
     QString destPath = filePath;
     bool makeExecutable = false;
@@ -606,35 +717,13 @@ bool RemoteSystem::writeData(const QByteArray& data, const QString& filePath) {
         makeExecutable = true;
     }
 
-    // Ensure the session is valid
-    if (!m_session || !ssh_is_connected(m_session)) {
-        qWarning() << "SSH session is not established.";
-        return false;
-    }
-
-    // Allocate and initialize a new SFTP session
-    sftp_session sftp = sftp_new(m_session);
-    if (sftp == nullptr) {
-        qWarning() << "Error allocating SFTP session:"
-                   << ssh_get_error(m_session);
-        return false;
-    }
-
-    if (sftp_init(sftp) != SSH_OK) {
-        qWarning() << "Error initializing SFTP session:"
-                   << sftp_get_error(sftp);
-        sftp_free(sftp);
-        return false;
-    }
-
     // Open the remote file for writing
     int fileMode = makeExecutable ? 0755 : 0644;
-    sftp_file file = sftp_open(sftp, destPath.toUtf8().constData(),
+    sftp_file file = sftp_open(m_sftp, destPath.toUtf8().constData(),
         O_WRONLY | O_CREAT | O_TRUNC, fileMode);
-
     if (file == nullptr) {
-        qWarning() << "Failed to open remote file for writing:" << destPath;
-        sftp_free(sftp);
+        emit logMessage(
+            QString(tr("Failed to open remote file: ")).arg(destPath));
         return false;
     }
 
@@ -642,14 +731,11 @@ bool RemoteSystem::writeData(const QByteArray& data, const QString& filePath) {
     const void* buffer = data.constData();
     size_t length = data.size();
     ssize_t written = sftp_write(file, buffer, length);
-
-    // Close it
     sftp_close(file);
-    sftp_free(sftp);
 
     // Make sure all bytes were written successfully
     if (written != static_cast<ssize_t>(length)) {
-        qWarning() << "Failed to write all bytes to the remote file.";
+        emit logMessage(tr("Failed to write all bytes to the remote file."));
         return false;
     }
 
@@ -663,94 +749,81 @@ bool RemoteSystem::writeData(const QByteArray& data, const QString& filePath) {
 }
 
 bool RemoteSystem::writeData(const QString& srcPath, const QString& dstPath) {
-    QString actualSrcPath = srcPath;
-    bool makeExecutable = false;
-
-    // Check if the source path ends with '|' and remove it
-    if (actualSrcPath.endsWith('|')) {
-        actualSrcPath.chop(1);
-        makeExecutable = true;
+    // Check connection
+    if (!m_session || !ssh_is_connected(m_session) || !m_sftp) {
+        emit logMessage(QString(tr("SSH session is not established.")));
+        return false;
     }
 
-    // Make sure the local source file exists
+    // Verify local file
+    QString actualSrcPath = srcPath;
     QFileInfo srcInfo(actualSrcPath);
     if (!srcInfo.exists() || !srcInfo.isFile()) {
         return false;
     }
 
-    if (!m_session || !ssh_is_connected(m_session)) {
-        qWarning() << "SSH session is not established.";
-        return false;
+    // Check if the source path ends with '|' and remove it
+    bool makeExecutable = false;
+    if (actualSrcPath.endsWith('|')) {
+        actualSrcPath.chop(1);
+        makeExecutable = true;
     }
 
     // Ensure the destination directory exists
     QFileInfo dstInfo(dstPath);
-    QString dirPath = dstInfo.path();
-    QString safeDir = dirPath;
+    QString safeDir = dstInfo.path();
     safeDir.replace("'", "'\\''");
-
-    QString mkdirCmd = QString("mkdir -p '%1'").arg(safeDir);
-    execCommand(mkdirCmd);
-
-    // Initialize the SFTP session
-    sftp_session sftp = sftp_new(m_session);
-    if (sftp == nullptr) {
-        return false;
-    }
-
-    if (sftp_init(sftp) != SSH_OK) {
-        sftp_free(sftp);
-        return false;
-    }
+    execCommand(QString("mkdir -p '%1'").arg(safeDir));
 
     // Open remote file: 0755 for executable, 0644 otherwise
     int fileMode = makeExecutable ? 0755 : 0644;
-    sftp_file remoteFile = sftp_open(sftp, dstPath.toUtf8().constData(),
+    sftp_file remoteFile = sftp_open(m_sftp, dstPath.toUtf8().constData(),
                              O_WRONLY | O_CREAT | O_TRUNC, fileMode);
 
     if (remoteFile == nullptr) {
-        qWarning() << "Failed to open remote file:" << dstPath;
-        sftp_free(sftp);
+        emit logMessage(
+            QString(tr("Failed to open remote file: %1")).arg(dstPath));
         return false;
     }
 
-    // Open the local file for reading
+    // Open the local file
     QFile localFile(actualSrcPath);
     if (!localFile.open(QIODevice::ReadOnly)) {
-        qWarning() << "Failed to open local file:" << actualSrcPath;
+        emit logMessage(
+            QString(tr("Failed to open local file: %1")).arg(actualSrcPath));
         sftp_close(remoteFile);
-        sftp_free(sftp);
         return false;
     }
 
     // Transfer the file data in 16 KB chunks
-    const qint64 chunkSize = 16384;
-    char buffer[chunkSize];
+    constexpr qint64 CHUNK_SIZE = 16384;
+    QByteArray buffer;
+    buffer.resize(CHUNK_SIZE);
     qint64 bytesRead;
     bool success = true;
 
-    while ((bytesRead = localFile.read(buffer, chunkSize)) > 0) {
-        ssize_t written = sftp_write(remoteFile, buffer, bytesRead);
-        if (written != bytesRead) {
-            qWarning() << "Error writing to remote file.";
+    // Write data to destination
+    while ((bytesRead = localFile.read(buffer.data(), CHUNK_SIZE)) > 0) {
+        ssize_t written = sftp_write(remoteFile, buffer.constData(), bytesRead);
+            if (written < 0 || written != bytesRead) {
+                emit logMessage(
+                    QString(tr("Error writing to remote file '%1'. Error: %2"))
+                        .arg(dstPath).arg(ssh_get_error(m_session)));
             success = false;
             break;
         }
     }
 
-    // Clean up resources
-    localFile.close();
-    sftp_close(remoteFile);
-    sftp_free(sftp);
-
     // Make the file executable if necessary
     if (success && makeExecutable) {
-        QString safeDst = dstPath;
-        safeDst.replace("'", "'\\''");
-        QString chmodCmd = QString("chmod +x '%1'").arg(safeDst);
-        execCommand(chmodCmd);
+        if (sftp_chmod(m_sftp, dstPath.toUtf8().constData(), 0755) != SSH_OK) {
+            emit logMessage(
+                QString(tr("Failed to set permissions on '%1'. Error: %2"))
+                    .arg(dstPath).arg(ssh_get_error(m_session)));
+        }
     }
 
+    sftp_close(remoteFile);
     return success;
 }
 
@@ -758,11 +831,12 @@ std::pair<QStringList, QStringList>
     RemoteSystem::getTimesAndFields(const QString& projPath) {
     QStringList timeFolders, fieldFiles;
 
-    // List project directory contents.
+    // List project directory contents
     QString cmd1 = QString("ls -1p \"%1\" 2>/dev/null").arg(projPath);
     QString output1 = execCommand(cmd1);
     if (output1.isEmpty()) {
-        qWarning() << "Remote directory unavailable:" << projPath;
+        emit logMessage(
+            QString(tr("Remote directory unavailable: %1")).arg(projPath));
         return std::make_pair(timeFolders, fieldFiles);
     }
 
@@ -815,116 +889,100 @@ std::pair<QStringList, QStringList>
 
 // Retrieve file content
 std::optional<QByteArray> RemoteSystem::getFileContent(const QString& path) {
-    if (!m_session || !ssh_is_connected(m_session)) {
-        qWarning() << "SSH session is not established.";
+    // Check resources
+    if (!m_session || !ssh_is_connected(m_session) || !m_sftp) {
+        emit logMessage(QString(tr("SSH session is not established.")));
         return std::nullopt;
     }
 
-    sftp_session sftp = sftp_new(m_session);
-    if (sftp == nullptr) {
-        return std::nullopt;
-    }
-
-    if (sftp_init(sftp) != SSH_OK) {
-        sftp_free(sftp);
-        return std::nullopt;
-    }
-
-    // Skip the sftp_stat call to save a network round-trip
-    sftp_file file = sftp_open(sftp, path.toUtf8().constData(), O_RDONLY, 0);
+    // Open the file
+    sftp_file file = sftp_open(m_sftp, path.toUtf8().constData(), O_RDONLY, 0);
     if (file == nullptr) {
-        sftp_free(sftp);
+        emit logMessage(
+            QString(tr("Failed to open remote file '%1'. Error: %2"))
+                .arg(path).arg(ssh_get_error(m_session)));
         return std::nullopt;
     }
 
+    // Read data
     QByteArray fileData;
     char buffer[16384];
     ssize_t bytesRead;
-
     while ((bytesRead = sftp_read(file, buffer, sizeof(buffer))) > 0) {
         fileData.append(buffer, bytesRead);
     }
 
-    // Handle errors with nullopt
+    // Handle errors
     if (bytesRead < 0) {
-        qWarning() << "Error reading data from remote file:" << path;
+        emit logMessage(
+            QString(tr("Error reading data from remote file '%1'. Error: %2"))
+                .arg(path).arg(ssh_get_error(m_session)));
         sftp_close(file);
-        sftp_free(sftp);
         return std::nullopt;
     }
 
     sftp_close(file);
-    sftp_free(sftp);
     return fileData;
 }
 
 // Retrieve file statistics (size and update time)
 std::optional<FileStats> RemoteSystem::getFileStats(const QString& path) {
-    if (!m_session || !ssh_is_connected(m_session)) {
-        qWarning() << "SSH session is not established.";
+    if (!m_session || !ssh_is_connected(m_session) || !m_sftp) {
+        emit logMessage(QString(tr("SSH session is not established.")));
         return std::nullopt;
     }
 
-    sftp_session sftp = sftp_new(m_session);
-    if (sftp == nullptr) return std::nullopt;
-    if (sftp_init(sftp) != SSH_OK) {
-        sftp_free(sftp);
-        return std::nullopt;
-    }
-
-    // Request metadata without opening the file to save disk I/O on the server
-    sftp_attributes attr = sftp_stat(sftp, path.toUtf8().constData());
+    // Request metadata without opening file
+    sftp_attributes attr = sftp_stat(m_sftp, path.toUtf8().constData());
     if (attr == nullptr) {
-        sftp_free(sftp);
+        emit logMessage(
+            QString(tr("Failed to stat remote file '%1'. Error: %2"))
+                .arg(path).arg(ssh_get_error(m_session)));
         return std::nullopt;
     }
 
+    // Return statistics
     FileStats stats;
     stats.size = attr->size;
     stats.mtime = QDateTime::fromSecsSinceEpoch(attr->mtime);
-
     sftp_attributes_free(attr);
-    sftp_free(sftp);
     return stats;
 }
 
 // Retrieve file content and statistics (size and update time)
 std::optional<FileDataAndStats>
         RemoteSystem::getFileContentAndStats(const QString& path) {
-    if (!m_session || !ssh_is_connected(m_session)) {
-        qWarning() << "SSH session is not established.";
+    if (!m_session || !ssh_is_connected(m_session) || !m_sftp) {
+        emit logMessage(QString(tr("SSH session is not established.")));
         return std::nullopt;
     }
 
-    sftp_session sftp = sftp_new(m_session);
-    if (sftp == nullptr) return std::nullopt;
-    if (sftp_init(sftp) != SSH_OK) {
-        sftp_free(sftp);
-        return std::nullopt;
-    }
-
-    sftp_file file = sftp_open(sftp, path.toUtf8().constData(), O_RDONLY, 0);
+    // Open file
+    sftp_file file = sftp_open(m_sftp, path.toUtf8().constData(), O_RDONLY, 0);
     if (file == nullptr) {
-        sftp_free(sftp);
+        emit logMessage(
+            QString(tr("Failed to open remote file '%1'. Error: %2"))
+                .arg(path).arg(ssh_get_error(m_session)));
         return std::nullopt;
     }
 
-    // fstat gets the metadata directly from the already-open file handle
+    // Run fstat
     sftp_attributes attr = sftp_fstat(file);
     if (attr == nullptr) {
+        emit logMessage(QString(tr("Failed to stat open file '%1'. Error: %2"))
+                            .arg(path).arg(ssh_get_error(m_session)));
         sftp_close(file);
-        sftp_free(sftp);
         return std::nullopt;
     }
 
+    // Set statistics
     FileDataAndStats data;
     data.stats.size = attr->size;
     data.stats.mtime = QDateTime::fromSecsSinceEpoch(attr->mtime);
     sftp_attributes_free(attr);
 
-    // Use the retrieved size to pre-allocate memory
+    // Read data
     data.content.reserve(data.stats.size);
-
     char buffer[16384];
     ssize_t bytesRead;
     while ((bytesRead = sftp_read(file, buffer, sizeof(buffer))) > 0) {
@@ -932,20 +990,15 @@ std::optional<FileDataAndStats>
     }
 
     if (bytesRead < 0) {
-        qWarning() << "Error reading data from remote file:" << path;
+        emit logMessage(
+            QString(tr("Error reading data from remote file '%1'. Error: %2"))
+                .arg(path).arg(ssh_get_error(m_session)));
         sftp_close(file);
-        sftp_free(sftp);
         return std::nullopt;
     }
 
     sftp_close(file);
-    sftp_free(sftp);
     return data;
-}
-
-RenderData RemoteSystem::getMeshData(const QString& path) {
-    RenderData renderData;
-    return renderData;
 }
 
 std::vector<FieldData> RemoteSystem::getResultData(const QString& path) {

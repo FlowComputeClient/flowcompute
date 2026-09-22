@@ -47,11 +47,22 @@ MeshWizard::MeshWizard(const QString& caseName, const SystemManager& systemMgr,
     setOption(QWizard::NoBackButtonOnStartPage);
 }
 
-bool MeshWizard::loadParseFiles() {
+bool MeshWizard::parseFiles() {
     // Access OpenFOAM path on server
     m_caseName = field("caseName").toString();
-    m_casePath = m_systemMgr.getData(m_caseName).casePath;
+    CaseData caseData = m_systemMgr.getData(m_caseName);
+    m_casePath = caseData.casePath;
+    m_isOpenCFD = caseData.caseType.testFlag(IsOpenCFD);
     auto system = m_systemMgr.getSystem(m_caseName);
+
+    // Check if files are present
+    QStringList meshFiles;
+    meshFiles << "blockMeshDict"
+        << (m_isOpenCFD ? "surfaceFeatureExtractDict" : "surfaceFeaturesDict")
+        << "snappyHexMeshDict";
+    QString meshFileString = meshFiles.join("\n");
+    QStringList results =
+        system->processPaths(meshFileString, PathOperationType::CHECK);
 
     // Declare variables
     QString fileName;
@@ -59,9 +70,9 @@ bool MeshWizard::loadParseFiles() {
     std::shared_ptr<OpenFoamDictionary> dict;
 
     // If blockMesh should be run
-    if (m_runBlockMesh) {
+    if (m_runBlockMesh && (results[0] == "0")) {
         // Load data
-        fileName = "system/blockMeshDict";
+        fileName = "system/" + meshFiles[0];
         fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
         if (fileData && !fileData.value().isEmpty()) {
@@ -74,7 +85,7 @@ bool MeshWizard::loadParseFiles() {
                 switch(action) {
                 case CaseIO::ParseErrorAction::EditFile:
                     emit createTextEditor(fileName.split('/').last(),
-                                          m_caseName + "/system", false);
+                        m_caseName + "/system/" + fileName, false);
                     reject();
                     return false;
                 case CaseIO::ParseErrorAction::Overwrite:
@@ -87,9 +98,9 @@ bool MeshWizard::loadParseFiles() {
     }
 
     // If surfaceFeatureExtract should be run
-    if (m_runExtract) {
+    if (m_runExtract && (results[1] == "0")) {
         // Load data
-        fileName = "system/surfaceFeatureExtractDict";
+        fileName = "system/" + meshFiles[1];
         fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
         if (fileData && !fileData.value().isEmpty()) {
@@ -103,7 +114,7 @@ bool MeshWizard::loadParseFiles() {
                 switch(action) {
                 case CaseIO::ParseErrorAction::EditFile:
                     emit createTextEditor(fileName.split('/').last(),
-                                          m_caseName + "/system", false);
+                                m_caseName + "/system/" + fileName, false);
                     reject();
                     return false;
                 case CaseIO::ParseErrorAction::Overwrite:
@@ -116,9 +127,9 @@ bool MeshWizard::loadParseFiles() {
     }
 
     // If snappyHexMesh should be run
-    if ((m_runCastellated) || (m_runSnap) || (m_runLayers)) {
+    if ((m_runCastellated || m_runSnap || m_runLayers) && (results[2] == "0")) {
         // Load data
-        fileName = "system/snappyHexMeshDict";
+        fileName = "system/" + meshFiles[2];
         fileData = system->getFileContent(
             m_casePath + "/" + m_caseName + "/" + fileName);
         if (fileData && !fileData.value().isEmpty()) {
@@ -136,7 +147,7 @@ bool MeshWizard::loadParseFiles() {
                 switch(action) {
                 case CaseIO::ParseErrorAction::EditFile:
                     emit createTextEditor(fileName.split('/').last(),
-                                          m_caseName + "/system", false);
+                                m_caseName + "/system/" + fileName, false);
                     reject();
                     return false;
                 case CaseIO::ParseErrorAction::Overwrite:
@@ -190,19 +201,13 @@ void MeshWizard::accept() {
         }
         */
 
-        // Determine which OpenFOAM release is used
-        QString dirName = QDir(openFoamPath).dirName();
-        const QRegularExpression foundationRegex("^openfoam\\d{2}$",
-            QRegularExpression::CaseInsensitiveOption);
-        bool isFoundation = foundationRegex.match(dirName).hasMatch();
-
         QString surfaceFeatureDictText =
             CaseIO::createSurfaceFeatureDict(m_surfaceFeatureMap,
                 openFoamPath);
 
         // Update file
-        QString fileName = (isFoundation) ? "/system/surfaceFeaturesDict" :
-                               "/system/surfaceFeatureExtractDict";
+        QString fileName = (m_isOpenCFD) ? "/system/surfaceFeatureExtractDict" :
+                               "/system/surfaceFeaturesDict";
         system->writeData(surfaceFeatureDictText.toUtf8(),
             m_casePath + "/" + m_caseName + fileName);
     }

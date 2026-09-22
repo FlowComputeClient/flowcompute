@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef WIZARDS_SOLVER_PAGE_30_PHYSICS_H_
-#define WIZARDS_SOLVER_PAGE_30_PHYSICS_H_
+#ifndef WIZARDS_SOLVER_PAGE_20_PHYSICS_H_
+#define WIZARDS_SOLVER_PAGE_20_PHYSICS_H_
 
 #include <QWizardPage>
 
@@ -25,6 +25,7 @@
 
 class SolverWizard;
 class QComboBox;
+class QGroupBox;
 class QTableWidget;
 class QTreeWidget;
 
@@ -36,6 +37,7 @@ class PhysicsPage : public QWizardPage {
         const FlowCompute::TurbulenceDatabase& turbModels,
         const std::map<QString, FlowCompute::TransportPropertyDef>&
             transportProperties, QWidget *parent);
+    int nextId() const override;
 
     // Accessors for the properties
     QString getTurbulenceModel() const { return m_selectedModel; }
@@ -52,23 +54,24 @@ class PhysicsPage : public QWizardPage {
 
  private:
     SolverWizard* m_solverWizard;
-    CaseIO::PhysicsConfig* m_cfg;
+    CaseIO::TurbulenceConfig* m_turbCfg;
+    CaseIO::TransportConfig* m_transCfg;
     std::vector<FlowCompute::SolverFamily> m_families;
     FlowCompute::TurbulenceDatabase m_turbModels;
     std::map<QString, FlowCompute::TransportPropertyDef> m_transportProperties;
 
+    QGroupBox* m_propertyGroup;
     QTreeWidget* m_turbulenceTree;
     QComboBox *m_transportModelCombo, *m_deltaModelCombo;
     QTableWidget* m_propertiesTable;
     QStringList standardProperties;
 
-    // Backing variables for the properties
-    QString m_selectedModel;
-    QString m_selectedCategory;
-    QString m_selectedSubCategory;
+    // Property variables
+    QString m_selectedModel, m_selectedCategory, m_selectedSubCategory;
+    bool m_isThermoRequired;
 
  private slots:
     void modelChanged();
 };
 
-#endif  // WIZARDS_SOLVER_PAGE_30_PHYSICS_H_
+#endif  // WIZARDS_SOLVER_PAGE_20_PHYSICS_H_

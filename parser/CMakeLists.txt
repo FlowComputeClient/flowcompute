@@ -28,6 +28,7 @@ add_library(Parser STATIC
     transport_properties.cpp
     turbulence_properties.h
     turbulence_properties.cpp
+    thermo_physical_properties.h thermo_physical_properties.cpp
 )
 
 # Link libraries

@@ -20,6 +20,13 @@ ddtSchemes
     default          %3;
 }
 
+// Specifies fields that require flux generation
+fluxRequired
+{
+    default          no;
+    %4
+}
+
 // Configures how cell-centered gradients are calculated
 gradSchemes
 {
@@ -30,21 +37,21 @@ gradSchemes
 divSchemes
 {
     default          none;
-    div(phi,U)       %4;
+    div(phi,U)       %5;
+    div(phi,k)       %6;
+    div(phi,epsilon) %6;
+    div(phi,omega)   %6;
+    div(phi,h)       %6;
+    div(phi,e)       %6;
     div(div(phi,U))  Gauss linear;
     div((nuEff*dev2(T(grad(U))))) Gauss linear;
-    div(phi,k)       bounded Gauss upwind;
-    div(phi,epsilon) bounded Gauss upwind;
-    div(phi,omega)   bounded Gauss upwind;
-    div(phi,h)       bounded Gauss upwind;
-    div(phi,e)       bounded Gauss upwind;
-    %5
+    %7
 }
 
 // Configures how diffusion terms are discretized
 laplacianSchemes
 {
-    default          Gauss linear %6;
+    default          Gauss linear %8;
 }
 
 // Specifies how cell-centered values are interpolated
@@ -56,7 +63,7 @@ interpolationSchemes
 // Configures how surface normal gradients are evaluated
 snGradSchemes
 {
-    default          %6;
+    default          %8;
 }
 
 // Computes distance to the nearest wall

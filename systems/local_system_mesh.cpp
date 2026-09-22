@@ -19,19 +19,10 @@
 
 #include <fstream>
 
-// Helpful vector operations
-struct Vec3 { float x, y, z; };
-inline Vec3 getVertex(const std::vector<float>& data, uint32_t localIdx) {
-    size_t base = static_cast<size_t>(localIdx) * 3;
-    return { data[base], data[base+1], data[base+2] };
-}
-inline float distSq(const Vec3& a, const Vec3& b) {
-    float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
-    return dx*dx + dy*dy + dz*dz;
-}
+#include "mesh_utils.h"
 
 // Determine if a file is ASCII or Binary
-FoamFormat getFoamFormat(const fs::path& path) {
+FoamFormat getFormat(const fs::path& path) {
     std::ifstream file(path);
     std::string line;
     while (std::getline(file, line)) {
@@ -47,41 +38,13 @@ FoamFormat getFoamFormat(const fs::path& path) {
     return FoamFormat::Unknown;
 }
 
-// Finds the start of binary data
-bool skipToBinary(std::ifstream& file, size_t& outElementCount) {
-    std::string token;
-    while (file >> token) {
-        if (!token.empty() &&
-            std::isdigit(static_cast<unsigned char>(token[0]))) {
-            try {
-                size_t count = std::stoull(token);
-                char c;
-                while (file.get(c)) {
-                    if (std::isspace(static_cast<unsigned char>(c))) {
-                        continue;
-                    }
-                    if (c == '(') {
-                        outElementCount = count;
-                        return true;
-                    }
-                    file.unget();
-                    break;
-                }
-            } catch (...) {
-                continue;
-            }
-        }
-    }
-    return false;
-}
-
 // Parses boundary file to extract patches
 std::vector<RenderPatch> parseBoundary(const fs::path& boundaryPath) {
     std::vector<RenderPatch> patches;
     std::ifstream file(boundaryPath);
     if (!file.is_open()) return patches;
 
-    // 1. Pre-process the stream to add spaces around punctuation
+    // Pre-process the stream
     std::stringstream ss;
     char c;
     while (file.get(c)) {
@@ -135,14 +98,14 @@ std::vector<RenderPatch> parseBoundary(const fs::path& boundaryPath) {
     return patches;
 }
 
-std::vector<double> readFoamPoints(const fs::path& path) {
-    FoamFormat format = getFoamFormat(path);
+std::vector<double> readPoints(const fs::path& path) {
+    FoamFormat format = getFormat(path);
     std::vector<double> rawPoints;
 
     if (format == FoamFormat::Binary) {
         std::ifstream file(path, std::ios::binary);
         size_t numPoints = 0;
-        if (skipToBinary(file, numPoints)) {
+        if (MeshUtils::skipToBinary(file, numPoints)) {
             rawPoints.resize(numPoints * 3);
             file.read(reinterpret_cast<char*>(
                           rawPoints.data()), numPoints * 3 * sizeof(double));
@@ -177,20 +140,20 @@ std::vector<double> readFoamPoints(const fs::path& path) {
     return rawPoints;
 }
 
-FaceList readFoamFaces(const fs::path& path) {
+FaceList readFaces(const fs::path& path) {
     FaceList result;
-    FoamFormat format = getFoamFormat(path);
+    FoamFormat format = getFormat(path);
 
     if (format == FoamFormat::Binary) {
         std::ifstream file(path, std::ios::binary);
         size_t totalOffsets = 0;
-        if (skipToBinary(file, totalOffsets)) {
+        if (MeshUtils::skipToBinary(file, totalOffsets)) {
             result.offsets.resize(totalOffsets);
             file.read(reinterpret_cast<char*>(
                 result.offsets.data()), totalOffsets * sizeof(int32_t));
         }
         size_t totalIndices = 0;
-        if (skipToBinary(file, totalIndices)) {
+        if (MeshUtils::skipToBinary(file, totalIndices)) {
             result.connectivity.resize(totalIndices);
             file.read(reinterpret_cast<char*>(
                 result.connectivity.data()), totalIndices * sizeof(int32_t));
@@ -273,44 +236,6 @@ FaceList readFoamFaces(const fs::path& path) {
     return result;
 }
 
-// Triangulate polygons
-void triangulatePolygon(const std::vector<uint32_t>& poly,
-        std::vector<float>& vertexData, std::vector<uint32_t>& outIndices) {
-
-    const size_t N = poly.size();
-    if (N < 3) return;
-
-    // Base Case: Triangle is already perfectly wound
-    if (N == 3) {
-        outIndices.insert(outIndices.end(), {poly[0], poly[1], poly[2]});
-        return;
-    }
-
-    // Calculate the face centroid
-    Vec3 center = {0.0f, 0.0f, 0.0f};
-    for (uint32_t idx : poly) {
-        Vec3 v = getVertex(vertexData, idx);
-        center.x += v.x;
-        center.y += v.y;
-        center.z += v.z;
-    }
-    center.x /= N;
-    center.y /= N;
-    center.z /= N;
-
-    // Append the new centroid to the vertex buffer
-    uint32_t centerIdx = static_cast<uint32_t>(vertexData.size() / 3);
-    vertexData.push_back(center.x);
-    vertexData.push_back(center.y);
-    vertexData.push_back(center.z);
-
-    // Create a triangle fan around the centroid
-    for (size_t i = 0; i < N; ++i) {
-        uint32_t nextI = (i + 1) % N;
-        outIndices.insert(outIndices.end(), {poly[i], poly[nextI], centerIdx});
-    }
-}
-
 RenderData LocalSystem::getMeshData(const QString& path) {
     RenderData renderData;
 
@@ -323,13 +248,13 @@ RenderData LocalSystem::getMeshData(const QString& path) {
         return renderData;
     }
 
-    std::vector<double> rawPoints = readFoamPoints(polyDir / "points");
+    std::vector<double> rawPoints = readPoints(polyDir / "points");
     if (rawPoints.empty()) {
         // std::cerr << "Failed to parse points file.\n";
         return renderData;
     }
 
-    FaceList faces = readFoamFaces(polyDir / "faces");
+    FaceList faces = readFaces(polyDir / "faces");
     if (faces.offsets.empty() || faces.connectivity.empty()) {
         // std::cerr << "Failed to parse faces file.\n";
         return renderData;
@@ -426,8 +351,8 @@ RenderData LocalSystem::getMeshData(const QString& path) {
                     localFaceLoop[(i + 1) % numVerts]);
             }
 
-            triangulatePolygon(std::move(localFaceLoop),
-                               renderData.data, renderData.indices);
+            MeshUtils::triangulatePolygon(std::move(localFaceLoop),
+                renderData.data, renderData.indices);
         }
 
         patch.indexCount =

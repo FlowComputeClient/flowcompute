@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "function_object.h"
 
 #include <QDebug>
@@ -249,39 +266,41 @@ std::vector<std::unique_ptr<CaseIO::FunctionObject>>
 }
 
 // Create functions block
-QString CaseIO::createFunctionsBlock(
+QString CaseIO::createFunctionsBlock(bool isOpenCFD,
     const std::vector<std::unique_ptr<FunctionObject>>& functions) {
     // Create string and stream
     QString blockString;
     QTextStream blockStream(&blockString);
 
     // Initialize and populate the functions block
-    blockStream << "functions\n{\n";
+    if (isOpenCFD) {
+        blockStream << "functions\n{\n";
+    }
     for (const auto& function: functions) {
         FunctionObject* funcPtr = function.get();
         switch(funcPtr->type) {
         case FunctionObject::FuncObjType::forces:
-            createForcesBlock(blockStream,
+            createForcesBlock(blockStream, isOpenCFD,
                 static_cast<const ForcesConfig*>(funcPtr));
             break;
         case FunctionObject::FuncObjType::forceCoeffs:
-            createForceCoeffsBlock(blockStream,
+            createForceCoeffsBlock(blockStream, isOpenCFD,
                 static_cast<const ForceCoeffsConfig*>(funcPtr));
             break;
         case FunctionObject::FuncObjType::fieldMinMax:
-            createFieldMinMaxBlock(blockStream,
+            createFieldMinMaxBlock(blockStream, isOpenCFD,
                 static_cast<const FieldMinMaxConfig*>(funcPtr));
             break;
         case FunctionObject::FuncObjType::probes:
-            createProbesBlock(blockStream,
+            createProbesBlock(blockStream, isOpenCFD,
                 static_cast<const ProbesConfig*>(funcPtr));
             break;
         case FunctionObject::FuncObjType::surfaces:
-            createSurfacesBlock(blockStream,
+            createSurfacesBlock(blockStream, isOpenCFD,
                 static_cast<const SurfacesConfig*>(funcPtr));
             break;
         case FunctionObject::FuncObjType::yPlus:
-            createYPlusBlock(blockStream,
+            createYPlusBlock(blockStream, isOpenCFD,
                 static_cast<const YPlusConfig*>(funcPtr));
             break;
         default:
@@ -291,11 +310,13 @@ QString CaseIO::createFunctionsBlock(
     }
 
     // Close the functions block
-    blockStream << "}\n";
+    if (isOpenCFD) {
+        blockStream << "}\n";
+    }
     return blockString;
 }
 
-void CaseIO::createForcesBlock(QTextStream& stream,
+void CaseIO::createForcesBlock(QTextStream& stream, bool isOpenCFD,
                                const ForcesConfig* config) {
     if (!config)
         return;
@@ -309,23 +330,22 @@ void CaseIO::createForcesBlock(QTextStream& stream,
         controlEnum.valueToKey(static_cast<int>(config->writeControl));
 
     // Write directly to the parent stream
-    stream << "    " << config->name << "\n"
-           << "    {\n"
-           << "        type            forces;\n"
-           << "        libs            (\"libforces.so\");\n\n";
-
-    stream << "        active          " << boolStr(config->active) << ";\n"
-           << "        executeControl  " << execControl << ";\n"
-           << "        executeInterval " << config->executeInterval << ";\n"
-           << "        writeControl    " << writeControl << ";\n"
-           << "        writeInterval   " << config->writeInterval << ";\n"
-           << "        log             " <<
+    stream << "" << config->name << "\n"
+           << "{\n"
+           << "    type            forces;\n"
+           << "    libs            (\"libforces.so\");\n\n"
+           << "    active          " << boolStr(config->active) << ";\n"
+           << "    executeControl  " << execControl << ";\n"
+           << "    executeInterval " << config->executeInterval << ";\n"
+           << "    writeControl    " << writeControl << ";\n"
+           << "    writeInterval   " << config->writeInterval << ";\n"
+           << "    log             " <<
         boolStr(config->logOutput) << ";\n\n";
 
-    stream << "        writeFields     " <<
+    stream << "    writeFields     " <<
         boolStr(config->writeFields) << ";\n";
 
-    stream << "        patches         (";
+    stream << "    patches         (";
     for (int i = 0; i < config->patches.size(); ++i) {
         stream << config->patches[i];
         if (i < config->patches.size() - 1) {
@@ -334,26 +354,26 @@ void CaseIO::createForcesBlock(QTextStream& stream,
     }
     stream << ");\n\n";
 
-    stream << "        p               " << config->pName << ";\n"
-           << "        U               " << config->UName << ";\n"
-           << "        rho             " << config->rhoName << ";\n";
+    stream << "    p               " << config->pName << ";\n"
+           << "    U               " << config->UName << ";\n"
+           << "    rho             " << config->rhoName << ";\n";
     if (config->rhoName == "rhoInf") {
-        stream << "        rhoInf          " << config->rhoInf << ";\n";
+        stream << "    rhoInf          " << config->rhoInf << ";\n";
     }
-    stream << "        pRef            " << config->pRef << ";\n"
-           << "        porosity        " <<
+    stream << "    pRef            " << config->pRef << ";\n"
+           << "    porosity        " <<
         boolStr(config->includePorosity) << ";\n";
 
-    stream << "        CofR            ("
+    stream << "    CofR            ("
            << config->centerOfRotation[0] << " "
            << config->centerOfRotation[1] << " "
            << config->centerOfRotation[2] << ");\n";
 
-    stream << "    }\n";
+    stream << "}\n";
 }
 
 // Create text of forceCoeffs function object
-void CaseIO::createForceCoeffsBlock(QTextStream& stream,
+void CaseIO::createForceCoeffsBlock(QTextStream& stream, bool isOpenCFD,
                                     const ForceCoeffsConfig* config) {
     if (!config)
         return;
@@ -369,26 +389,26 @@ void CaseIO::createForceCoeffsBlock(QTextStream& stream,
         controlEnum.valueToKey(static_cast<int>(config->writeControl));
 
     // Write dictionary header directly to the parent stream
-    stream << "    " << config->name << "\n"
-           << "    {\n"
-           << "        type            forceCoeffs;\n"
-           << "        libs            (\"libforces.so\");\n\n";
+    stream << "" << config->name << "\n"
+           << "{\n"
+           << "    type            forceCoeffs;\n"
+           << "    libs            (\"libforces.so\");\n\n";
 
     // Write base FunctionObject parameters
-    stream << "        active          " << boolToStr(config->active) << ";\n"
-           << "        executeControl  " << execControl << ";\n"
-           << "        executeInterval " << config->executeInterval << ";\n"
-           << "        writeControl    " << writeControl << ";\n"
-           << "        writeInterval   " << config->writeInterval << ";\n"
-           << "        log             " <<
+    stream << "    active          " << boolToStr(config->active) << ";\n"
+           << "    executeControl  " << execControl << ";\n"
+           << "    executeInterval " << config->executeInterval << ";\n"
+           << "    writeControl    " << writeControl << ";\n"
+           << "    writeInterval   " << config->writeInterval << ";\n"
+           << "    log             " <<
         boolToStr(config->logOutput) << ";\n\n";
 
     // Write ForceCoeffsConfig specific parameters
-    stream << "        writeFields     " <<
+    stream << "    writeFields     " <<
         boolToStr(config->writeFields) << ";\n";
 
     // Format the patch list
-    stream << "        patches         (";
+    stream << "    patches         (";
     for (int i = 0; i < config->patches.size(); ++i) {
         stream << config->patches[i];
         if (i < config->patches.size() - 1) {
@@ -398,46 +418,46 @@ void CaseIO::createForceCoeffsBlock(QTextStream& stream,
     stream << ");\n\n";
 
     // Output physical and reference fields
-    stream << "        p               " << config->pName << ";\n"
-           << "        U               " << config->UName << ";\n"
-           << "        rho             " << config->rhoName << ";\n";
+    stream << "    p               " << config->pName << ";\n"
+           << "    U               " << config->UName << ";\n"
+           << "    rho             " << config->rhoName << ";\n";
     if (config->rhoName == "rhoInf") {
-        stream << "        rhoInf          " << config->rhoInf << ";\n";
+        stream << "    rhoInf          " << config->rhoInf << ";\n";
     }
-    stream << "        pRef            " << config->pRef << ";\n"
-           << "        magUInf         " << config->magUInf << ";\n"
-           << "        lRef            " << config->lRef << ";\n"
-           << "        Aref            " << config->aRef << ";\n"
-           << "        porosity        " <<
+    stream << "    pRef            " << config->pRef << ";\n"
+           << "    magUInf         " << config->magUInf << ";\n"
+           << "    lRef            " << config->lRef << ";\n"
+           << "    Aref            " << config->aRef << ";\n"
+           << "    porosity        " <<
         boolToStr(config->includePorosity) << ";\n\n";
 
     // Format arrays as: (x y z)
-    stream << "        CofR            ("
+    stream << "    CofR            ("
            << config->centerOfRotation[0] << " "
            << config->centerOfRotation[1] << " "
            << config->centerOfRotation[2] << ");\n";
 
-    stream << "        liftDir         ("
+    stream << "    liftDir         ("
            << config->liftDir[0] << " "
            << config->liftDir[1] << " "
            << config->liftDir[2] << ");\n";
 
-    stream << "        dragDir         ("
+    stream << "    dragDir         ("
            << config->dragDir[0] << " "
            << config->dragDir[1] << " "
            << config->dragDir[2] << ");\n";
 
-    stream << "        pitchAxis       ("
+    stream << "    pitchAxis       ("
            << config->pitchAxis[0] << " "
            << config->pitchAxis[1] << " "
            << config->pitchAxis[2] << ");\n";
 
     // Close the dictionary block
-    stream << "    }\n";
+    stream << "}\n";
 }
 
 // Create text for fieldMinMax function object
-void CaseIO::createFieldMinMaxBlock(QTextStream& stream,
+void CaseIO::createFieldMinMaxBlock(QTextStream& stream, bool isOpenCFD,
                                     const FieldMinMaxConfig* config) {
     if (!config)
         return;
@@ -452,47 +472,62 @@ void CaseIO::createFieldMinMaxBlock(QTextStream& stream,
     QString writeControl =
         controlEnum.valueToKey(static_cast<int>(config->writeControl));
 
-    // Map Mode enum to string and convert to lowercase for OpenFOAM syntax
-    QMetaEnum modeEnum = QMetaEnum::fromType<FieldMinMaxConfig::Mode>();
-    QString modeStr = modeEnum.valueToKey(static_cast<int>(config->mode));
-    modeStr = modeStr.toLower();
-
-    // Write dictionary header
-    stream << "    " << config->name << "\n"
-           << "    {\n"
-           << "        type            fieldMinMax;\n"
-           << "        libs            (\"libfieldFunctionObjects.so\");\n\n";
-
-    // Write base FunctionObject parameters
-    stream << "        active          " << boolToStr(config->active) << ";\n"
-           << "        executeControl  " << execControl << ";\n"
-           << "        executeInterval " << config->executeInterval << ";\n"
-           << "        writeControl    " << writeControl << ";\n"
-           << "        writeInterval   " << config->writeInterval << ";\n"
-           << "        log             " <<
-        boolToStr(config->logOutput) << ";\n\n";
-
-    // Write FieldMinMaxConfig specific parameters
-    stream << "        mode            " << modeStr << ";\n"
-           << "        location        " <<
-        boolToStr(config->location) << ";\n\n";
-
-    // Format the fields list as: (field1 field2 ...)
-    stream << "        fields          (";
+    // Format the fields list
+    QString fieldsStr = "(";
     for (int i = 0; i < config->fields.size(); ++i) {
-        stream << config->fields[i];
+        fieldsStr += config->fields[i];
         if (i < config->fields.size() - 1) {
-            stream << " ";
+            fieldsStr += " ";
         }
     }
-    stream << ");\n";
+    fieldsStr += ")";
 
-    // Close the dictionary block
-    stream << "    }\n";
+    if (isOpenCFD) {
+        QMetaEnum modeEnum = QMetaEnum::fromType<FieldMinMaxConfig::Mode>();
+        QString modeStr = modeEnum.valueToKey(static_cast<int>(config->mode));
+        modeStr = modeStr.toLower();
+
+        // Write ESI fieldMinMax dictionary
+        stream << "" << config->name << "\n"
+       << "{\n"
+       << "    type            fieldMinMax;\n"
+       << "    libs            (\"libfieldFunctionObjects.so\");\n\n"
+       << "    active          " << boolToStr(config->active) << ";\n"
+       << "    executeControl  " << execControl << ";\n"
+       << "    executeInterval " << config->executeInterval << ";\n"
+       << "    writeControl    " << writeControl << ";\n"
+       << "    writeInterval   " << config->writeInterval << ";\n"
+       << "    log             " << boolToStr(config->logOutput) << ";\n\n"
+       << "    mode            " << modeStr << ";\n"
+       << "    location        " << boolToStr(config->location) << ";\n\n"
+       << "    fields          " << fieldsStr << ";\n"
+       << "}\n\n";
+    } else {
+        // Write Foundation dual volFieldValue dictionaries
+        QStringList operations = {"min", "max"};
+        for (const QString& op : operations) {
+            stream << "" << config->name << "_" << op << "\n"
+           << "{\n"
+           << "    type            volFieldValue;\n"
+           << "    libs            (\"libfieldFunctionObjects.so\");\n"
+           << "    cellZone        all;\n"
+           << "    operation       " << op << ";\n\n"
+           << "    active          " << boolToStr(config->active) << ";\n"
+           << "    executeControl  " << execControl << ";\n"
+           << "    executeInterval " << config->executeInterval << ";\n"
+           << "    writeControl    " << writeControl << ";\n"
+           << "    writeInterval   " << config->writeInterval << ";\n"
+           << "    log             " << boolToStr(config->logOutput) << ";\n\n"
+           << "    writeFields     false;\n"
+           << "    fields          " << fieldsStr << ";\n"
+           << "}\n\n";
+        }
+    }
 }
 
 // Create text for probes function object
-void CaseIO::createProbesBlock(QTextStream& stream, const ProbesConfig* config) {
+void CaseIO::createProbesBlock(QTextStream& stream, bool isOpenCFD,
+                               const ProbesConfig* config) {
     if (!config)
         return;
 
@@ -514,33 +549,35 @@ void CaseIO::createProbesBlock(QTextStream& stream, const ProbesConfig* config) 
         interpEnum.valueToKey(static_cast<int>(config->interpolationScheme));
 
     // Write dictionary header
-    stream << "    " << config->name << "\n"
-           << "    {\n"
-           << "        type            probes;\n"
-           << "        libs            (\"libsampling.so\");\n\n";
+    stream << "" << config->name << "\n"
+           << "{\n"
+           << "    type            probes;\n";
+    if (isOpenCFD) {
+        stream << "    libs            (\"libsampling.so\");\n\n";
+    }
 
     // Write base FunctionObject parameters
-    stream << "        active          " << boolToStr(config->active) << ";\n"
-           << "        executeControl  " << execControl << ";\n"
-           << "        executeInterval " << config->executeInterval << ";\n"
-           << "        writeControl    " << writeControl << ";\n"
-           << "        writeInterval   " << config->writeInterval << ";\n"
-           << "        log             " <<
+    stream << "    active          " << boolToStr(config->active) << ";\n"
+           << "    executeControl  " << execControl << ";\n"
+           << "    executeInterval " << config->executeInterval << ";\n"
+           << "    writeControl    " << writeControl << ";\n"
+           << "    writeInterval   " << config->writeInterval << ";\n"
+           << "    log             " <<
         boolToStr(config->logOutput) << ";\n\n";
 
     // Write ProbesConfig specific parameters
-    stream << "        interpolationScheme " << interpScheme << ";\n"
-           << "        fixedLocations      " <<
+    stream << "    interpolationScheme " << interpScheme << ";\n"
+           << "    fixedLocations      " <<
         boolToStr(config->fixedLocations) << ";\n"
-           << "        includeOutOfBounds  " <<
+           << "    includeOutOfBounds  " <<
         boolToStr(config->includeOutOfBounds) << ";\n"
-           << "        verbose             " <<
+           << "    verbose             " <<
         boolToStr(config->verbose) << ";\n"
-           << "        sampleOnExecute     " <<
+           << "    sampleOnExecute     " <<
         boolToStr(config->sampleOnExecute) << ";\n\n";
 
     // Format the fields list as: (field1 field2 ...)
-    stream << "        fields              (";
+    stream << "    fields              (";
     for (int i = 0; i < config->fields.size(); ++i) {
         stream << config->fields[i];
         if (i < config->fields.size() - 1) {
@@ -550,20 +587,20 @@ void CaseIO::createProbesBlock(QTextStream& stream, const ProbesConfig* config) 
     stream << ");\n\n";
 
     // Format probeLocations as a list of coordinate vectors
-    stream << "        probeLocations\n"
-           << "        (\n";
+    stream << "    probeLocations\n"
+           << "    (\n";
     for (const auto& loc : config->probeLocations) {
-        stream << "            (" <<
+        stream << "        (" <<
             loc.x() << " " << loc.y() << " " << loc.z() << ")\n";
     }
-    stream << "        );\n";
+    stream << "    );\n";
 
     // Close the dictionary block
-    stream << "    }\n";
+    stream << "}\n";
 }
 
 // Create text for surfaces function object
-void CaseIO::createSurfacesBlock(QTextStream& stream,
+void CaseIO::createSurfacesBlock(QTextStream& stream, bool isOpenCFD,
                                  const SurfacesConfig* config) {
     if (!config)
         return;
@@ -589,26 +626,28 @@ void CaseIO::createSurfacesBlock(QTextStream& stream,
         interpEnum.valueToKey(static_cast<int>(config->interpolationScheme));
 
     // Write dictionary header
-    stream << "    " << config->name << "\n"
-           << "    {\n"
-           << "        type            surfaces;\n"
-           << "        libs            (\"libsampling.so\");\n\n";
+    stream << "" << config->name << "\n"
+           << "{\n"
+           << "    type            surfaces;\n";
+    if (isOpenCFD) {
+        stream << "    libs            (\"libsampling.so\");\n\n";
+    }
 
     // Write base FunctionObject parameters
-    stream << "        active          " << boolToStr(config->active) << ";\n"
-           << "        executeControl  " << execControl << ";\n"
-           << "        executeInterval " << config->executeInterval << ";\n"
-           << "        writeControl    " << writeControl << ";\n"
-           << "        writeInterval   " << config->writeInterval << ";\n"
-           << "        log             " <<
+    stream << "    active          " << boolToStr(config->active) << ";\n"
+           << "    executeControl  " << execControl << ";\n"
+           << "    executeInterval " << config->executeInterval << ";\n"
+           << "    writeControl    " << writeControl << ";\n"
+           << "    writeInterval   " << config->writeInterval << ";\n"
+           << "    log             " <<
         boolToStr(config->logOutput) << ";\n\n";
 
         // Write SurfacesConfig specific parameters
-        stream << "        surfaceFormat   " << surfFormat << ";\n"
-        << "        interpolationScheme " << interpScheme << ";\n\n";
+        stream << "    surfaceFormat   " << surfFormat << ";\n"
+        << "    interpolationScheme " << interpScheme << ";\n\n";
 
         // Format the fields list as: (field1 field2 ...)
-        stream << "        fields          (";
+        stream << "    fields          (";
     for (int i = 0; i < config->fields.size(); ++i) {
             stream << config->fields[i];
             if (i < config->fields.size() - 1) {
@@ -618,8 +657,8 @@ void CaseIO::createSurfacesBlock(QTextStream& stream,
     stream << ");\n\n";
 
     // Format the surfaces sub-dictionary
-    stream << "        surfaces\n"
-           << "        {\n";
+    stream << "    surfaces\n"
+           << "    {\n";
 
     QMetaEnum surfaceTypeEnum = QMetaEnum::fromType<SurfaceDef::SurfaceType>();
 
@@ -627,28 +666,28 @@ void CaseIO::createSurfacesBlock(QTextStream& stream,
             QString surfType =
                 surfaceTypeEnum.valueToKey(static_cast<int>(surface.type));
 
-            stream << "            " << surface.name << "\n"
-            << "            {\n"
-            << "                type            " << surfType << ";\n";
+            stream << "        " << surface.name << "\n"
+            << "        {\n"
+            << "            type            " << surfType << ";\n";
 
             // Output custom parameters
             for (const auto& [key, value] : surface.parameters) {
-                stream << "                " << key << " " << value << ";\n";
+                stream << "            " << key << " " << value << ";\n";
         }
-        stream << "            }\n";
+        stream << "        }\n";
     }
 
-    stream << "        }\n";
+    stream << "    }\n";
 
     // Close the parent dictionary block
-    stream << "    }\n";
+    stream << "}\n";
 }
 
 // Create text for yPlus function object
-void CaseIO::createYPlusBlock(QTextStream& stream, const YPlusConfig* config) {
-    if (!config) {
+void CaseIO::createYPlusBlock(QTextStream& stream, bool isOpenCFD,
+                              const YPlusConfig* config) {
+    if (!config)
         return;
-    }
 
     // Convert boolean values to "true"/"false"
     auto boolToStr = [](bool val) { return val ? "true" : "false"; };
@@ -662,22 +701,24 @@ void CaseIO::createYPlusBlock(QTextStream& stream, const YPlusConfig* config) {
         controlEnum.valueToKey(static_cast<int>(config->writeControl));
 
     // Write dictionary header
-    stream << "    " << config->name << "\n"
-           << "    {\n"
-           << "        type            yPlus;\n"
-           << "        libs            (\"libfieldFunctionObjects.so\");\n\n";
+    stream << "" << config->name << "\n"
+           << "{\n"
+           << "    type            yPlus;\n";
+    if (isOpenCFD) {
+        stream << "    libs            (\"libfieldFunctionObjects.so\");\n\n";
+    }
 
     // Write base FunctionObject parameters
-    stream << "        active          " << boolToStr(config->active) << ";\n"
-           << "        executeControl  " << execControl << ";\n"
-           << "        executeInterval " << config->executeInterval << ";\n"
-           << "        writeControl    " << writeControl << ";\n"
-           << "        writeInterval   " << config->writeInterval << ";\n"
-           << "        log             " <<
+    stream << "    active          " << boolToStr(config->active) << ";\n"
+           << "    executeControl  " << execControl << ";\n"
+           << "    executeInterval " << config->executeInterval << ";\n"
+           << "    writeControl    " << writeControl << ";\n"
+           << "    writeInterval   " << config->writeInterval << ";\n"
+           << "    log             " <<
         boolToStr(config->logOutput) << ";\n\n";
 
     // Write YPlusConfig specific parameters
-    stream << "        patches         (";
+    stream << "    patches         (";
     for (int i = 0; i < config->patches.size(); ++i) {
         stream << config->patches[i];
         if (i < config->patches.size() - 1) {
@@ -687,5 +728,5 @@ void CaseIO::createYPlusBlock(QTextStream& stream, const YPlusConfig* config) {
     stream << ");\n";
 
     // Close the dictionary block
-    stream << "    }\n";
+    stream << "}\n";
 }

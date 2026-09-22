@@ -17,7 +17,6 @@
 
 #include "wizard_postprocessing.h"
 
-#include <QDir>
 #include <QMessageBox>
 #include <QRegularExpression>
 
@@ -81,6 +80,16 @@ bool PostprocessingWizard::parseFile() {
 void PostprocessingWizard::accept() {
     QWizard::accept();
 
+    // End processing if there are no function objects
+    if (m_functionObjects.empty())
+        return;
+
+    // Access data about the case
+    CaseData caseData = m_systemMgr.getData(m_caseName);
+    QString casePath = caseData.casePath + "/" + m_caseName;
+    QString openFoamPath = caseData.openFoamPath;
+    bool isOpenCFD = m_systemMgr.isOpenCFD(m_caseName);
+
     // Access the tasks page
     TasksPage* tasksPage = qobject_cast<TasksPage*>(page(Page_Tasks));
     if (!tasksPage) {
@@ -91,7 +100,7 @@ void PostprocessingWizard::accept() {
     // Create the dictionary text
     QString funcText = "FoamFile\n{\n    version 2.0;\n    format ascii;\n"
                 "    class dictionary;\n    object postProcessDict;\n}\n\n" +
-                CaseIO::createFunctionsBlock(m_functionObjects);
+                CaseIO::createFunctionsBlock(isOpenCFD, m_functionObjects);
 
     // Access server if necessary
     auto system = m_systemMgr.getSystem(m_caseName);
@@ -101,35 +110,18 @@ void PostprocessingWizard::accept() {
         return;
     }
 
-    // Write data to dictionary file
-    CaseData caseData = m_systemMgr.getData(m_caseName);
-    QString casePath = caseData.casePath + "/" + m_caseName;
-    QString dictPath = QDir::cleanPath(casePath + "/system/postProcessDict");
+    // Write data to dictionary
+    QString dictPath = casePath + "/system/postProcessDict";
     system->writeData(funcText.toUtf8(), dictPath);
 
-    // End processing if there are no function objects
-    if (m_functionObjects.empty())
-        return;
-
-    // Determine which OpenFOAM installation is being used
-    QRegularExpression re("openfoam-?v?(\\d+)",
-                          QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatch match = re.match(caseData.openFoamPath);
-    bool isESI = true;
-    if (match.hasMatch()) {
-        QString digits = match.captured(1);
-        isESI = digits.toInt() > 100;
-    } else {
-        qDebug() << "Couldn't read OpenFOAM path: " << caseData.openFoamPath;
-    }
-
-    // Form the initial command
+    // Form the post-processing command
     QString baseCmd;
+    QRegularExpressionMatch match;
     std::optional<QByteArray> fileData =
         system->getFileContent(casePath + "/system/controlDict");
-    if (fileData && !fileData.value().isEmpty()) {
+    if (fileData && !fileData->isEmpty()) {
         QString content = QString::fromUtf8(fileData.value());
-        if (isESI) {
+        if (isOpenCFD) {
             QRegularExpression
                 appRegex(QStringLiteral("application\\s+([\\w\\-]+)\\s*;"));
             match = appRegex.match(content);
@@ -180,10 +172,8 @@ void PostprocessingWizard::accept() {
     }
 
     // Launch the postProcess utility
-    QString openFoamPath = caseData.openFoamPath;
     QString command =
         QString("cd %1; source %2/etc/bashrc; " + cmdArgs.join(" ")).
             arg(casePath, openFoamPath);
-    system->launchLongUtility(
-        command, m_caseName, UtilityType::POSTPROCESS);
+    system->launchLongUtility(command, m_caseName, UtilityType::POSTPROCESS);
 }

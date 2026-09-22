@@ -18,6 +18,7 @@
 #include "editors/tab_widget.h"
 
 #include <QMainWindow>
+#include <QMenu>
 #include <QMessageBox>
 #include <QStringBuilder>
 
@@ -28,13 +29,56 @@ TabWidget::TabWidget(QMainWindow *parent) : QTabWidget(parent) {
     window = parent;
 
     // Set the custom tab bar
-    setTabBar(new TabBar());
+    TabBar* customTabBar = new TabBar();
+    setTabBar(customTabBar);
 
     // Configure behavior
     setMovable(true);
     setTabsClosable(true);
     connect(this, &QTabWidget::tabCloseRequested, this, [this](int index) {
         destroyTab(index, false);
+    });
+
+    // Configure context menu
+    customTabBar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(customTabBar, &QWidget::customContextMenuRequested, this,
+    [this, customTabBar](const QPoint& pos) {
+
+        // Determine which specific tab was right-clicked
+        int clickedIndex = customTabBar->tabAt(pos);
+        if (clickedIndex == -1 && count() == 0) return;
+
+        QMenu menu(this);
+        QAction* closeOthersAction = nullptr;
+        QAction* closeRightAction = nullptr;
+
+        // Only show targeted actions if a specific tab was clicked
+        if (clickedIndex != -1) {
+            closeOthersAction = menu.addAction(tr("Close Other Tabs"));
+            closeRightAction = menu.addAction(tr("Close Tabs to the Right"));
+            menu.addSeparator();
+        }
+        QAction* closeAllAction = menu.addAction(tr("Close All Tabs"));
+
+        // Execute menu at global cursor position
+        QAction* selectedAction = menu.exec(customTabBar->mapToGlobal(pos));
+
+        // Iterate backward to prevent index shifting bugs
+        if (selectedAction == closeOthersAction) {
+            for (int i = count() - 1; i >= 0; --i) {
+                if (i != clickedIndex) {
+                    destroyTab(i, false);
+                }
+            }
+        } else if (selectedAction == closeAllAction) {
+            for (int i = count() - 1; i >= 0; --i) {
+                destroyTab(i, false);
+            }
+        } else if (selectedAction == closeRightAction) {
+            for (int i = count() - 1; i > clickedIndex; --i) {
+                destroyTab(i, false);
+            }
+        }
     });
 }
 

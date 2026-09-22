@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_20_TUTORIAL_H_
-#define PAGE_20_TUTORIAL_H_
+#ifndef WIZARDS_NEW_CASE_PAGE_20_TUTORIAL_H_
+#define WIZARDS_NEW_CASE_PAGE_20_TUTORIAL_H_
 
 class QLineEdit;
 class QTreeWidget;
@@ -44,4 +44,4 @@ class TutorialPage : public QWizardPage {
                               const QStringList& paths);
 };
 
-#endif  // PAGE_20_TUTORIAL_H_
+#endif  // WIZARDS_NEW_CASE_PAGE_20_TUTORIAL_H_

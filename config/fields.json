@@ -2,27 +2,57 @@
   "U": {
     "class": "volVectorField",
     "dimensions": "[0 1 -1 0 0 0 0]",
-    "default": [0, 0, 0]
+    "default": [0, 0, 0],
+        "solver": "smoothSolver",
+        "smoother": "symGaussSeidel",
+        "tolerance": 1e-5,
+        "relTol": 0.1,
+    "relaxation": 0.7,
+    "isFieldsRelaxation": false
   },
   "p": {
     "class": "volScalarField",
     "dimensions": "[0 2 -2 0 0 0 0]",
-    "default": 0
+    "default": 0,
+        "solver": "GAMG",
+        "smoother": "GaussSeidel",
+        "tolerance": 1e-6,
+        "relTol": 0.05,
+        "relaxation": 0.3,
+    "isFieldsRelaxation": true
   },
   "T": {
     "class": "volScalarField",
     "dimensions": "[0 0 0 1 0 0 0]",
-    "default": 300
+    "default": 300,
+        "solver": "smoothSolver",
+        "smoother": "symGaussSeidel",
+        "tolerance": 1e-5,
+        "relTol": 0.1,
+        "relaxation": 0.9,
+    "isFieldsRelaxation": false
   },
   "k": {
     "class": "volScalarField",
     "dimensions": "[0 2 -2 0 0 0 0]",
-    "default": 1e-6
+    "default": 1e-6,
+        "solver": "smoothSolver",
+        "smoother": "symGaussSeidel",
+        "tolerance": 1e-5,
+        "relTol": 0.1,
+        "relaxation": 0.7,
+    "isFieldsRelaxation": false
   },
   "epsilon": {
     "class": "volScalarField",
     "dimensions": "[0 2 -3 0 0 0 0]",
-    "default": 1e-6
+    "default": 1e-6,
+        "solver": "smoothSolver",
+        "smoother": "symGaussSeidel",
+        "tolerance": 1e-5,
+        "relTol": 0.1,
+        "relaxation": 0.7,
+    "isFieldsRelaxation": false
   },
   "nut": {
     "class": "volScalarField",
@@ -32,17 +62,29 @@
   "rho": {
     "class": "volScalarField",
     "dimensions": "[1 -3 0 0 0 0 0]",
-    "default": 1.0
+    "default": 1.0,
+        "relaxation": 0.25,
+    "isFieldsRelaxation": true
   },
   "alpha": {
     "class": "volScalarField",
     "dimensions": "[0 0 0 0 0 0 0]",
-    "default": 0.0
+    "default": 0.0,
+        "solver": "smoothSolver",
+        "smoother": "symGaussSeidel",
+        "tolerance": 1e-8,
+        "relTol": 0
   },
   "omega": {
     "class": "volScalarField",
     "dimensions": "[0 0 -1 0 0 0 0]",
-    "default": 1.0
+    "default": 1.0,
+        "solver": "smoothSolver",
+        "smoother": "symGaussSeidel",
+        "tolerance": 1e-5,
+        "relTol": 0.1,
+        "relaxation": 0.7,
+    "isFieldsRelaxation": false
   },
   "phi": {
     "class": "surfaceScalarField",
@@ -52,21 +94,39 @@
   "p_rgh": {
     "class": "volScalarField",
     "dimensions": "[0 2 -2 0 0 0 0]",
-    "default": 0
+    "default": 0,
+        "solver": "GAMG",
+        "smoother": "GaussSeidel",
+        "tolerance": 1e-6,
+        "relTol": 0.05,
+        "relaxation": 0.3,
+    "isFieldsRelaxation": true
   },
   "alphat": {
     "class": "volScalarField",
-    "dimensions": "[0 2 -1 0 0 0 0]",
+    "dimensions": "[1 -1 -1 0 0 0 0]",
     "default": 0
   },
   "nuTilda": {
     "class": "volScalarField",
     "dimensions": "[0 2 -1 0 0 0 0]",
-    "default": 0
+    "default": 0,
+        "solver": "smoothSolver",
+        "smoother": "symGaussSeidel",
+        "tolerance": 1e-5,
+        "relTol": 0.1,
+        "relaxation": 0.7,
+    "isFieldsRelaxation": false
   },
   "R": {
     "class": "volSymmTensorField",
     "dimensions": "[0 2 -2 0 0 0 0]",
-    "default": [0, 0, 0, 0, 0, 0]
-  }  
+    "default": [0, 0, 0, 0, 0, 0],
+        "solver": "smoothSolver",
+        "smoother": "symGaussSeidel",
+        "tolerance": 1e-5,
+        "relTol": 0.1,
+    "relaxation": 0.5,
+    "isFieldsRelaxation": false
+  }
 }

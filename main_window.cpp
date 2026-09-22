@@ -134,6 +134,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             this, &MainWindow::renameFile);
     connect(m_navigator, &CaseNavigator::cutPasteFile,
             this, &MainWindow::cutPasteFile);
+    connect(m_navigator, &CaseNavigator::checkUtilities,
+            this, &MainWindow::checkUtilities);
 
     // Get actions from navigator
     QList<QAction*> actions = m_navigator->getActions();
@@ -178,23 +180,28 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         const QFileInfoList files =
             resourceThemesDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
         for (const QFileInfo& fileInfo : files) {
-            const QString sourcePath = fileInfo.filePath();
-            const QString destPath = themesDir.filePath(fileInfo.fileName());
-            if (QFile::copy(sourcePath, destPath)) {
-                QFile newThemeFile(destPath);
+            const QString src = fileInfo.filePath();
+            const QString dest = themesDir.filePath(fileInfo.fileName());
+            if (QFile::copy(src, dest)) {
+                QFile newThemeFile(dest);
                 newThemeFile.setPermissions(
                     QFileDevice::ReadOwner | QFileDevice::WriteOwner |
                     QFileDevice::ReadUser | QFileDevice::WriteUser);
             } else {
-                qWarning() << "Failed to copy" <<
-                    sourcePath << "to" << destPath;
+                log(QString(tr("Failed to copy %1 to %2").arg(src, dest)));
             }
         }
     }
 
     // Read theme from settings
     QSettings settings;
-    applyTheme(settings.value("Preferences/theme", "dark.json").toString());
+    QString theme = "dark.json";
+    if (settings.contains("Preferences/theme")) {
+        theme = settings.value("Preferences/theme").toString();
+    } else {
+        settings.setValue("Preferences/theme", theme);
+    }
+    applyTheme(theme);
 
     // Load order of cases
     settings.beginGroup("Cases");
@@ -212,6 +219,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         data.casePath = settings.value("casePath").toString();
         data.targetId = settings.value("targetSystemId", 0).toInt();
         data.caseFlags = CaseFlag::NotChecked;
+        data.caseType =
+            static_cast<CaseType>(settings.value("caseType").toUInt());
         data.openFoamPath = settings.value("openFoamPath").toString();
 
         // Set data for remote case
@@ -243,39 +252,62 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                 remoteServerAvailable);
 
         bool casePresent = true;
-        QStringList paths;
+        QStringList goodFolders;
         QString casePath = data.casePath + "/" + caseName + "/";
         m_systemMgr.addCase(caseName, data);
         if (!isServerAvailable) {
-            qDebug() << "SERVER NOT AVAILABLE for case " << caseName;
             if (!m_utilMap.contains(data.openFoamPath)) {
                 m_utilMap[data.openFoamPath] = QMap<QString, bool>();
             }
             log(QString(tr("Server unreachable for case %1.\n").arg(caseName)));
-        } else if (data.targetId ==
+        } else if (data.targetId !=
                    static_cast<int>(TargetType::REMOTE_LINUX)) {
-            casePresent = true;
-        } else {
-            // Get the files/folders in the case's top-level folder
-            paths = m_systemMgr.getSystem(data.targetId)->processPaths(
-                casePath, PathOperationType::CHECK);
 
-            if (!paths.isEmpty() && paths[0] == "0") {
-                // Get files in case
-                paths = m_systemMgr.getSystem(data.targetId)->processPaths(
-                    casePath, PathOperationType::LIST);
+            // Get open folders
+            bool isEmpty = false;
+            QStringList openFolders =
+                settings.value("openFolders").toStringList();
+            if (openFolders.empty()) {
+                isEmpty = true;
+                openFolders.append(caseName);
+            }
+
+            // Check if open folders exist
+            QStringList openFolderPaths;
+            openFolderPaths.reserve(openFolders.size());
+            for (const auto& folder: std::as_const(openFolders)) {
+                openFolderPaths.append(data.casePath + "/" + folder);
+            }
+            QString openFolderPathString = openFolderPaths.join("\n");
+            QStringList results = m_systemMgr.getSystem(data.targetId)->
+                processPaths(openFolderPathString, PathOperationType::CHECK);
+
+            // Check if case exists
+            if (results.size() != openFolders.size()) {
+                casePresent = false;
+            } else if (results.contains("0")) {
+                // Remove case folder if necessary
+                if (!isEmpty) {
+                    // Form list of good folders
+                    for (int i=0; i<results.size(); i++) {
+                        if (results[i] == "0") {
+                            goodFolders.append(openFolders[i]);
+                        }
+                    }
+                    settings.setValue("openFolders", goodFolders);
+                    m_systemMgr.updateOpenFolders(caseName, goodFolders);
+                }
 
                 // Check utilities
                 if (!m_utilMap.contains(data.openFoamPath)) {
-                    m_utilMap[data.openFoamPath] =
-                        checkUtilities(casePath, m_utilities);
+                    checkUtilities(caseName);
                 }
 
                 // Log if server is up but OpenFOAM is missing
                 if (m_utilMap[data.openFoamPath].empty()) {
                     log(QString(tr("Failed to open case %1. "
-                                   "Cannot access OpenFOAM at %2.")
-                                    .arg(caseName, data.openFoamPath)));
+                        "Cannot access OpenFOAM at %2.")
+                        .arg(caseName, data.openFoamPath)));
                 }
             } else {
                 casePresent = false;
@@ -288,10 +320,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                 ((data.targetId != static_cast<int>(TargetType::REMOTE_LINUX)
                 && (m_utilMap[data.openFoamPath].empty())
                 || !isServerAvailable));
-            m_navigator->addCase(caseName, paths, isDisabled);
-            if (!isDisabled) {
-                m_navigator->expandCase(caseName);
-            }
+            m_navigator->addCase(caseName, goodFolders, isDisabled);
         } else {
             log(QString(tr("Couldn't find case %1 at path %2. "
                 "Please import the case if it has moved.")
@@ -307,13 +336,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // Get order of tabs
     settings.beginGroup("Tabs");
     QStringList tabOrder = settings.value("tabOrder").toStringList();
-
     for (const QString& tabPath : std::as_const(tabOrder)) {
         settings.beginGroup(tabPath);
-
-        // Update tab data
-        TabData data;
-        data.type = static_cast<EditorType>(settings.value("type").toInt());
 
         // Get case information about the tab
         QStringList segments = tabPath.split("/");
@@ -321,7 +345,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         QString fileName = segments.last();
         CaseData caseData = m_systemMgr.getData(caseName);
 
-        // Read file statistics
+        // Update tab data
+        TabData data;
+        data.type = static_cast<EditorType>(settings.value("type").toInt());
         QString fullPath = caseData.casePath + "/" + tabPath;
         data.stats = m_systemMgr.getSystem(caseName)->getFileStats(fullPath);
 
@@ -353,7 +379,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     settings.endGroup();
 
     // Create Vulkan instance
-    m_vulkanInstance.setLayers({ "VK_LAYER_KHRONOS_validation" });
+    // m_vulkanInstance.setLayers({ "VK_LAYER_KHRONOS_validation" });
     m_vulkanInstance.setApiVersion(QVersionNumber(1, 2));
     if (!m_vulkanInstance.create()) {
         qFatal("Failed to create Vulkan instance: %d",
@@ -1048,23 +1074,22 @@ void MainWindow::onDirtyStateChanged(bool isDirty, QWidget* widget) {
 }
 
 // Check if utility is available
-QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath,
-        const QStringList& utilities) {
-    // Get case path
+void MainWindow::checkUtilities(const QString& caseName) {
+    // Get case data
     QMap<QString, bool> utilMap;
-    QString casePath = fullPath.left(fullPath.lastIndexOf('/'));
+    CaseData caseData = m_systemMgr.getData(caseName);
+    QString casePath = caseData.casePath + "/" + caseName;
+    QString openFoamPath = caseData.openFoamPath;
 
-    // Get OpenFOAM path
-    QString openFoamPath;
-    QString caseName = QFileInfo(casePath).fileName();
-    if (m_systemMgr.contains(caseName)) {
-        openFoamPath = m_systemMgr.getData(caseName).openFoamPath;
-    } else {
-        qWarning() << "Case " << caseName << " is not available.";
-        return {};
+    // Check if map entry is already present
+    if (m_utilMap.contains(openFoamPath)) {
+        if (!m_utilMap[openFoamPath].empty()) {
+            return;
+        }
     }
 
-    QString utilityList = utilities.join(" ");
+    // Get utilities
+    QString utilityList = m_utilities.join(" ");
     QString cmd =
         QString("cd %1; source %2/etc/bashrc; out=\"\"; for u in %3; "
                 "do command -v $u >/dev/null 2>&1 && out+=\"$u:true,\""
@@ -1088,14 +1113,9 @@ QMap<QString, bool> MainWindow::checkUtilities(const QString& fullPath,
         [](bool value) { return value; });
     if (allFalse)
         utilMap.clear();
-    /*
-    else {
-        for (const auto& util : utilities) {
-            utilMap[util] = false;
-        }
-    }
-    */
-    return utilMap;
+
+    // Update utility map
+    m_utilMap[openFoamPath] = utilMap;
 }
 
 // Run autoPatch
@@ -1298,8 +1318,7 @@ void MainWindow::runMeshRenumber(const QString& casePath) {
 
     // Run renumberMesh
     QString cmd = QString("cd \"%1\"; source %2/etc/bashrc; "
-                          "renumberMesh -constant -overwrite")
-                      .arg(casePath, openFoamPath);
+        "renumberMesh -constant -overwrite").arg(casePath, openFoamPath);
 
     // Execute the tool
     QString result;
@@ -1320,8 +1339,9 @@ void MainWindow::runMeshRenumber(const QString& casePath) {
     }
 
     // Extract "Before renumbering" statistics
-    QRegularExpression beforeRegex("Before renumbering\\s+band\\s+:\\s+(\\S+)"
-                                   "\\s+profile\\s+:\\s+(\\S+)");
+    QRegularExpression
+        beforeRegex("Before renumbering\\s*:?\\s*band\\s+:\\s+(\\S+)"
+            "\\s+profile\\s+:\\s+(\\S+)");
     QRegularExpressionMatch beforeMatch = beforeRegex.match(result);
     if (beforeMatch.hasMatch()) {
         beforeBand = beforeMatch.captured(1).trimmed();
@@ -1329,7 +1349,8 @@ void MainWindow::runMeshRenumber(const QString& casePath) {
     }
 
     // Extract "After renumbering" statistics
-    QRegularExpression afterRegex("After renumbering\\s+band\\s+:\\s+(\\S+)"
+    QRegularExpression
+        afterRegex("After renumbering\\s*:?\\s*band\\s+:\\s+(\\S+)"
                                   "\\s+profile\\s+:\\s+(\\S+)");
     QRegularExpressionMatch afterMatch = afterRegex.match(result);
     if (afterMatch.hasMatch()) {
@@ -1378,11 +1399,25 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
     QString path = info.path();
     QString fileName = info.fileName();
     QString stem = info.completeBaseName();
-    QString tmpName = info.completeBaseName() + "_tmp." + info.suffix();
-    QString cmd;
 
-    // Get the OpenFOAM path
-    QString casePath, caseName, openFoamPath;
+    // Construct the path of the new file
+    QString newName = fileName;
+    if (!overwrite) {
+        newName = stem;
+        int underscorePos = newName.lastIndexOf('_');
+        if (underscorePos >= 0) {
+            QString suffix = newName.mid(underscorePos + 1);
+            bool isNumber = false;
+            suffix.toDouble(&isNumber);
+            if (isNumber)
+                newName = newName.left(underscorePos);
+        }
+        newName = newName + "_" + formatAngle(angle) + "." + info.suffix();
+    }
+    QString newPath = path + "/" + newName;
+
+    // Get the case path
+    QString casePath, openFoamPath;
     int index = fullPath.lastIndexOf("/constant");
     if (index != -1) {
         casePath = fullPath.left(index);
@@ -1391,7 +1426,16 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
         return;
     }
 
-    caseName = QFileInfo(casePath).fileName();
+    // Check the server access
+    QString caseName = QFileInfo(casePath).fileName();
+    auto system = m_systemMgr.getSystem(caseName);
+    if (system == nullptr) {
+        QMessageBox::critical(this, tr("Server access failure"),
+                              tr("Couldn't reach server."));
+        return;
+    }
+
+    // Access the utility map for the OpenFOAM installation
     if (m_systemMgr.contains(caseName)) {
         openFoamPath = m_systemMgr.getData(caseName).openFoamPath;
     } else {
@@ -1401,80 +1445,135 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
     QMap<QString, bool> utilMap = m_utilMap[openFoamPath];
 
     // Run surfaceAutoPatch if present
+    QString cmd, result;
     if (utilMap.value("surfaceAutoPatch", false)) {
-        /*
-        if (isBinary) {
-            QString symlinkName = info.completeBaseName() + ".stlb";
-            cmd = QString("cd \"%1\" && ln -s \"%2\" \"%3\" && "
-                          "surfaceAutoPatch \"%3\" %4 \"%5\"; rm -f \"%3\"")
-            .arg(path, fileName, symlinkName, QString::number(angle), tmpName);
-        } else {
-            cmd = QString("cd \"%1\" && surfaceAutoPatch \"%2\" %3 \"%4\"")
-            .arg(path, fileName, QString::number(angle), tmpName);
+        // Change newPath for overwrite safely using the file's native suffix
+        if (overwrite) {
+            newPath = path + "/" + stem + "_overwrite." + info.suffix();
         }
-        */
+
         // Run surfaceAutoPatch
         cmd = QString("cd \"%1\"; source %2/etc/bashrc; "
-                "surfaceAutoPatch %3 %4 %5").arg(casePath, openFoamPath,
-                       fullPath, fullPath, QString::number(angle));
-        QString result;
-        m_systemMgr.getSystem(caseName)->launchShortUtility(cmd, result);
+            "surfaceAutoPatch \"%3\" \"%4\" %5").arg(casePath, openFoamPath,
+                fullPath, newPath, QString::number(angle));
+        system->launchShortUtility(cmd, result);
 
         // Display dialog containing result
         QString title;
         std::vector<QString> messages;
-        if (result.contains("Feature set:")) {
-            title = tr("Output of the surfaceAutoPatch utiilty:");
-            for (auto line : QStringTokenizer(result, u'\n')) {
-                line = line.trimmed();
-                if ((line.startsWith(u"feature")) ||
-                    (line.startsWith(u"region")) ||
-                    (line.startsWith(u"external")) ||
-                    (line.startsWith(u"internal"))) {
-                    messages.push_back(line.toString() + "\n");
-                }
-            }
-        } else {
-            title = tr("The surfaceAutoPatch utility failed to produce "
-                       "acceptable results");
+        bool patchesGenerated = false;
+
+        // Use regex to find "feature edges"
+        QRegularExpression re("feature edges\\s*:\\s*(\\d+)");
+        QRegularExpressionMatch match = re.match(result);
+        if (match.hasMatch() && match.captured(1).toInt() > 0) {
+            patchesGenerated = true;
         }
 
-        // Display dialog
-        UtilityOutputDialog dlg(tr("Surface Patch Results"), title, messages,
-                                result, this);
-        dlg.exec();
+        // Handle failures and zero-patch executions
+        if (!patchesGenerated) {
+            if (result.contains("Feature set:")) {
+                title = tr("Output of the surfaceAutoPatch utility:");
+                for (auto line : QStringTokenizer(result, u'\n')) {
+                    line = line.trimmed();
+                    if ((line.startsWith(u"feature")) ||
+                        (line.startsWith(u"region")) ||
+                        (line.startsWith(u"external")) ||
+                        (line.startsWith(u"internal"))) {
+                        messages.push_back(line.toString() + "\n");
+                    }
+                }
+                messages.push_back(tr("No patches were created."));
+            } else {
+                title = tr("The surfaceAutoPatch utility failed to produce "
+                           "acceptable results");
+            }
+            // Display dialog
+            UtilityOutputDialog dlg(tr("Surface Patch Results"),
+                                    title, messages, result, this);
+            dlg.exec();
+        }
+
+        if (patchesGenerated) {
+            if (overwrite) {
+                // Remove original file
+                system->processPaths(fullPath, PathOperationType::REMOVE);
+
+                // Rename generated file
+                QString str = QStringList{ newPath, fullPath }.join("\n");
+                system->processPaths(str, PathOperationType::RENAME);
+
+                // Access data from the renamed file
+                std::optional<QByteArray> newData =
+                    system->getFileContent(fullPath);
+                QByteArray newBytes = newData.value();
+                if (newBytes.size() > 0) {
+                    // Create new RenderData
+                    std::pair<RenderData, bool> res =
+                        StlReader::readStlFile(fileName, newBytes);
+                    RenderData mesh = res.first;
+                    std::shared_ptr<RenderData> meshData =
+                        std::make_shared<RenderData>(std::move(mesh));
+
+                    // Pass data to SurfaceEditor
+                    SurfaceEditor* editor = qobject_cast<SurfaceEditor*>(
+                        m_tabWidget->currentWidget());
+                    editor->updateModel(meshData);
+                }
+            } else {
+                int casePos = newPath.indexOf(caseName);
+                QString relPath = newPath.mid(casePos);
+                createSurfaceEditor(newName, relPath, true);
+                updatePath(caseName, "constant/triSurface");
+            }
+        } else {
+            // Safely delete the generated file on failure.
+            system->processPaths(newPath, PathOperationType::REMOVE);
+        }
     } else if (utilMap.value("surfacePatch", false)) {
+        QString tmpPath;
+        if (isBinary) {
+            // Convert binary file to ASCII
+            fileName = stem + "_tmp.stl";
+            tmpPath = path + "/" + fileName;
+            cmd = QString("cd \"%1\"; source %2/etc/bashrc; "
+                "surfaceConvert \"%3\" \"%4\"").arg(casePath, openFoamPath,
+                    fullPath, tmpPath);
+            system->launchShortUtility(cmd, result);
+        }
+
         // Create surfacePatchDict
         QString dictText =
             CaseIO::createSurfacePatchDict(openFoamPath, fileName, angle);
-        m_systemMgr.getSystem(caseName)->writeData(
+        system->writeData(
             dictText.toUtf8(), casePath + "/system/surfacePatchDict");
 
         // Run surfacePatch
         cmd = QString("cd \"%1\"; source %2/etc/bashrc; surfacePatch").
               arg(casePath, openFoamPath);
-        QString result;
-        m_systemMgr.getSystem(caseName)->launchShortUtility(cmd, result);
+        system->launchShortUtility(cmd, result);
 
         // Check if a new file has been created
         if (result.contains("Writing repatched surface")) {
             // Get paths of old and new file
-            QString oldPath = path + "/" + stem + "_patched.stl";
-            QString newName =
-                (overwrite) ? fileName : fileName + "_" + formatAngle(angle);
-            QString newPath = path + "/" + newName;
+            QString oldPath = path + "/" + stem;
+            oldPath += (isBinary) ? "_tmp_patched.stl" : "_patched.stl";
             QString str = QStringList{ oldPath, newPath }.join("\n");
 
             // Perform rename operation
-            QStringList res = m_systemMgr.getSystem(caseName)->
-                        processPaths(str, PathOperationType::RENAME);
+            QStringList res =
+                system->processPaths(str, PathOperationType::RENAME);
             if (res[0] == "0") {
-                // Access data from the renamed file
-                std::optional<QByteArray> newData =
-                    m_systemMgr.getSystem(caseName)->getFileContent(newPath);
-                QByteArray newBytes = newData.value();
-                if (newBytes.size() > 0) {
-                    if (overwrite) {
+                // Delete _tmp.stl file for binary input
+                if (isBinary) {
+                    system->processPaths(tmpPath, PathOperationType::REMOVE);
+                }
+                if (overwrite) {
+                    // Access data from the renamed file
+                    std::optional<QByteArray> newData =
+                        system->getFileContent(newPath);
+                    QByteArray newBytes = newData.value();
+                    if (newBytes.size() > 0) {
                         // Create new RenderData
                         std::pair<RenderData, bool> res =
                             StlReader::readStlFile(fileName, newBytes);
@@ -1487,6 +1586,11 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
                             m_tabWidget->currentWidget());
                         editor->updateModel(meshData);
                     }
+                } else {
+                    int casePos = newPath.indexOf(caseName);
+                    QString relPath = newPath.mid(casePos);
+                    createSurfaceEditor(newName, relPath, true);
+                    updatePath(caseName, "constant/triSurface");
                 }
             }
 
@@ -1494,8 +1598,13 @@ void MainWindow::runSurfacePatch(double angle, const QString& fullPath,
             QMessageBox::information(this, tr("Operation Successful"),
                 tr("surfacePatch generated patches successfully."));
         } else if (result.contains("unchanged")) {
+            // Ensure the temporary ASCII file is deleted even if surfacePatch fails
+            if (isBinary) {
+                system->processPaths(tmpPath, PathOperationType::REMOVE);
+            }
+
             QMessageBox::warning(this, tr("No Patches Generated"),
-             tr("The surfacePatch utility didn't generate any patches.\n\n"
+            tr("The surfacePatch utility didn't generate any patches.\n\n"
             "You may want to reduce the angle or update surfacePatchDict."));
         }
     }
@@ -1720,6 +1829,8 @@ void MainWindow::loadSolverFamilies() {
                             QJsonObject solverObj = solverVal.toObject();
                             FlowCompute::SolverDef solverDef;
                             solverDef.name = solverObj["name"].toString();
+                            solverDef.foundationName =
+                                solverObj["foundationName"].toString();
                             QString algoStr = solverObj["algorithm"].toString();
                             solverDef.algorithm = FlowCompute::Algorithm(
                                 QMetaEnum::fromType<FlowCompute::Algorithm>().
@@ -1900,11 +2011,15 @@ void MainWindow::loadFieldData() {
         QJsonObject fieldObj = it.value().toObject();
 
         FlowCompute::FieldDef data;
+
+        // Handle Field Class
         QString classStr = fieldObj.value("class").toString();
         data.fieldClass =
             FlowCompute::FieldClass(
                 QMetaEnum::fromType<FlowCompute::FieldClass>().
-                    keyToValue(classStr.toUtf8().constData()));
+                keyToValue(classStr.toUtf8().constData()));
+
+        // Handle Dimensions
         data.dimensions = fieldObj.value("dimensions").toString();
 
         // Handle default value conversion
@@ -1918,6 +2033,48 @@ void MainWindow::loadFieldData() {
             data.defaultValue = "(" + components.join(" ") + ")";
         } else {
             data.defaultValue = QString::number(defValue.toDouble());
+        }
+
+        // Handle fvSolution numerical parameters
+        if (fieldObj.contains("solver")) {
+            QString solverStr = fieldObj.value("solver").toString();
+            data.solver = FlowCompute::LinearSolver(
+                QMetaEnum::fromType<FlowCompute::LinearSolver>().
+                keyToValue(solverStr.toUtf8().constData()));
+
+            if (fieldObj.contains("smoother")) {
+                QString smootherStr = fieldObj.value("smoother").toString();
+                data.smoother = FlowCompute::Smoother(
+                    QMetaEnum::fromType<FlowCompute::Smoother>().
+                    keyToValue(smootherStr.toUtf8().constData()));
+            }
+
+            if (fieldObj.contains("preconditioner")) {
+                QString precondStr =
+                    fieldObj.value("preconditioner").toString();
+                data.preconditioner = FlowCompute::Preconditioner(
+                    QMetaEnum::fromType<FlowCompute::Preconditioner>().
+                    keyToValue(precondStr.toUtf8().constData()));
+            }
+
+            if (fieldObj.contains("tolerance")) {
+                data.absTolerance = fieldObj.value("tolerance").toDouble();
+            }
+
+            if (fieldObj.contains("relTol")) {
+                data.relTolerance = fieldObj.value("relTol").toDouble();
+            }
+        }
+
+        // Read relaxation data
+        if (fieldObj.contains("relaxation")) {
+            data.relaxationFactor = fieldObj.value("relaxation").toDouble();
+        }
+
+        // Read relaxation type
+        if (fieldObj.contains("isFieldsRelaxation")) {
+            data.isFieldsRelaxation =
+                fieldObj.value("isFieldsRelaxation").toBool();
         }
 
         m_fieldData.insert(fieldName, data);
@@ -1983,26 +2140,4 @@ void MainWindow::closeEvent(QCloseEvent *event) {
             return;
         }
     }
-
-    /*
-    // Access settings
-    QSettings settings;
-    settings.setValue("Preferences/theme", m_themeFile);
-
-    // Save open tabs to settings
-    settings.remove("Tabs");
-    settings.beginWriteArray("Tabs");
-
-    for (int i = 0; i < m_tabWidget->count(); ++i) {
-        settings.setArrayIndex(i);
-        QString fileName = m_tabWidget->tabText(i);
-        TabData data = m_tabMap.value(fileName);
-
-        // Save values to settings
-        settings.setValue("tabName", fileName);
-        settings.setValue("fullPath", data.fullPath);
-        settings.setValue("type", static_cast<int>(data.type));
-    }
-    settings.endArray();
-    */
 }

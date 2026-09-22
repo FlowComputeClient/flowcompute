@@ -37,9 +37,8 @@ BoundaryPage::BoundaryPage(
     QWidget *parent):
     QWizardPage(parent), m_fieldData(fieldData),
     m_boundaryConditions(boundaryConditions) {
-
+    // Set layout
     setTitle(tr("Boundary Configuration"));
-
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(10);
 
@@ -136,19 +135,24 @@ BoundaryPage::BoundaryPage(
 }
 
 void BoundaryPage::initializePage() {
-    solverWizard = qobject_cast<SolverWizard*>(this->wizard());
-    if (!solverWizard) {
+    m_solverWizard = qobject_cast<SolverWizard*>(this->wizard());
+    if (!m_solverWizard) {
         qWarning() << "BoundaryPage must be embedded within a SolverWizard.";
         return;
     }
 
     // Access field data and boundaries
-    m_cfg = &(solverWizard->getBoundaryConfig());
-    m_boundaryPatches = solverWizard->getBoundaries();
+    m_cfg = &(m_solverWizard->getBoundaryConfig());
+    m_boundaryPatches = m_solverWizard->getBoundaries();
 
     // Access solver and turbulence selections
-    m_solverFields = solverWizard->getSolverFields();
-    m_turbFields = solverWizard->getTurbulenceFields();
+    m_solverFields = m_solverWizard->getSolverFields();
+    m_turbFields = m_solverWizard->getTurbulenceFields();
+
+    // Add alpha_t if simulation is compressible and turbulence isn't laminar
+    if (!m_turbFields.isEmpty() && m_solverWizard->isThermoRequired()) {
+        m_turbFields.append("alphat");
+    }
 
     // Update patch list
     m_patchListWidget->blockSignals(true);
@@ -169,9 +173,9 @@ void BoundaryPage::initializePage() {
         auto& fieldData = it.value();
 
         for (const auto& patch : std::as_const(m_boundaryPatches)) {
-
             // Search for the patch
-            auto bcsIt = std::find_if(fieldData.bcs.begin(), fieldData.bcs.end(),
+            auto bcsIt =
+                std::find_if(fieldData.bcs.begin(), fieldData.bcs.end(),
             [&patch](const std::pair<QString,
                 CaseIO::BoundaryCondition>& bcPair) {
                 return bcPair.first == patch.name;
@@ -188,11 +192,11 @@ void BoundaryPage::initializePage() {
     // Update map if there are any new fields
     for (const QString& f : std::as_const(m_fieldList)) {
         if (!m_cfg->contains(f)) {
-
             CaseIO::FieldData fieldData;
             if (m_fieldData.contains(f)) {
                 fieldData.dimension = m_fieldData[f].dimensions;
-                fieldData.internalField = m_fieldData[f].defaultValue;
+                fieldData.internalField =
+                    "uniform " + m_fieldData[f].defaultValue;
                 fieldData.fieldClass = m_fieldData[f].fieldClass;
             }
             for (const auto& patch : std::as_const(m_boundaryPatches)) {
@@ -219,9 +223,7 @@ bool BoundaryPage::validatePage() {
         return false;
 
     // Set wizard fields
-    solverWizard->setFieldNames(m_fieldList);
-
-    return true;
+    m_solverWizard->setFieldNames(m_fieldList);
 
     // Iterate through fields
     for (auto fieldIt = m_cfg->begin(); fieldIt != m_cfg->end(); ++fieldIt) {
@@ -267,19 +269,11 @@ bool BoundaryPage::validatePage() {
 
 void BoundaryPage::onFieldSelected(const QString& field) {
     m_currentField = field;
-    /*
-    if(m_patchListWidget->selectedItems().empty()) {
-        m_patchListWidget->setCurrentRow(0);
-    } else {
-        onPatchSelected(m_currentPatch);
-    }
-    */
     m_patchListWidget->setCurrentRow(0);
     onPatchSelected(m_patchListWidget->item(0)->text());
 }
 
 void BoundaryPage::onPatchSelected(const QString& patch) {
-
     m_currentPatch = patch;
     CaseIO::FieldData fieldData = m_cfg->value(m_currentField);
     QString fieldClassName = getBaseMathType(fieldData.fieldClass);
@@ -319,6 +313,29 @@ void BoundaryPage::onPatchSelected(const QString& patch) {
             }
         }
 
+        // Select wall functions for different fields
+        if (patchType == "wall") {
+            static const QHash<QString, QString> wallDefaults = {
+                {"U", "noSlip"},
+                {"p", "zeroGradient"},
+                {"p_rgh", "zeroGradient"},
+                {"T", "zeroGradient"},
+                {"h", "zeroGradient"},
+                {"k", "kqRWallFunction"},
+                {"omega", "omegaWallFunction"},
+                {"epsilon", "epsilonWallFunction"},
+                {"nut", "nutkWallFunction"},
+                {"alphat", "alphatWallFunction"}
+            };
+
+            // Move the wall function to the top of the combo box
+            QString defaultBc = wallDefaults.value(m_currentField);
+            if (!defaultBc.isEmpty() && validBcNames.contains(defaultBc)) {
+                validBcNames.removeAll(defaultBc);
+                validBcNames.prepend(defaultBc);
+            }
+        }
+
         // Update combo box
         m_bcTypeCombo->addItems(validBcNames);
         QString currentType;
@@ -353,7 +370,6 @@ void BoundaryPage::onPatchSelected(const QString& patch) {
 
 void BoundaryPage::onPatchTypeChanged(const QString& newType) {
     if (!m_patchListWidget->currentItem()) return;
-
     // Update boundary data
     for (auto& patch : m_boundaryPatches) {
         if (patch.name == m_currentPatch) {
@@ -365,7 +381,6 @@ void BoundaryPage::onPatchTypeChanged(const QString& newType) {
 }
 
 void BoundaryPage::onBcTypeChanged(const QString& bcType) {
-
     // Remove rows except the first two
     while (m_bcLayout->rowCount() > 2) {
         m_bcLayout->removeRow(m_bcLayout->rowCount() - 1);
@@ -376,7 +391,6 @@ void BoundaryPage::onBcTypeChanged(const QString& bcType) {
 
     // Find the matching patch name
     auto& bcs = (*m_cfg)[m_currentField].bcs;
-
     auto it = std::find_if(bcs.begin(), bcs.end(),
         [this](const std::pair<QString, CaseIO::BoundaryCondition>& p) {
             return p.first == m_currentPatch;
@@ -391,6 +405,16 @@ void BoundaryPage::onBcTypeChanged(const QString& bcType) {
         if (bc.name == bcType) {
             params = bc.parameters;
             break;
+        }
+    }
+
+    // Remove obsolete parameters
+    for (auto paramIt = it->second.parameters.begin();
+         paramIt != it->second.parameters.end(); ) {
+        if (!params.contains(paramIt->first)) {
+            paramIt = it->second.parameters.erase(paramIt);
+        } else {
+            ++paramIt;
         }
     }
 

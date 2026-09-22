@@ -19,7 +19,6 @@
 
 #include <QComboBox>
 #include <QDialogButtonBox>
-#include <QDir>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLineEdit>

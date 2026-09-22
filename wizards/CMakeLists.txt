@@ -26,8 +26,8 @@ add_library(Wizards STATIC
     new_case/page_20_tutorial.cpp
     new_case/page_30_interactive.h
     new_case/page_30_interactive.cpp
-    new_case/page_40_project.cpp
     new_case/page_40_project.h
+    new_case/page_40_project.cpp
     new_case/template_strings.h
 
     open_case/wizard_open_case.h
@@ -59,24 +59,34 @@ add_library(Wizards STATIC
 
     solver/wizard_solver.h
     solver/wizard_solver.cpp
-    solver/page_10_control.cpp
     solver/page_10_control.h
-    solver/page_20_transient.h
-    solver/page_20_transient.cpp
-    solver/page_30_physics.cpp
-    solver/page_30_physics.h
-    solver/page_40_boundary.cpp
+    solver/page_10_control.cpp
+    solver/page_20_physics.h
+    solver/page_20_physics.cpp
+    solver/page_30_thermo.h
+	solver/page_30_thermo.cpp
+        solver/page_50_algorithm.h
+        solver/page_50_algorithm.cpp
     solver/page_40_boundary.h
-    solver/page_50_algorithm.cpp
-    solver/page_50_algorithm.h
-    solver/page_70_pimple.h
-    solver/page_70_pimple.cpp
+    solver/page_40_boundary.cpp
     solver/page_60_simple.h
     solver/page_60_simple.cpp
+    solver/page_70_pimple.h
+    solver/page_70_pimple.cpp
     solver/page_80_piso.h
     solver/page_80_piso.cpp
     solver/page_90_parallel.cpp
     solver/page_90_parallel.h
+    solver/mixture_dialog.h solver/mixture_dialog.cpp
+    solver/mixture_widget.h
+    solver/pure_mixture_widget.h solver/pure_mixture_widget.cpp
+    solver/multi_component_widget.h solver/multi_component_widget.cpp
+    solver/reacting_mixture_widget.h solver/reacting_mixture_widget.cpp
+    solver/homogeneous_mixture_widget.h solver/homogeneous_mixture_widget.cpp
+    solver/inhomogeneous_mixture_widget.h solver/inhomogeneous_mixture_widget.cpp
+    solver/egr_mixture_widget.h solver/egr_mixture_widget.cpp
+    solver/custom_mixture_widget.h solver/custom_mixture_widget.cpp
+    solver/pure_zone_mixture_widget.h solver/pure_zone_mixture_widget.cpp
 )
 
 # Link libraries

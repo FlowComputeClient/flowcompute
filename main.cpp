@@ -37,7 +37,6 @@ QMutex g_logMutex;
 // The Custom Message Handler
 void flowComputeLogHandler(QtMsgType type, const QMessageLogContext &context,
                            const QString &msg) {
-
     // Lock the mutex to ensure thread safety
     QMutexLocker locker(&g_logMutex);
 
@@ -51,7 +50,7 @@ void flowComputeLogHandler(QtMsgType type, const QMessageLogContext &context,
         case QtFatalMsg:    levelText = "FATAL"; break;
     }
 
-    // Format the final message: [Timestamp] [Level] Message
+    // Format the final message
     QString currentDateTime =
         QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
     QString logMessage =
@@ -65,39 +64,40 @@ void flowComputeLogHandler(QtMsgType type, const QMessageLogContext &context,
         file.close();
     }
 
-    // Optional: Echo to the console so you can still see it in your IDE
     fprintf(stderr, "%s\n", logMessage.toLocal8Bit().constData());
     fflush(stderr);
 }
 
-// Copy solvers.json and turbulence.json
-// Pass QApplication by reference to avoid using global macros where possible
+// Copy configuration files
 void initializeConfig(QApplication& app) {
-
-    // Determine the writable directory path
+    // Determine the writable directory path for JSON configs
     QString configDirPath =
         QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     QDir configDir(configDirPath);
 
-    // Ensure the directory exists
     if (!configDir.exists()) {
         configDir.mkpath(".");
     }
 
-    // Get selected locale
-    QString settingsFilePath = configDir.filePath("settings.ini");
-    QSettings settings(settingsFilePath, QSettings::IniFormat);
-    QString localeCode = settings.value("Preferences/language",
-                                        QLocale::system().name()).toString();
+    // Write locale to QSettings if missing
+    QSettings settings;
+    QString localeCode;
+    if (!settings.contains("Preferences/language")) {
+        localeCode = QLocale::system().name();
+        settings.setValue("Preferences/language", localeCode);
+    } else {
+        localeCode = settings.value("Preferences/language").toString();
+    }
 
-    // Perform translation
+    // Load translation efficiently
     if (!localeCode.startsWith("en")) {
-        QTranslator* appTranslator = new QTranslator(&app);
+        QTranslator* appTranslator = new QTranslator();
         if (appTranslator->load(localeCode + ".qm", ":/translations")) {
+            appTranslator->setParent(&app);
             app.installTranslator(appTranslator);
         } else {
-            qWarning() <<
-                "Failed to load translation for locale:" << localeCode;
+            qWarning() << "Failed to load translation for" << localeCode;
+            delete appTranslator;
         }
     }
 
@@ -108,7 +108,6 @@ void initializeConfig(QApplication& app) {
 
     // Deploy configuration files
     for (const auto& configFile : configFiles) {
-        // Define the path for the writable JSON file
         QString writableFilePath = configDir.filePath(configFile);
         QFileInfo fileInfo(writableFilePath);
 
@@ -127,8 +126,15 @@ void initializeConfig(QApplication& app) {
 
 int main(int argc, char *argv[]) {
 
-    // Create application
+    // Set application properties
     QApplication app(argc, argv);
+    app.setOrganizationName("FlowCompute");
+    app.setApplicationName("FlowCompute");
+    app.setApplicationVersion(APP_VERSION);
+
+    // Global defaults
+    QApplication::setStyle(QStyleFactory::create("Fusion"));
+    QSettings::setDefaultFormat(QSettings::IniFormat);
 
     // Set icon
     #if defined(Q_OS_WIN)
@@ -136,16 +142,6 @@ int main(int argc, char *argv[]) {
     #else
         app.setWindowIcon(QIcon(":/images/flowcompute.png"));
     #endif
-
-    // Set application properties
-    app.setOrganizationName("FlowCompute");
-    app.setApplicationName("FlowCompute");
-    app.setApplicationVersion(APP_VERSION);
-
-    QApplication::setStyle(QStyleFactory::create("Fusion"));
-
-    // Set QSettings format to .ini
-    QSettings::setDefaultFormat(QSettings::IniFormat);
 
     /*
     // Set Logging Directory

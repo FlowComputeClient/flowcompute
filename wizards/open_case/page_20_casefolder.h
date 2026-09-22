@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef WIZARDS_OPEN_CASE_PAGE_40_CASE_FOLDER_H_
-#define WIZARDS_OPEN_CASE_PAGE_40_CASE_FOLDER_H_
+#ifndef WIZARDS_OPEN_CASE_PAGE_20_CASE_FOLDER_H_
+#define WIZARDS_OPEN_CASE_PAGE_20_CASE_FOLDER_H_
 
 class NewCaseWizard;
 class QLabel;
@@ -57,4 +57,4 @@ private slots:
     void onItemExpanded(QTreeWidgetItem* item);
 };
 
-#endif  // WIZARDS_OPEN_CASE_PAGE_40_CASE_FOLDER_H_
+#endif  // WIZARDS_OPEN_CASE_PAGE_20_CASE_FOLDER_H_

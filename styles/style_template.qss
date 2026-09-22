@@ -35,15 +35,35 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit {
 	padding: 4px;
 }
 
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+    image: url(:/images/up_arrow.svg);
+    width: 10px;
+    height: 10px;
+}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+    image: url(:/images/down_arrow.svg);
+    width: 10px;
+    height: 10px;
+}
+
+QSpinBox::up-button, QDoubleSpinBox::up-button,
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    background: transparent;
+    border: none;
+}
+
 QTabBar {
 	background-color: %TAB_BAR%;
 }
+
 QTabBar::tab {
 	background-color: %TAB%;
 	color: %TAB_TEXT%;
 	padding: 6px 16px;
 	border: 1px solid transparent;
 }
+
 QTabBar::tab:selected {
 	background-color: %SELECTED_TAB%;
 	color: %TAB_TEXT%;
@@ -59,11 +79,12 @@ QTreeView, QTableView, QListWidget {
 	border: 1px solid %BORDER%;
 	gridline-color: %BORDER%;
 }
+
 QTreeView::item, QTableView::item, QListWidget::item {
 	color: %TEXT%;
 }
 
-QTreeView::item:disabled, QTableView::item:disabled,
+QTreeView::item:disabled, QTableView::item:disabled, QCheckBox::disabled,
         QListWidget::item:disabled, QLabel::disabled, QSpinBox::disabled,
 	QDoubleSpinBox::disabled {
 	color: %DISABLED_TEXT%;
@@ -113,14 +134,15 @@ QRadioButton::indicator:checked {
 }
 
 QCheckBox::indicator {
-	width: 14px;
+        width: 14px;
 	height: 14px;
 	border: 1px solid %DISABLED_TEXT%;
 	background-color: %TAB_BAR%;
 }
 
 QCheckBox::indicator:checked {
-	background-color: %HIGHLIGHT%;
+        image: url(:/images/check_mark.svg);
+	background-color: %TAB_BAR%;
 }
 
 QFrame[lineStyle='hline'] {

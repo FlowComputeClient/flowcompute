@@ -11,12 +11,14 @@
         <file>images/arrow_down.png</file>
         <file>images/arrow_right.png</file>
         <file>images/case_folder.png</file>
+        <file>images/check_mark.svg</file>
         <file>images/copy.png</file>
         <file>images/cut.png</file>
         <file>images/delete.png</file>
         <file>images/dict.png</file>
         <file>images/doc.png</file>
         <file>images/download.png</file>
+        <file>images/down_arrow.svg</file>
         <file>images/field.png</file>
         <file>images/flowcompute.ico</file>
         <file>images/flowcompute.png</file>
@@ -43,6 +45,7 @@
         <file>images/text.png</file>
         <file>images/theme.png</file>
         <file>images/undo.png</file>
+        <file>images/up_arrow.svg</file>
         <file>images/upload.png</file>
         <file>images/view_mesh.png</file>
         <file>images/view_result.png</file>
@@ -60,12 +63,12 @@
         <file>template/controlDict</file>
         <file>template/fvSchemes</file>
         <file>template/fvSolution</file>
-        <file>template/turbulenceProperties</file>
         <file>template/transportProperties</file>
-		<file>styles/style_template.qss</file>
+        <file>template/turbulenceProperties</file>
+        <file>styles/style_template.qss</file>
         <file>themes/light.json</file>
         <file>themes/dark.json</file>
-		<file>translations/qt_de.qm</file>
+        <file>translations/qt_de.qm</file>
         <file>translations/qt_es.qm</file>
         <file>translations/qt_fr.qm</file>
         <file>translations/qt_it.qm</file>
@@ -74,17 +77,7 @@
         <file>translations/qt_pt.qm</file>
         <file>translations/qt_sv.qm</file>
         <file>translations/qt_zh.qm</file>
-
-<!--
-        <file>translations/qtbase_de.qm</file>
-        <file>translations/qtbase_zh_CN.qm</file>
-        <file>translations/qtbase_ja.qm</file>
-        <file>translations/qtbase_sv.qm</file>
-        <file>translations/qtbase_fr.qm</file>
-        <file>translations/qtbase_it.qm</file>
-        <file>translations/qtbase_ko.qm</file>
-        <file>translations/qtbase_es.qm</file>
-        <file>translations/qtbase_pt_BR.qm</file>
--->
+        <file>template/physicalProperties</file>
+        <file>images/connect.png</file>
     </qresource>
 </RCC>

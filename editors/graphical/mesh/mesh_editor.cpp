@@ -33,65 +33,14 @@
 
 MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
        const QString& casePath, std::shared_ptr<TargetSystem> targetSystem,
-       const std::vector<FlowCompute::SolverFamily>& families,
-       const FlowCompute::TurbulenceDatabase& turbModels,
-       const QHash<QString, FlowCompute::FieldDef>& fieldData,
        const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
        QVulkanInstance* instance, QWidget* parent):
     QWidget(parent), m_renderData(renderData), m_casePath(casePath),
-    m_targetSystem(targetSystem), m_families(families),
-    m_turbModels(turbModels), m_fieldData(fieldData),
-    m_vulkanInstance(instance) {
-    // Get the current solver
-    QString solver = "simpleFoam";
-    std::optional<QByteArray> fileData =
-        m_targetSystem->getFileContent(casePath + "/system/controlDict");
-    if (fileData && !fileData.value().isEmpty()) {
-        QRegularExpression regex("^[ \\t]*application\\s+([^;\\s]+)\\s*;",
-                                 QRegularExpression::MultilineOption);
-        QRegularExpressionMatch match =
-            regex.match(QString::fromUtf8(fileData.value()));
-        if (match.hasMatch()) {
-            solver = match.captured(1);
-        }
-    }
-
-    // Get the turbulence model
-    QString simulationType = "laminar";
-    QString modelType = "none";
-    fileData = m_targetSystem->getFileContent(casePath +
-        "/constant/turbulenceProperties");
-    if (fileData && !fileData.value().isEmpty()) {
-        QRegularExpression simTypeRegex(
-            "^[ \\t]*simulationType\\s+([^;\\s]+)\\s*;",
-                QRegularExpression::MultilineOption);
-        QString content = QString::fromUtf8(fileData.value());
-        QRegularExpressionMatch match = simTypeRegex.match(content);
-        if (match.hasMatch()) {
-            simulationType = match.captured(1);
-            if (simulationType == "RAS" || simulationType == "LES") {
-                QString modelKeyword = simulationType + "Model";
-                QRegularExpression modelRegex("^[ \\t]*" + modelKeyword +
-                                                  "\\s+([^;\\s]+)\\s*;",
-                    QRegularExpression::MultilineOption);
-                QRegularExpressionMatch modelMatch = modelRegex.match(content);
-                if (modelMatch.hasMatch()) {
-                    modelType = modelMatch.captured(1);
-                }
-            }
-        }
-    }
-
-    // Create the list of fields
-    QStringList fieldList = getSolverFields(solver) +
-                            getTurbulenceFields(simulationType, modelType);
-    fieldList.removeDuplicates();
-
+    m_targetSystem(targetSystem), m_vulkanInstance(instance) {
     // Create left pane
-    m_leftPane = new MeshLeftPane(fieldList, fieldData,
-                                  boundaryConditions, this);
+    m_leftPane = new MeshLeftPane(boundaryConditions, this);
     updatePatches();
-    m_leftPane->setFixedWidth(230);
+    m_leftPane->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Expanding);
 
     // Create the mesh editor
     QWidget* rightPane;
@@ -133,42 +82,6 @@ MeshEditor::MeshEditor(std::shared_ptr<RenderData> renderData,
 
 void MeshEditor::applyTheme(const QString& theme) {
     m_vulkanWindow->applyTheme(theme);
-}
-
-QStringList MeshEditor::getSolverFields(const QString& solver) {
-    QStringList solverFields;
-
-    // Iterate through families
-    for (const auto& family : std::as_const(m_families)) {
-        for (const auto& solverDetail : family.solvers) {
-            if (solverDetail.name == solver) {
-                return solverDetail.fields;
-            }
-        }
-    }
-    return solverFields;
-}
-
-QStringList MeshEditor::getTurbulenceFields(const QString& simulationType,
-                                            const QString& model) {
-    // Iterate through the outer map (simulation types)
-    for (auto outerIt = m_turbModels.cbegin(); outerIt != m_turbModels.cend();
-         ++outerIt) {
-        // Check if the outer key contains the target simulationType
-        if (outerIt.key().contains(simulationType)) {
-            // outerIt.value() is the QMap<QString, QList<TurbulenceModel>>
-            for (const auto& turbList : outerIt.value()) {
-                // Iterate through TurbulenceModel structs
-                for (const auto& turb : turbList) {
-                    // If the name matches, we found our target
-                    if (turb.name == model) {
-                        return turb.fields;
-                    }
-                }
-            }
-        }
-    }
-    return QStringList();
 }
 
 // Update surface data

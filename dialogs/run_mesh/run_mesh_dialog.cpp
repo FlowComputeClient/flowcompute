@@ -23,6 +23,7 @@
 #include <QDir>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QLabel>
 #include <QVBoxLayout>
 
 #include "systems/system_manager.h"
@@ -36,14 +37,19 @@ RunMeshDialog::RunMeshDialog(const QString& caseName,
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
     // Create layout
-    QFormLayout* mainLayout = new QFormLayout(this);
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(15);
 
     // Get selected case
     m_caseCombo = new QComboBox(this);
     m_caseCombo->addItems(systemMgr.getCases());
     m_caseCombo->setCurrentText(caseName);
-    mainLayout->addRow(tr("Select an OpenFOAM case:"), m_caseCombo);
+
+    QHBoxLayout* caseLayout = new QHBoxLayout();
+    caseLayout->addWidget(new QLabel(tr("Select an OpenFOAM case:"), this));
+    caseLayout->addWidget(m_caseCombo);
+    mainLayout->addLayout(caseLayout);
+
     connect(m_caseCombo, &QComboBox::currentTextChanged, this,
             &RunMeshDialog::onCaseChanged);
 
@@ -57,7 +63,7 @@ RunMeshDialog::RunMeshDialog(const QString& caseName,
         m_runBlockMeshCheck->setChecked(false);
     }
     blockMeshLayout->addWidget(m_runBlockMeshCheck);
-    mainLayout->addRow(blockMeshGroup);
+    mainLayout->addWidget(blockMeshGroup);
 
     // surfaceFeature group
     QString utilName =
@@ -73,7 +79,7 @@ RunMeshDialog::RunMeshDialog(const QString& caseName,
         m_runSurfaceFeatureCheck->setChecked(false);
     }
     extractLayout->addWidget(m_runSurfaceFeatureCheck);
-    mainLayout->addRow(extractGroup);
+    mainLayout->addWidget(extractGroup);
 
     // snappyHexMesh group
     QGroupBox* snappyGroup =
@@ -122,12 +128,12 @@ RunMeshDialog::RunMeshDialog(const QString& caseName,
     formLayout->addRow(m_meshReconstructCheck);
     m_meshReconstructCheck->setChecked(true);
     snappyLayout->addWidget(snappyWidget);
-    mainLayout->addRow(snappyGroup);
+    mainLayout->addWidget(snappyGroup);
 
     // Create OK/Cancel buttons
     QDialogButtonBox* buttonBox = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    mainLayout->addRow(buttonBox);
+    mainLayout->addWidget(buttonBox);
     connect(buttonBox, &QDialogButtonBox::accepted,
             this, &RunMeshDialog::onOkClicked);
     connect(buttonBox, &QDialogButtonBox::rejected,

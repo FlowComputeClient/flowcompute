@@ -192,8 +192,9 @@ void SystemManager::renameCase(const QString& oldName, const QString& newName) {
     settings.setValue("casePath", data.casePath);
     settings.setValue("targetSystemId", data.targetId);
     settings.setValue("openFoamPath", data.openFoamPath);
-    settings.setValue("caseFiles", data.caseFiles);
-    settings.setValue("caseFlags", static_cast<int>(data.caseFlags));
+    settings.setValue("caseFlags", static_cast<quint32>(data.caseFlags));
+    settings.setValue("caseType", static_cast<quint32>(data.caseType));
+    settings.setValue("openFolders", data.openFolders);
 
     if (data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
         settings.setValue("userName", data.userName);
@@ -202,7 +203,7 @@ void SystemManager::renameCase(const QString& oldName, const QString& newName) {
     }
     settings.endGroup();
 
-    // Wipe the old subgroup
+    // Remove the group for the old case
     settings.remove(oldName);
 
     settings.endGroup();
@@ -419,4 +420,289 @@ QFutureWatcher<std::pair<bool, QString>>* SystemManager::sshConnect(
 
     // Return the watcher
     return authWatcher;
+}
+
+CaseType SystemManager::updateType(int targetId, const QString& casePath,
+                                   bool isOpenCFD) {
+    // Initialize the CaseType
+    CaseType caseType;
+    caseType.setFlag(IsOpenCFD, isOpenCFD);
+
+    // Get system
+    auto system = getSystem(targetId);
+
+    // Find files in the constant folder
+    QString constantPath = casePath + "/constant";
+    QStringList constFiles = system->processPaths(constantPath,
+                                                  PathOperationType::LIST);
+
+    // Base properties
+    caseType.setFlag(Compressible,
+                     constFiles.contains("thermophysicalProperties"));
+    caseType.setFlag(Multiphase,
+                     constFiles.contains("phaseProperties"));
+    caseType.setFlag(Combustion,
+                     constFiles.contains("combustionProperties"));
+    caseType.setFlag(Lagrangian,
+                     constFiles.contains("kinematicCloudProperties")
+                    || constFiles.contains("reactingCloudProperties"));
+    caseType.setFlag(Radiation, constFiles.contains("radiationProperties"));
+    caseType.setFlag(Buoyancy, constFiles.contains("g"));
+
+    if (constFiles.contains("thermophysicalProperties")) {
+        caseType.setFlag(FluidHeat, true);
+    }
+
+    QRegularExpression commentRegex(R"(//.*|/\*[\s\S]*?\*/)");
+    QString text;
+    std::optional<QByteArray> fileData;
+
+    // Check for MRF
+    QString systemPath = casePath + "/system";
+    QStringList systemFiles =
+        system->processPaths(systemPath, PathOperationType::LIST);
+
+    if (constFiles.contains("MRFProperties")) {
+        caseType.setFlag(MeshMRF, true);
+    } else {
+        // Check for fvOptions
+        QString optionsPath;
+        if (constFiles.contains("fvOptions")) {
+            optionsPath = constantPath + "/fvOptions";
+        } else if (systemFiles.contains("fvOptions")) {
+            optionsPath = systemPath + "/fvOptions";
+        }
+
+        if (!optionsPath.isEmpty()) {
+            fileData = system->getFileContent(optionsPath);
+            if (fileData && !fileData->isEmpty()) {
+                text = QString::fromUtf8(fileData.value());
+                text.remove(commentRegex);
+                if (text.contains("MRFSource")) {
+                    caseType.setFlag(MeshMRF, true);
+                }
+            }
+        }
+    }
+
+    // Parse dynamicMeshDict for AMI, Overset, or Deforming
+    if (constFiles.contains("dynamicMeshDict")) {
+        fileData = system->getFileContent(constantPath + "/dynamicMeshDict");
+        if (fileData && !fileData->isEmpty()) {
+            text = QString::fromUtf8(fileData.value());
+            text.remove(commentRegex);
+
+            QRegularExpression meshRegex(R"(dynamicFvMesh\s+([^\s;]+)\s*;)");
+            QRegularExpressionMatch match = meshRegex.match(text);
+            if (match.hasMatch()) {
+                QString meshType = match.captured(1);
+                if (meshType.contains("overset", Qt::CaseInsensitive)) {
+                    caseType.setFlag(MeshOverset, true);
+                } else if (meshType.contains("solidBody")) {
+                    caseType.setFlag(MeshAMI, true);
+                } else if (meshType.contains("MotionSolver") ||
+                           meshType.contains("topoChanger")) {
+                    caseType.setFlag(MeshDeforming, true);
+                }
+            }
+        }
+    }
+
+    // Read turbulenceProperties
+    if (constFiles.contains("turbulenceProperties")) {
+        fileData = system->getFileContent(constantPath +
+                                          "/turbulenceProperties");
+        if (fileData && !fileData->isEmpty()) {
+            text = QString::fromUtf8(fileData.value());
+            text.remove(commentRegex);
+            QRegularExpression
+                simTypeRegex(R"(simulationType\s+(RAS|LES)\s*;)");
+            QRegularExpressionMatch match = simTypeRegex.match(text);
+            if (match.hasMatch()) {
+                QString type = match.captured(1);
+                if (type == "RAS") {
+                    caseType.setFlag(TurbulenceRAS, true);
+                } else if (type == "LES") {
+                    caseType.setFlag(TurbulenceLES, true);
+                }
+            }
+        }
+    }
+
+    // Read fvSchemes
+    if (systemFiles.contains("fvSchemes")) {
+        fileData = system->getFileContent(systemPath + "/fvSchemes");
+        if (fileData && !fileData->isEmpty()) {
+            text = QString::fromUtf8(fileData.value());
+            text.remove(commentRegex);
+            QRegularExpression
+                regex(R"(ddtSchemes\s*\{[^}]*?default\s+([^;]+);)");
+            QRegularExpressionMatch match = regex.match(text);
+            if (match.hasMatch()) {
+                caseType.setFlag(Transient,
+                                 match.captured(1).trimmed() != "steadyState");
+            }
+        }
+    }
+
+    // Read controlDict
+    if (systemFiles.contains("controlDict")) {
+        fileData = system->getFileContent(systemPath + "/controlDict");
+
+        if (fileData && !fileData->isEmpty()) {
+            text = QString::fromUtf8(fileData.value());
+            text.remove(commentRegex);
+
+            QString solverName;
+            QRegularExpressionMatch match;
+
+            if (!isOpenCFD) {
+                QRegularExpression solverRegex(R"(^\s*solver\s+([^\s;]+)\s*;)",
+                        QRegularExpression::MultilineOption);
+                match = solverRegex.match(text);
+            }
+
+            if (!match.hasMatch()) {
+                QRegularExpression
+                    appRegex(R"(^\s*application\s+([^\s;]+)\s*;)",
+                        QRegularExpression::MultilineOption);
+                match = appRegex.match(text);
+            }
+
+            if (match.hasMatch()) {
+                solverName = match.captured(1);
+
+                // Heat Transfer & Compressibility
+                if (solverName.contains("cht") ||
+                    solverName.contains("MultiRegion")) {
+                    caseType.setFlag(ConjugateHeat, true);
+                    caseType.setFlag(Compressible, true);
+                    caseType.setFlag(FluidHeat, false); // Override fluid heat
+                } else if (solverName.startsWith("rho") ||
+                           solverName.startsWith("sonic") ||
+                           solverName.contains("compressible")) {
+                    caseType.setFlag(Compressible, true);
+                    caseType.setFlag(FluidHeat, true);
+                }
+
+                // Buoyancy
+                if (solverName.contains("buoyant")) {
+                    caseType.setFlag(Buoyancy, true);
+                    caseType.setFlag(FluidHeat, true);
+                } else if (solverName.contains("Boussinesq")) {
+                    caseType.setFlag(FluidHeat, true);
+                }
+
+                // Phase Composition
+                if (solverName.contains("inter") ||
+                    solverName.contains("multiphase") ||
+                    solverName.contains("cavitating")) {
+                    caseType.setFlag(Multiphase, true);
+                }
+
+                // Combustion
+                if (solverName.contains("reacting") ||
+                    solverName.contains("fire") ||
+                    solverName.contains("chem")) {
+                    caseType.setFlag(Combustion, true);
+                    caseType.setFlag(FluidHeat, true);
+                }
+
+                // Lagrangian / Discrete Particles
+                if (solverName.contains("Parcel") ||
+                    solverName.contains("spray") ||
+                    solverName.contains("DPM") ||
+                    solverName.contains("coal")) {
+                    caseType.setFlag(Lagrangian, true);
+                }
+
+                // Time Handling
+                if (solverName.contains("simple", Qt::CaseInsensitive)) {
+                    caseType.setFlag(Transient, false);
+                } else {
+                    caseType.setFlag(Transient, true);
+                }
+            }
+        }
+    }
+    return caseType;
+}
+
+void SystemManager::setCaseType(const QString& caseName, CaseType type) {
+    auto it = m_caseMap.find(caseName);
+    if (it != m_caseMap.end()) {
+        it->caseType = type;
+    }
+}
+
+bool SystemManager::testCaseFlag(const QString& caseName,
+                                 CaseType flags) const {
+    auto it = m_caseMap.find(caseName);
+    if (it != m_caseMap.end()) {
+        return (it->caseType & flags) != 0;
+    }
+    return false;
+}
+
+bool SystemManager::isLaminar(const QString& caseName) const {
+    auto it = m_caseMap.find(caseName);
+    if (it != m_caseMap.end()) {
+        return !it->caseType.testFlag(TurbulenceRAS) &&
+               !it->caseType.testFlag(TurbulenceLES);
+    }
+    return false;
+}
+
+void SystemManager::addOpenFolder(const QString& caseName, const QString& path) {
+    auto it = m_caseMap.find(caseName);
+    if (it != m_caseMap.end()) {
+        // Update map
+        if (!it->openFolders.contains(path)) {
+            it->openFolders.append(path);
+        }
+
+        // Update QSettings
+        QSettings settings;
+        settings.beginGroup("Cases");
+        settings.beginGroup(caseName);
+        settings.setValue("openFolders", it->openFolders);
+        settings.endGroup();
+        settings.endGroup();
+    }
+}
+
+void SystemManager::removeOpenFolder(const QString& caseName,
+                                     const QString& path) {
+    auto it = m_caseMap.find(caseName);
+    if (it != m_caseMap.end()) {
+
+        // Update map
+        QString prefix = path + "/";
+        it->openFolders.erase(
+            std::remove_if(it->openFolders.begin(), it->openFolders.end(),
+               [&path, &prefix](const QString& storedPath) {
+                   return storedPath == path || storedPath.startsWith(prefix);
+               }),
+            it->openFolders.end());
+
+        // Update QSettings
+        QSettings settings;
+        settings.beginGroup("Cases");
+        settings.beginGroup(caseName);
+        if (it->openFolders.isEmpty()) {
+            settings.remove("openFolders");
+        } else {
+            settings.setValue("openFolders", it->openFolders);
+        }
+        settings.endGroup();
+        settings.endGroup();
+    }
+}
+
+void SystemManager::updateOpenFolders(const QString& caseName,
+                                      const QStringList& folders) {
+    auto it = m_caseMap.find(caseName);
+    if (it != m_caseMap.end()) {
+        it->openFolders = folders;
+    }
 }

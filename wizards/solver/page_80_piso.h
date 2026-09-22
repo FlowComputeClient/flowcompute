@@ -24,6 +24,7 @@
 
 class SolverWizard;
 class QDoubleSpinBox;
+class QFormLayout;
 class QSpinBox;
 
 class PisoPage : public QWizardPage {
@@ -40,6 +41,7 @@ class PisoPage : public QWizardPage {
  private:
     SolverWizard* m_solverWizard;
     CaseIO::MathConfig* m_cfg;
+    QFormLayout* m_layout;
 
     QDoubleSpinBox* m_pRefValueSpin;
     QSpinBox *m_nCorrectorsSpin, *m_nNonOrthogonalCorrectorsSpin,

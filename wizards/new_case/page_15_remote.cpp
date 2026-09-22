@@ -157,16 +157,18 @@ void RemotePage::onAuthFinished(bool isConnected, const QString& errorMsg) {
 }
 
 int RemotePage::nextId() const {
-    int caseCreationValue = field("caseCreationType").toInt();
-    CaseCreationType caseCreation =
-        static_cast<CaseCreationType>(caseCreationValue);
-    switch (caseCreation) {
-    case CaseCreationType::TUTORIAL:
-        return static_cast<int>(WizardPage::Page_Tutorial);
-    case CaseCreationType::INTERACTIVE:
-        return static_cast<int>(WizardPage::Page_Interactive);
+    if (qobject_cast<NewCaseWizard*>(wizard())) {
+        int caseCreationValue = field("caseCreationType").toInt();
+        CaseCreationType caseCreation =
+            static_cast<CaseCreationType>(caseCreationValue);
+        switch (caseCreation) {
+        case CaseCreationType::TUTORIAL:
+            return static_cast<int>(NewCasePage::Page_Tutorial);
+        case CaseCreationType::INTERACTIVE:
+            return static_cast<int>(NewCasePage::Page_Interactive);
+        }
     }
-    return -1;
+    return QWizardPage::nextId();
 }
 
 bool RemotePage::isComplete() const {

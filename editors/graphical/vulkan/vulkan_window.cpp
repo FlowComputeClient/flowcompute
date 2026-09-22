@@ -23,8 +23,7 @@
 #include <utility>
 
 VulkanWindow::VulkanWindow(std::shared_ptr<RenderData> meshData,
-                           QWindow *parent)
-    : QVulkanWindow(parent), m_renderData(std::move(meshData)) {
+    QWindow *parent): QVulkanWindow(parent), m_renderData(std::move(meshData)) {
     // Make sure resources aren't released when the window loses visibility
     setFlags(QVulkanWindow::PersistentResources);
 

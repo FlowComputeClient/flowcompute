@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_40_PROJECT_H
-#define PAGE_40_PROJECT_H
+#ifndef WIZARDS_NEW_CASE_PAGE_40_PROJECT_H
+#define WIZARDS_NEW_CASE_PAGE_40_PROJECT_H
 
 class NewCaseWizard;
 class QLineEdit;
@@ -47,4 +47,4 @@ private slots:
     void onItemExpanded(QTreeWidgetItem* item);
 };
 
-#endif  // PAGE_40_PROJECT_H
+#endif  // WIZARDS_NEW_CASE_PAGE_40_PROJECT_H

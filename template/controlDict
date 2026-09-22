@@ -15,7 +15,7 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // Simulation executable
-application     %3;
+application     %3
 
 // Time control
 startFrom       startTime;

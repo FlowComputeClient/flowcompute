@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef WIZARDS_MESH_PAGE_10_CONTROL_H_
-#define WIZARDS_MESH_PAGE_10_CONTROL_H_
+#ifndef WIZARDS_SOLVER_PAGE_10_CONTROL_H_
+#define WIZARDS_SOLVER_PAGE_10_CONTROL_H_
 
 #include <QWizardPage>
 
@@ -28,6 +28,7 @@ class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
 class QDoubleValidator;
+class QGroupBox;
 class QIntValidator;
 class QLineEdit;
 class QSpinBox;
@@ -39,8 +40,6 @@ class ControlPage : public QWizardPage {
     explicit ControlPage(const QString& caseName, const QStringList& cases,
                          const std::vector<FlowCompute::SolverFamily>& families,
                          QWidget *parent);
-    int nextId() const override;
-
  protected:
     void initializePage() override;
     bool validatePage() override;
@@ -48,7 +47,7 @@ class ControlPage : public QWizardPage {
  private:
     SolverWizard* m_solverWizard;
     CaseIO::ControlConfig* m_cfg;
-    bool m_isSteadyState = true;
+    bool m_isSteadyState = true, m_isOpenCFD = false;
     QString m_caseName;
 
     QIntValidator* m_intValidator;
@@ -56,17 +55,19 @@ class ControlPage : public QWizardPage {
 
     std::vector<FlowCompute::SolverFamily> m_families;
 
-    QCheckBox *m_compressCheck, *m_modifiableCheck;
+    QCheckBox *m_compressCheck, *m_modifiableCheck, *m_adjustTimeCheck;
     QComboBox *m_caseCombo, *m_familyCombo, *m_solverCombo, *m_startFromCombo,
         *m_stopAtCombo, *m_writeControlCombo, *m_writeFormatCombo;
-    QDoubleSpinBox *m_startTimeSpin, *m_endTimeSpin, *m_deltaTSpin;
+    QDoubleSpinBox *m_startTimeSpin, *m_endTimeSpin, *m_deltaTSpin,
+        *m_maxCourantSpin;
+    QGroupBox *m_transientGroup;
     QLineEdit *m_writeIntervalEdit;
-    QSpinBox* m_purgeWriteSpin;
+    QSpinBox *m_purgeWriteSpin;
 
  private slots:
     void writeControlChanged(int index);
-    void familyChanged(int);
-    void solverChanged(int);
+    void familyChanged(int familyIndex);
+    void solverChanged(int solverIndex);
 };
 
-#endif  // WIZARDS_MESH_PAGE_10_CONTROL_H_
+#endif  // WIZARDS_SOLVER_PAGE_10_CONTROL_H_

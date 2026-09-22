@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #ifndef PARSER_CONTROL_DICT_H_
 #define PARSER_CONTROL_DICT_H_
 
@@ -9,7 +26,8 @@
 namespace CaseIO {
 
 struct ControlConfig {
-    QString solverCategory;
+    QString solverFamily;
+    QString application;
     QString solver;
 
     // Run control
@@ -20,8 +38,8 @@ struct ControlConfig {
     double deltaT = 1.0;
 
     // Time step adjustment
-    // bool adjustTimeStep = false;
-    // double maxCo = 1.0;
+    bool adjustTimeStep = false;
+    double maxCo = 3.0;
 
     // Data writing
     bool writeCompression = false;
@@ -37,11 +55,11 @@ ControlConfig parseControlDict(std::shared_ptr<OpenFoamDictionary> dict);
 
 // Update existing controlDict
 QString updateControlDict(std::shared_ptr<OpenFoamDictionary> dict,
-                          ControlConfig& cfg, const QString& funcString);
+    ControlConfig& cfg, const QString& funcString);
 
 // Create new controlDict file
 QString createControlDict(const ControlConfig& cfg, const QString& openFoamPath,
-                          const QString& functionObjects);
+    const QString& funcString);
 };
 
 #endif  // PARSER_CONTROL_DICT_H_

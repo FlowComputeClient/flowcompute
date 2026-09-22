@@ -9,6 +9,8 @@ add_library(Systems STATIC
     target_system.h
     wsl_system.h
     wsl_system.cpp
+    remote_system_mesh.cpp
+    mesh_utils.h mesh_utils.cpp
 )
 
 # Link libraries

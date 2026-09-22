@@ -24,6 +24,7 @@
 
 class SolverWizard;
 class QDoubleSpinBox;
+class QFormLayout;
 class QSpinBox;
 class QTableWidget;
 
@@ -41,6 +42,7 @@ class PimplePage : public QWizardPage {
  private:
     SolverWizard* m_solverWizard;
     CaseIO::MathConfig* m_cfg;
+    QFormLayout* m_layout;
 
     QSpinBox *m_nOuterCorrectorsSpin, *m_nCorrectorsSpin,
         *m_nNonOrthogonalCorrectorsSpin, *m_pRefCellSpin;

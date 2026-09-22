@@ -98,6 +98,13 @@
     "parameters": [ "value" ]
   },
   {
+    "name": "alphatWallFunction",
+    "categories": [ "wall" ],
+    "types": ["scalar"],
+    "patchTypes": ["wall"],
+    "parameters": [ "Prt", "value" ]
+  },
+  {
     "name": "surfaceNormalFixedValue",
     "categories": [ "inlet" ],
     "types": ["vector"],

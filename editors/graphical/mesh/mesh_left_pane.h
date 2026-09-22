@@ -34,8 +34,7 @@ class MeshLeftPane : public QWidget {
     Q_OBJECT
 
  public:
-    explicit MeshLeftPane(const QStringList& fields,
-      const QHash<QString, FlowCompute::FieldDef>& fieldData,
+    explicit MeshLeftPane(
       const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
       QWidget* parent = nullptr);
 
@@ -56,9 +55,7 @@ class MeshLeftPane : public QWidget {
     QPushButton *m_checkButton, *m_renumberButton, *m_patchButton,
         *m_applyButton;
     QString m_currentField;
-    QStringList m_fields;
     QTableWidget *m_patchTable;
-    QHash<QString, FlowCompute::FieldDef> m_fieldData;
     std::vector<FlowCompute::BoundaryConditionDef> m_boundaryConditions;
     std::vector<CaseIO::MeshPatch> m_boundaryPatches;
 

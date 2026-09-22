@@ -34,36 +34,36 @@ PimplePage::PimplePage(QWidget *parent): QWizardPage(parent) {
     setTitle(tr("PIMPLE Algorithm Configuration (fvSolution)"));
 
     // Create layout
-    QFormLayout* layout = new QFormLayout(this);
-    layout->setSpacing(20);
-    setLayout(layout);
+    m_layout = new QFormLayout(this);
+    m_layout->setSpacing(20);
+    setLayout(m_layout);
 
     // Outer correctors
     m_nOuterCorrectorsSpin = new QSpinBox(this);
     m_nOuterCorrectorsSpin->setRange(1, 100);
-    layout->addRow(tr("Number of outer correctors: "), m_nOuterCorrectorsSpin);
+    m_layout->addRow(tr("Number of outer correctors: "), m_nOuterCorrectorsSpin);
 
     // Correctors
     m_nCorrectorsSpin = new QSpinBox(this);
     m_nCorrectorsSpin->setRange(1, 100);
-    layout->addRow(tr("Number of correctors: "), m_nCorrectorsSpin);
+    m_layout->addRow(tr("Number of correctors: "), m_nCorrectorsSpin);
 
     // Non-orthogonal correctors
     m_nNonOrthogonalCorrectorsSpin = new QSpinBox(this);
     m_nNonOrthogonalCorrectorsSpin->setRange(0, 50);
-    layout->addRow(tr("Number of non-orthogonal correctors: "),
+    m_layout->addRow(tr("Number of non-orthogonal correctors: "),
                    m_nNonOrthogonalCorrectorsSpin);
 
     // Ref Cell
     m_pRefCellSpin = new QSpinBox(this);
     m_pRefCellSpin->setRange(0, INT_MAX);
-    layout->addRow(tr("Reference cell index for pressure: "), m_pRefCellSpin);
+    m_layout->addRow(tr("Reference cell index for pressure: "), m_pRefCellSpin);
 
     // Pressure at reference cell
     m_pRefValueSpin = new QDoubleSpinBox(this);
     m_pRefValueSpin->setRange(-1e9, 1e9);
     m_pRefValueSpin->setDecimals(5);
-    layout->addRow(tr("Pressure at reference cell: "), m_pRefValueSpin);
+    m_layout->addRow(tr("Pressure at reference cell: "), m_pRefValueSpin);
 
     // Residual control table
     m_resTable = new QTableWidget(this);
@@ -76,14 +76,14 @@ PimplePage::PimplePage(QWidget *parent): QWizardPage(parent) {
         1, QHeaderView::ResizeToContents);
     m_resTable->horizontalHeader()->setSectionResizeMode(
         2, QHeaderView::Stretch);
-    layout->addRow(m_resTable);
+    m_layout->addRow(m_resTable);
 
-    layout->addItem(new QSpacerItem(0, 0,
+    m_layout->addItem(new QSpacerItem(0, 0,
         QSizePolicy::Minimum, QSizePolicy::Expanding));
 }
 
 void PimplePage::initializePage() {
-
+    // Access the wizard
     m_solverWizard = qobject_cast<SolverWizard*>(this->wizard());
     if (!m_solverWizard) { return; }
 
@@ -96,13 +96,21 @@ void PimplePage::initializePage() {
     m_nOuterCorrectorsSpin->setValue(cfg.nOuterCorrectors);
     m_nCorrectorsSpin->setValue(cfg.nCorrectors);
     m_nNonOrthogonalCorrectorsSpin->setValue(cfg.nNonOrthogonalCorrectors);
-    m_pRefCellSpin->setValue(cfg.pRefCell);
-    m_pRefValueSpin->setValue(cfg.pRefValue);
+
+    // Hide pRef widgets for compressible simulations
+    bool showRefFields = !m_solverWizard->isCompressible();
+    m_pRefCellSpin->setVisible(showRefFields);
+    m_pRefValueSpin->setVisible(showRefFields);
+    if (QWidget* cellLabel = m_layout->labelForField(m_pRefCellSpin)) {
+        cellLabel->setVisible(showRefFields);
+    }
+    if (QWidget* valueLabel = m_layout->labelForField(m_pRefValueSpin)) {
+        valueLabel->setVisible(showRefFields);
+    }
 
     // Populate control table
     m_resTable->setRowCount(cfg.resControls.size());
     for (int i = 0; i < cfg.resControls.size(); ++i) {
-
         // Column 0: Enabled
         QCheckBox* enableCheck = new QCheckBox(this);
         enableCheck->setChecked(cfg.resControls[i].isEnabled);
@@ -139,8 +147,11 @@ bool PimplePage::validatePage() {
     cfg.nOuterCorrectors = m_nOuterCorrectorsSpin->value();
     cfg.nCorrectors = m_nCorrectorsSpin->value();
     cfg.nNonOrthogonalCorrectors = m_nNonOrthogonalCorrectorsSpin->value();
-    cfg.pRefCell = m_pRefCellSpin->value();
-    cfg.pRefValue = m_pRefValueSpin->value();
+
+    if (!m_solverWizard->isCompressible()) {
+        cfg.pRefCell = m_pRefCellSpin->value();
+        cfg.pRefValue = m_pRefValueSpin->value();
+    }
 
     // Access data from table
     for (int i = 0; i < m_resTable->rowCount(); ++i) {

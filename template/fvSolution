@@ -16,37 +16,19 @@ FoamFile
 
 // Solver settings for each variable
 solvers
-{
-%3
+{%3
     "(U|k|omega|epsilon)"
     {
         solver          smoothSolver;
         smoother        symGaussSeidel;
-        tolerance       1e-05;
+        tolerance       1e-5;
         relTol          0.1;
     }
 %4
 }
 
-// Algorithm-specific settings
-%5
-    nNonOrthogonalCorrectors   2;
-}
-
-// Under-relaxation factors used to improve stability
-relaxationFactors
-{
-    fields
-    {
-        p                   0.3;%6
-    }
-    equations
-    {
-        U                   0.7;
-        "(k|omega|epsilon)" 0.7;%7
-    }
-}
-
+// Algorithm-specific settings%5
+%6
 cache
 {
     grad(U);

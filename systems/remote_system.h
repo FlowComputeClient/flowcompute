@@ -21,6 +21,15 @@
 #include "target_system.h"
 
 #include <libssh/libssh.h>
+#include <libssh/sftp.h>
+
+class ByteArrayBuffer : public std::streambuf {
+public:
+    ByteArrayBuffer(const QByteArray& array) {
+        char* data = const_cast<char*>(array.data());
+        this->setg(data, data, data + array.size());
+    }
+};
 
 class RemoteSystem : public TargetSystem {
     Q_OBJECT
@@ -60,10 +69,14 @@ class RemoteSystem : public TargetSystem {
     QStringList processPaths(const QString& path,
                              PathOperationType type) override;
     RenderData getMeshData(const QString& path) override;
+    std::vector<double> readPoints(const QString& path);
+    FaceList readFaces(const QString& path);
+    std::vector<RenderPatch> parseBoundary(const QString& path);
     std::vector<FieldData> getResultData(const QString& path) override;
 
  private:
     ssh_session m_session = nullptr;
+    sftp_session m_sftp = nullptr;
 };
 
 #endif  // SYSTEMS_REMOTE_SYSTEM_H_

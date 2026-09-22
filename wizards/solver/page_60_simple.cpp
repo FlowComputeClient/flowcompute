@@ -30,39 +30,38 @@
 QWidget* centerCheck(QCheckBox* box);
 
 SimplePage::SimplePage(QWidget *parent): QWizardPage(parent) {
-
     // Set title
     setTitle(tr("SIMPLE Algorithm Configuration (fvSolution)"));
 
-    // Create layout
-    QFormLayout* layout = new QFormLayout(this);
-    layout->setSpacing(20);
-    layout->setContentsMargins(15, 20, 15, 10);
-    setLayout(layout);
+    // Create m_layout
+    m_layout = new QFormLayout(this);
+    m_layout->setSpacing(20);
+    m_layout->setContentsMargins(15, 20, 15, 10);
+    setLayout(m_layout);
 
     // Non-orthogonal correctors
     m_nNonOrthogonalCorrectorsSpin = new QSpinBox(this);
     m_nNonOrthogonalCorrectorsSpin->setRange(0, 50);
-    layout->addRow(tr("Number of non-orthogonal correctors: "),
+    m_layout->addRow(tr("Number of non-orthogonal correctors: "),
                    m_nNonOrthogonalCorrectorsSpin);
 
     // Consistency
     m_consistentCheck = new QCheckBox(this);
-    layout->addRow(tr("Enable consistent SIMPLE algorithm: "),
+    m_layout->addRow(tr("Enable consistent SIMPLE algorithm: "),
                    m_consistentCheck);
 
     // Reference cell index
     m_pRefCellSpin = new QSpinBox(this);
     m_pRefCellSpin->setRange(0, INT_MAX);
-    layout->addRow(tr("Reference cell index for pressure: "), m_pRefCellSpin);
+    m_layout->addRow(tr("Reference cell index for pressure: "), m_pRefCellSpin);
 
     // Pressure at reference cell
     m_pRefValueSpin = new QDoubleSpinBox(this);
     m_pRefValueSpin->setRange(-1e9, 1e9);
     m_pRefValueSpin->setDecimals(5);
-    layout->addRow(tr("Pressure at reference cell: "), m_pRefValueSpin);
+    m_layout->addRow(tr("Pressure at reference cell: "), m_pRefValueSpin);
 
-    layout->addItem(new QSpacerItem(0, 0,
+    m_layout->addItem(new QSpacerItem(0, 0,
         QSizePolicy::Minimum, QSizePolicy::Minimum));
 
     // Residual control table
@@ -76,16 +75,27 @@ SimplePage::SimplePage(QWidget *parent): QWizardPage(parent) {
         1, QHeaderView::ResizeToContents);
     m_resTable->horizontalHeader()->setSectionResizeMode(
         2, QHeaderView::Stretch);
-    layout->addRow(m_resTable);
+    m_layout->addRow(m_resTable);
 
-    layout->addItem(new QSpacerItem(0, 0,
+    m_layout->addItem(new QSpacerItem(0, 0,
         QSizePolicy::Minimum, QSizePolicy::Expanding));
 }
 
 void SimplePage::initializePage() {
-
     m_solverWizard = qobject_cast<SolverWizard*>(this->wizard());
-    if (!m_solverWizard) { return; }
+    if (!m_solverWizard)
+        return;
+
+    // Hide pRef widgets for compressible simulations
+    bool showRefFields = !m_solverWizard->isCompressible();
+    m_pRefCellSpin->setVisible(showRefFields);
+    m_pRefValueSpin->setVisible(showRefFields);
+    if (QWidget* cellLabel = m_layout->labelForField(m_pRefCellSpin)) {
+        cellLabel->setVisible(showRefFields);
+    }
+    if (QWidget* valueLabel = m_layout->labelForField(m_pRefValueSpin)) {
+        valueLabel->setVisible(showRefFields);
+    }
 
     // Access field data and boundaries
     m_cfg = &(m_solverWizard->getMathConfig());
@@ -95,8 +105,6 @@ void SimplePage::initializePage() {
     // Update fields
     m_nNonOrthogonalCorrectorsSpin->setValue(cfg.nNonOrthogonalCorrectors);
     m_consistentCheck->setChecked(cfg.consistent);
-    m_pRefCellSpin->setValue(cfg.pRefCell);
-    m_pRefValueSpin->setValue(cfg.pRefValue);
 
     // Populate control table
     m_resTable->setRowCount(cfg.resControls.size());
@@ -138,8 +146,10 @@ bool SimplePage::validatePage() {
         std::get<CaseIO::SimpleConfig>(m_cfg->algorithmConfig);
     cfg.nNonOrthogonalCorrectors = m_nNonOrthogonalCorrectorsSpin->value();
     cfg.consistent = m_consistentCheck->isChecked();
-    cfg.pRefCell = m_pRefCellSpin->value();
-    cfg.pRefValue = m_pRefValueSpin->value();
+    if (!m_solverWizard->isCompressible()) {
+        cfg.pRefCell = m_pRefCellSpin->value();
+        cfg.pRefValue = m_pRefValueSpin->value();
+    }
 
     // Access data from table
     for (int i = 0; i < m_resTable->rowCount(); ++i) {
@@ -154,7 +164,7 @@ bool SimplePage::validatePage() {
             }
         }
 
-        // Column 2: Residual Control (Tolerance)
+        // Column 1: Residual Control (Tolerance)
         QWidget* toleranceWidget = m_resTable->cellWidget(i, 2);
         if (toleranceWidget) {
             QLineEdit* le = qobject_cast<QLineEdit*>(toleranceWidget);

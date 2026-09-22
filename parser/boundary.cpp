@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include <QByteArray>
 #include <QDebug>
 #include <QRegularExpression>
@@ -27,19 +44,19 @@ std::vector<CaseIO::MeshPatch> CaseIO::parseBoundary(
 
     QString listContent = text.mid(startIdx + 1, endIdx - startIdx - 1);
 
-    // Step 1: Regex to capture the patch name and everything in {}
+    // Regex to capture the patch name and everything in {}
     QRegularExpression reBlock("([A-Za-z0-9_\\-]+)\\s*\\{([^}]*)\\}");
 
-    // Step 2: Regex to capture the patch type inside the block
+    // Regex to capture the patch type inside the block
     QRegularExpression reType("type\\s+([A-Za-z0-9_\\-]+)\\s*;");
 
-    // Step 3: Regex to capture the number of faces
+    // Regex to capture the number of faces
     QRegularExpression reFaces("nFaces\\s+([0-9]+)\\s*;");
 
     QRegularExpressionMatchIterator i = reBlock.globalMatch(listContent);
     while (i.hasNext()) {
         QRegularExpressionMatch match = i.next();
-        QString blockContent = match.captured(2); // The text inside the { }
+        QString blockContent = match.captured(2);
 
         // Extract nFaces and check if it's greater than 0
         QRegularExpressionMatch faceMatch = reFaces.match(blockContent);
@@ -65,27 +82,39 @@ QStringList CaseIO::getPatches(const QByteArray& fileData) {
     // Convert the raw byte array into a QString
     QString text = QString::fromUtf8(fileData);
 
-    // Remove comments
-    text.replace(QRegularExpression("/\\*.*?\\*/",
-                                    QRegularExpression::DotMatchesEverythingOption), "");
-    text.replace(QRegularExpression("//.*"), "");
+        // Remove comments
+        text.replace(QRegularExpression("/\\*.*?\\*/",
+            QRegularExpression::DotMatchesEverythingOption), "");
+        text.replace(QRegularExpression("//.*"), "");
 
-    // Look through top-level parentheses
-    int startIdx = text.indexOf('(');
-    int endIdx = text.lastIndexOf(')');
-    if (startIdx == -1 || endIdx == -1 || startIdx >= endIdx) {
-        return patchNames;
+        // Look through top-level parentheses
+        int startIdx = text.indexOf('(');
+        int endIdx = text.lastIndexOf(')');
+        if (startIdx == -1 || endIdx == -1 || startIdx >= endIdx) {
+            return patchNames;
     }
 
     QString listContent = text.mid(startIdx + 1, endIdx - startIdx - 1);
 
-    // Simplified Regex: Capture only the patch name preceding a '{'
-    QRegularExpression reName("([A-Za-z0-9_\\-]+)\\s*\\{");
-    QRegularExpressionMatchIterator i = reName.globalMatch(listContent);
+    // Regex to capture the patch name and everything in {}
+    QRegularExpression reBlock("([A-Za-z0-9_\\-]+)\\s*\\{([^}]*)\\}");
 
+    // Regex to capture the number of faces
+    QRegularExpression reFaces("nFaces\\s+([0-9]+)\\s*;");
+
+    QRegularExpressionMatchIterator i = reBlock.globalMatch(listContent);
     while (i.hasNext()) {
         QRegularExpressionMatch match = i.next();
-        patchNames.append(match.captured(1)); // Add the extracted name to the list
+        QString blockContent = match.captured(2);
+
+        // Extract nFaces and check if it's greater than 0
+        QRegularExpressionMatch faceMatch = reFaces.match(blockContent);
+        int nFaces = faceMatch.hasMatch() ?
+                         faceMatch.captured(1).toInt() : 0;
+
+        if (nFaces > 0) {
+            patchNames.append(match.captured(1));
+        }
     }
 
     return patchNames;

@@ -1,7 +1,22 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #include "fv_solution.h"
 
-#include <QDebug>
-#include <QDir>
 #include <QMetaEnum>
 #include <QRegularExpression>
 
@@ -69,11 +84,11 @@ void CaseIO::parseFvSolution(std::shared_ptr<OpenFoamDictionary> dict,
                 if (!solverStr.isEmpty()) {
                     bool ok = false;
                     int enumValue =
-                        QMetaEnum::fromType<FieldMathConfig::LinearSolver>().
+                        QMetaEnum::fromType<FlowCompute::LinearSolver>().
                             keyToValue(solverStr.toUtf8().constData(), &ok);
                     if (ok) {
                         fieldConfig.solver =
-                        static_cast<FieldMathConfig::LinearSolver>(enumValue);
+                        static_cast<FlowCompute::LinearSolver>(enumValue);
                     }
                 }
 
@@ -81,11 +96,11 @@ void CaseIO::parseFvSolution(std::shared_ptr<OpenFoamDictionary> dict,
                 if (!precondStr.isEmpty()) {
                     bool ok = false;
                     int enumValue =
-                        QMetaEnum::fromType<FieldMathConfig::Preconditioner>().
+                        QMetaEnum::fromType<FlowCompute::Preconditioner>().
                             keyToValue(precondStr.toUtf8().constData(), &ok);
                     if (ok) {
                         fieldConfig.preconditioner =
-                        static_cast<FieldMathConfig::Preconditioner>(enumValue);
+                        static_cast<FlowCompute::Preconditioner>(enumValue);
                     }
                 }
 
@@ -93,11 +108,11 @@ void CaseIO::parseFvSolution(std::shared_ptr<OpenFoamDictionary> dict,
                 if (!smootherStr.isEmpty()) {
                     bool ok = false;
                     int enumValue =
-                        QMetaEnum::fromType<FieldMathConfig::Smoother>().
+                        QMetaEnum::fromType<FlowCompute::Smoother>().
                             keyToValue(smootherStr.toUtf8().constData(), &ok);
                     if (ok) {
                         fieldConfig.smoother =
-                            static_cast<FieldMathConfig::Smoother>(enumValue);
+                            static_cast<FlowCompute::Smoother>(enumValue);
                     }
                 }
                 fieldConfig.absTolerance = std::isnan(tol) ? 1e-6 : tol;
@@ -213,7 +228,8 @@ void CaseIO::parseFvSolution(std::shared_ptr<OpenFoamDictionary> dict,
 }
 
 QString CaseIO::createFvSolution(const MathConfig& cfg,
-                                 const QString& openFoamPath) {
+    const QString& openFoamPath, bool isCompressible, bool isTransient,
+    bool isOpenCFD) {
     QString dictStr;
     QTextStream out(&dictStr);
 
@@ -290,7 +306,15 @@ QString CaseIO::createFvSolution(const MathConfig& cfg,
                 out << "    residualControl\n    {\n";
                 for (const auto& rc : config.resControls) {
                     if (rc.isEnabled) {
-                        writeEntry(rc.fieldName, rc.tolerance, 2);
+                        if (isTransient && isOpenCFD) {
+                            out << "        " << rc.fieldName << "\n";
+                            out << "        {\n";
+                            writeEntry("tolerance", rc.tolerance, 3);
+                            writeEntry("relTol", "0", 3);
+                            out << "        }\n";
+                        } else {
+                            writeEntry(rc.fieldName, rc.tolerance, 2);
+                        }
                     }
                 }
                 out << "    }\n";
@@ -302,13 +326,15 @@ QString CaseIO::createFvSolution(const MathConfig& cfg,
         if constexpr (std::is_same_v<T, SimpleConfig>) {
             out << "SIMPLE\n{\n";
             writeEntry("nNonOrthogonalCorrectors   ",
-                QString::number(algoCfg.nNonOrthogonalCorrectors), 1);
+                       QString::number(algoCfg.nNonOrthogonalCorrectors), 1);
             writeEntry("consistent   ", toFoamSwitch(algoCfg.consistent), 1);
-            if (algoCfg.pRefCell >= 0) {
-                writeEntry("pRefCell   ",
-                    QString::number(algoCfg.pRefCell), 1);
-                writeEntry("pRefValue   ",
-                    QString::number(algoCfg.pRefValue), 1);
+            if (!isCompressible) {
+                if (algoCfg.pRefCell >= 0) {
+                    writeEntry("pRefCell   ",
+                               QString::number(algoCfg.pRefCell), 1);
+                    writeEntry("pRefValue   ",
+                               QString::number(algoCfg.pRefValue), 1);
+                }
             }
 
             // Generate the residualControl block for SIMPLE
@@ -319,41 +345,48 @@ QString CaseIO::createFvSolution(const MathConfig& cfg,
         else if constexpr (std::is_same_v<T, PisoConfig>) {
             out << "PISO\n{\n";
             writeEntry("momentumPredictor   ",
-                toFoamSwitch(algoCfg.momentumPredictor), 1);
+                       toFoamSwitch(algoCfg.momentumPredictor), 1);
             writeEntry("nCorrectors   ",
-                QString::number(algoCfg.nCorrectors), 1);
+                       QString::number(algoCfg.nCorrectors), 1);
             writeEntry("nNonOrthogonalCorrectors   ",
-                QString::number(algoCfg.nNonOrthogonalCorrectors), 1);
-            if (algoCfg.pRefCell >= 0) {
-                writeEntry("pRefCell", QString::number(algoCfg.pRefCell), 1);
-                writeEntry("pRefValue", QString::number(algoCfg.pRefValue), 1);
+                       QString::number(algoCfg.nNonOrthogonalCorrectors), 1);
+            if (!isCompressible) {
+                if (algoCfg.pRefCell >= 0) {
+                    writeEntry("pRefCell",
+                               QString::number(algoCfg.pRefCell), 1);
+                    writeEntry("pRefValue",
+                               QString::number(algoCfg.pRefValue), 1);
+                }
             }
             out << "}\n\n";
         }
         else if constexpr (std::is_same_v<T, PimpleConfig>) {
             out << "PIMPLE\n{\n";
-            writeEntry("momentumPredictor",
-                toFoamSwitch(algoCfg.momentumPredictor), 1);
-            writeEntry("nOuterCorrectors",
-                QString::number(algoCfg.nOuterCorrectors), 1);
+            writeEntry("momentumPredictor   ",
+                       toFoamSwitch(algoCfg.momentumPredictor), 1);
+            writeEntry("nOuterCorrectors   ",
+                       QString::number(algoCfg.nOuterCorrectors), 1);
             writeEntry("nCorrectors", QString::number(algoCfg.nCorrectors), 1);
-            writeEntry("nNonOrthogonalCorrectors",
-                QString::number(algoCfg.nNonOrthogonalCorrectors), 1);
-            if (algoCfg.pRefCell >= 0) {
-                writeEntry("pRefCell", QString::number(algoCfg.pRefCell), 1);
-                writeEntry("pRefValue", QString::number(algoCfg.pRefValue), 1);
+            writeEntry("nNonOrthogonalCorrectors   ",
+                       QString::number(algoCfg.nNonOrthogonalCorrectors), 1);
+            if (!isCompressible) {
+                if (algoCfg.pRefCell >= 0) {
+                    writeEntry("pRefCell   ",
+                               QString::number(algoCfg.pRefCell), 1);
+                    writeEntry("pRefValue   ",
+                               QString::number(algoCfg.pRefValue), 1);
+                }
             }
 
             // Generate the residualControl block for PIMPLE
-            writeResidualControls(algoCfg);
-
+            if (algoCfg.nOuterCorrectors > 1) {
+                writeResidualControls(algoCfg);
+            }
             out << "}\n\n";
         }
     }, cfg.algorithmConfig);
 
-    // ---------------------------------------------------------------------
-    // 3. Relaxation Factors
-    // ---------------------------------------------------------------------
+    // Relaxation Factors
     out << "// Under-relaxation factors used to improve stability\n";
     out << "relaxationFactors\n{\n";
     QString fieldsStr, eqStr;
@@ -364,7 +397,7 @@ QString CaseIO::createFvSolution(const MathConfig& cfg,
     for (auto it = cfg.fieldMathConfigs.cbegin();
          it != cfg.fieldMathConfigs.cend(); ++it) {
 
-        if (it.key() == "< default >") {
+        if ((it.key() == "< default >") || (it.key() == "rho")) {
             continue;
         }
 
@@ -390,8 +423,8 @@ QString CaseIO::createFvSolution(const MathConfig& cfg,
     }
     out << "}\n\n";
 
-    // Write closing separator
-    out << "// ************************************************************************* //\n";
+    // Write footer
+    out << createFoamFooter();
 
     return dictStr;
 }

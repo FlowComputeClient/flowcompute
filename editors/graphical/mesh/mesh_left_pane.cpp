@@ -30,11 +30,9 @@
 #include "editors/graphical/patch_palette.h"
 #include "editors/graphical/table_delegate.h"
 
-MeshLeftPane::MeshLeftPane(const QStringList& fields,
-       const QHash<QString, FlowCompute::FieldDef>& fieldData,
-       const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
-       QWidget* parent):
-    QWidget(parent), m_fields(fields), m_fieldData(fieldData),
+MeshLeftPane::MeshLeftPane(
+    const std::vector<FlowCompute::BoundaryConditionDef>& boundaryConditions,
+    QWidget* parent): QWidget(parent),
     m_boundaryConditions(boundaryConditions) {
     // Vertical layout
     QVBoxLayout* layout = new QVBoxLayout(this);
@@ -85,6 +83,9 @@ MeshLeftPane::MeshLeftPane(const QStringList& fields,
     hLayout->setSpacing(5);
     hLayout->setContentsMargins(10.0, 0.0, 10.0, 0.0);
 
+    // Push contents to the center
+    hLayout->addStretch();
+
     // Label for feature angle
     QLabel* angleLabel = new QLabel(tr("Feature Angle:"));
     hLayout->addWidget(angleLabel);
@@ -96,6 +97,9 @@ MeshLeftPane::MeshLeftPane(const QStringList& fields,
     m_angleSpin->setRange(0.0, 180.0);
     m_angleSpin->setFixedWidth(spinBoxWidth);
     hLayout->addWidget(m_angleSpin);
+
+    // Add stretch to the right to balance the centering
+    hLayout->addStretch();
     layout->addLayout(hLayout);
 
     // Button to launch autoPatch
@@ -121,10 +125,13 @@ MeshLeftPane::MeshLeftPane(const QStringList& fields,
     m_patchTable->setColumnCount(3);
     m_patchTable->horizontalHeader()->setVisible(false);
     m_patchTable->setColumnWidth(0, 30);
-    m_patchTable->horizontalHeader()
-        ->setSectionResizeMode(1, QHeaderView::Stretch);
+    m_patchTable->setColumnWidth(1, 70);
+    m_patchTable->setColumnWidth(2, 70);
     m_patchTable->verticalHeader()->setVisible(false);
-    m_patchTable->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+
+    // Set width to the columns + scrollbar (~20px)
+    m_patchTable->setFixedWidth(190);
+
     m_patchTable->setTabKeyNavigation(true);
     m_patchTable->setItemDelegateForColumn(1, new TableDelegate(m_patchTable));
     layout->addWidget(m_patchTable, 0, Qt::AlignHCenter);
@@ -217,6 +224,7 @@ void MeshLeftPane::setPatches(
 // Respond when the apply button is pressed
 void MeshLeftPane::onApplyButtonClicked() {
     emit patchApplyRequested(m_boundaryPatches);
+    m_applyButton->setEnabled(false);
 }
 
 // Respond when the check button is pressed

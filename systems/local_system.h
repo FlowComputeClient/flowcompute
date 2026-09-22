@@ -24,13 +24,6 @@
 
 namespace fs = std::filesystem;
 
-struct FaceList {
-    std::vector<int32_t> offsets;
-    std::vector<int32_t> connectivity;
-};
-
-enum class FoamFormat { Ascii, Binary, Unknown };
-
 class LocalSystem : public TargetSystem {
     Q_OBJECT
 

@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_15_REMOTE_H_
-#define PAGE_15_REMOTE_H_
+#ifndef WIZARDS_NEW_CASE_PAGE_15_REMOTE_H_
+#define WIZARDS_NEW_CASE_PAGE_15_REMOTE_H_
 
 #include <QFutureWatcher>
 #include <QWizardPage>
@@ -54,4 +54,4 @@ class RemotePage : public QWizardPage {
     void onAuthFinished(bool isConnected, const QString& errorMsg);
 };
 
-#endif  // PAGE_15_REMOTE_H_
+#endif  // WIZARDS_NEW_CASE_PAGE_15_REMOTE_H_

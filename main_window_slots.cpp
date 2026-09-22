@@ -91,7 +91,9 @@ void MainWindow::openCase() {
     }
 
     // Get OpenFOAM path
-    QString openFoamPath = checkOpenFoam(static_cast<int>(targetType));
+    QString openFoamPath;
+    if (targetType != TargetType::REMOTE_LINUX)
+        openFoamPath = checkOpenFoam(static_cast<int>(targetType));
 
     // Create wizard to open the new case
     OpenCaseWizard wizard(targetType, m_systemMgr, openFoamPath, this);
@@ -112,21 +114,23 @@ void MainWindow::renameFile(const QString& filePath, const QString& newName) {
     int lastSlash = filePath.lastIndexOf('/');
     bool isCase = lastSlash == -1;
 
-    // Update the caseMap if necessary   
-    QString newPath;
+    // Update the caseMap if necessary
+    QString newPath, caseName;
     if (isCase) {
         m_systemMgr.renameCase(filePath, newName);
         newPath = newName;
+        caseName = newName;
     } else {
         newPath = filePath.left(lastSlash) + "/" + newName;
+        caseName = newPath.split("/")[0];
     }
 
     // Access QSettings
     QSettings settings;
-    settings.beginGroup("Tabs");
-    QStringList tabOrder = settings.value("tabOrder").toStringList();
 
     // Iterate through tabs
+    settings.beginGroup("Tabs");
+    QStringList tabOrder = settings.value("tabOrder").toStringList();
     for (int i = 0; i < m_tabWidget->count(); ++i) {
         const QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
 
@@ -136,6 +140,7 @@ void MainWindow::renameFile(const QString& filePath, const QString& newName) {
             // Update path in tab widget
             QString newTabPath = newPath + tabPath.mid(filePath.size());
             m_tabWidget->tabBar()->setTabData(i, newTabPath);
+            m_tabWidget->setTabToolTip(i, newTabPath);
 
             // Update tab that displays the case name and (mesh) or (result)
             QString tabText = m_tabWidget->tabText(i);
@@ -181,9 +186,26 @@ void MainWindow::renameFile(const QString& filePath, const QString& newName) {
     }
     settings.endGroup();
 
-    // Update flags if needed
+    // Update openFolders in map
+    QStringList newFolders;
+    QStringList openFolders = m_systemMgr.getData(caseName).openFolders;
+    for (auto& folder: openFolders) {
+        if (folder.startsWith(filePath + "/") || folder == filePath) {
+            folder = newPath + folder.mid(filePath.size());
+        }
+    }
+    m_systemMgr.updateOpenFolders(caseName, openFolders);
+
+    // Update openFolders in QSettings
+    settings.beginGroup("Cases");
+    settings.beginGroup(caseName);
+    settings.setValue("openFolders", openFolders);
+    settings.endGroup();
+    settings.endGroup();
+
+    // Update flags and openFolders
     if (!isCase) {
-        m_systemMgr.updateFlags(filePath.split("/")[0]);
+        m_systemMgr.updateFlags(caseName);
     }
 }
 
@@ -193,7 +215,6 @@ void MainWindow::removeFile(const QString& filePath, bool isCase) {
     for (int i = m_tabWidget->count() - 1; i >= 0; --i) {
         QString tabPath = m_tabWidget->tabBar()->tabData(i).toString();
         if (tabPath.startsWith(filePath + "/") || tabPath == filePath) {
-            // Tells the tabwidget to destroy tab - updates settings
             m_tabWidget->destroyTab(i, true);
         }
     }
@@ -203,6 +224,7 @@ void MainWindow::removeFile(const QString& filePath, bool isCase) {
         m_systemMgr.removeCase(filePath);
     } else {
         QString caseName = filePath.split("/")[0];
+        m_systemMgr.removeOpenFolder(caseName, filePath);
         m_systemMgr.updateFlags(caseName);
     }
 }
@@ -223,6 +245,7 @@ void MainWindow::cutPasteFile(const QString& oldPath, const QString& newPath) {
             // Update path in tab widget
             QString newTabPath = newPath + tabPath.mid(oldPath.size());
             m_tabWidget->tabBar()->setTabData(i, newTabPath);
+            m_tabWidget->setTabToolTip(i, newTabPath);
 
             // Update tabMap
             auto it = m_tabMap.find(tabPath);
@@ -280,27 +303,23 @@ QString MainWindow::checkOpenFoam(int targetId) {
 
 // Create new case folder
 void MainWindow::createCase(const QString& caseName, const QString& casePath,
-    const QStringList& caseFiles, int targetId, const QString& openFoamPath,
-    CaseFlags flag, const QString& userName, const QString& hostName, int port)
-    {
+    const QStringList& openFolders, int targetId, const QString& openFoamPath,
+    CaseFlags flag, CaseType type, const QString& userName,
+    const QString& hostName, int port) {
     // Add case to map
-    m_systemMgr.addCase(caseName, CaseData{casePath, caseFiles, targetId,
-        openFoamPath, flag, userName, hostName, port});
+    m_systemMgr.addCase(caseName, CaseData{casePath, openFolders, targetId,
+        openFoamPath, flag, type, userName, hostName, port});
 
     // Update flags
-    if (flag == CaseFlag::NotChecked) {
+    if (flag == CaseFlag::NotChecked)
         flag = m_systemMgr.updateFlags(caseName, casePath);
-    }
 
     // Update utility map if necessary
-    if (!m_utilMap.contains(openFoamPath)) {
-        QString path = casePath + "/" + caseName + "/";
-        m_utilMap[openFoamPath] = checkUtilities(path, m_utilities);
-    }
+    if (!m_utilMap.contains(openFoamPath))
+        checkUtilities(caseName);
 
     // Display case in navigator
-    m_navigator->addCase(caseName, caseFiles);
-    m_navigator->expandCase(caseName);
+    m_navigator->addCase(caseName, openFolders);
 
     // Update QSettings
     QSettings settings;
@@ -318,6 +337,9 @@ void MainWindow::createCase(const QString& caseName, const QString& casePath,
     settings.setValue("casePath", casePath);
     settings.setValue("targetSystemId", targetId);
     settings.setValue("openFoamPath", openFoamPath);
+    settings.setValue("caseFlags", static_cast<quint32>(flag));
+    settings.setValue("caseType", static_cast<quint32>(type));
+    settings.setValue("openFolders", openFolders);
 
     if (targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
         settings.setValue("userName", userName);
@@ -549,6 +571,7 @@ void MainWindow::createTextEditor(const QString& fileName,
     int tabIndex = m_tabWidget->addTab(textWidget, fileName);
     m_tabWidget->setCurrentIndex(tabIndex);
     m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+    m_tabWidget->setTabToolTip(tabIndex, fullPath);
 
     connect(textWidget, &TextWidget::reloadRequested, this,
             &MainWindow::updateTab);
@@ -562,17 +585,15 @@ void MainWindow::createTextEditor(const QString& fileName,
 
 // Open editor to display surfaces
 void MainWindow::createSurfaceEditor(const QString& fileName,
-                                  const QString& fullPath, bool logMessage) {
+                    const QString& tabPath, bool logMessage) {
     // Check existing editor
     if (checkExistingEditor(fileName))
         return;
 
     // Get case data
-    QString caseName = fullPath.split('/').first();
+    QString caseName = tabPath.split("/").first();
     CaseData caseData = m_systemMgr.getData(caseName);
-    QString casePath = caseData.casePath + "/" + caseName;
-    QString path = caseData.casePath + "/" + fullPath;
-    QString openFoamPath = caseData.openFoamPath;
+    QString fullPath = caseData.casePath + "/" + tabPath;
 
     // Read model data
     bool isBinary = false;
@@ -580,10 +601,10 @@ void MainWindow::createSurfaceEditor(const QString& fileName,
 
     // Access data - remove tab if file isn't present
     std::optional<QByteArray> data =
-        m_systemMgr.getSystem(caseName)->getFileContent(path);
+        m_systemMgr.getSystem(caseName)->getFileContent(fullPath);
     if (!data) {
-        log(tr("Failed to load file: %1").arg(fullPath));
-        tabClosed(fullPath);
+        log(tr("Failed to load file: %1").arg(tabPath));
+        tabClosed(tabPath);
         return;
     }
 
@@ -591,12 +612,13 @@ void MainWindow::createSurfaceEditor(const QString& fileName,
     if (data.value().isEmpty()) {
         QMessageBox::warning(this, tr("Empty Geometry"), tr("The file '%1' "
             "contains no geometry data and cannot be rendered.").arg(fileName));
-        log(tr("Failed to open empty geometry file: %1").arg(fullPath));
+        log(tr("Failed to open empty geometry file: %1").arg(tabPath));
         return;
     }
 
     // Open geometry file
-    if (fileName.endsWith(".stl", Qt::CaseInsensitive)) {
+    if ((fileName.endsWith(".stl", Qt::CaseInsensitive)) ||
+        (fileName.endsWith(".stlb", Qt::CaseInsensitive))) {
         std::pair<RenderData, bool> res =
             StlReader::readStlFile(fileName, data.value());
         model = res.first;
@@ -610,20 +632,21 @@ void MainWindow::createSurfaceEditor(const QString& fileName,
     // Update tab map and settings
     TabData tabData;
     tabData.type = EditorType::SURFACE;
-    m_tabMap.insert(fullPath, tabData);
-    updateTabSettings(fullPath, tabData);
+    m_tabMap.insert(tabPath, tabData);
+    updateTabSettings(tabPath, tabData);
 
     // Update log
     if (logMessage)
-        m_console->appendPlainText(tr("Reading %1\n").arg(path));
+        m_console->appendPlainText(tr("Reading %1\n").arg(fullPath));
 
     // Create new surface editor
     SurfaceEditor* surfaceEditor = new SurfaceEditor(m_systemMgr, caseName,
-        path, modelData, &m_vulkanInstance, isBinary, this);
+        fullPath, modelData, &m_vulkanInstance, isBinary, this);
     surfaceEditor->applyTheme(m_graphicalTheme);
     int tabIndex = m_tabWidget->addTab(surfaceEditor, fileName);
     m_tabWidget->setCurrentIndex(tabIndex);
-    m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+    m_tabWidget->tabBar()->setTabData(tabIndex, tabPath);
+    m_tabWidget->setTabToolTip(tabIndex, tabPath);
 
     // Action default configurations
     m_undoAction->setDisabled(true);
@@ -650,7 +673,6 @@ void MainWindow::createMeshEditor(const QString& caseName, bool logMessage) {
     // Get case data
     CaseData caseData = m_systemMgr.getData(caseName);
     QString casePath = caseData.casePath + "/" + caseName;
-    QString openFoamPath = caseData.openFoamPath;
 
     // Update tab map and settings
     TabData tabData;
@@ -684,13 +706,13 @@ void MainWindow::createMeshEditor(const QString& caseName, bool logMessage) {
         // Get mesh data
         progress->close();
         RenderDataPtr renderData = watcher->result();
-        if (!renderData)
+        if (!renderData || renderData->data.empty()) {
             return;
+        }
 
         // Create mesh editor
         auto* meshEditor = new MeshEditor(
             renderData, casePath, m_systemMgr.getSystem(caseName),
-            m_solverFamilies, m_turbulenceModels, m_fieldData,
             m_boundaryConditions, &m_vulkanInstance, this);
         meshEditor->applyTheme(m_graphicalTheme);
 
@@ -709,6 +731,7 @@ void MainWindow::createMeshEditor(const QString& caseName, bool logMessage) {
         int tabIndex = m_tabWidget->addTab(meshEditor, tabTitle);
         m_tabWidget->setCurrentIndex(tabIndex);
         m_tabWidget->tabBar()->setTabData(tabIndex, fullPath);
+        m_tabWidget->setTabToolTip(tabIndex, fullPath);
 
         m_undoAction->setDisabled(true);
         m_redoAction->setDisabled(true);
@@ -739,7 +762,6 @@ void MainWindow::createResultEditor(const QString& caseName, bool logMessage) {
     // Get case data
     CaseData caseData = m_systemMgr.getData(caseName);
     QString casePath = caseData.casePath + "/" + caseName;
-    QString openFoamPath = caseData.openFoamPath;
 
     // Update tab map and settings
     TabData tabData;
@@ -859,6 +881,10 @@ void MainWindow::saveFile() {
                         editor->toPlainText().toUtf8(), fullPath);
                 if (save)
                     editor->document()->setModified(false);
+
+                // Update timestamp
+                m_tabMap[tabPath].stats =
+                    m_systemMgr.getSystem(caseName)->getFileStats(fullPath);
             }
             return;
         }
@@ -1047,6 +1073,7 @@ void MainWindow::launchMeshExecutionDialog() {
     QString caseName = getSelectedCase();
     CaseData caseData = m_systemMgr.getData(caseName);
     QString casePath = caseData.casePath + "/" + caseName;
+    bool isOpenCFD = caseData.caseType.testFlag(IsOpenCFD);
     QString openFoamPath = caseData.openFoamPath;
 
     // Check server connection
@@ -1057,23 +1084,12 @@ void MainWindow::launchMeshExecutionDialog() {
         return;
     }
 
-    // Check if using Foundation release of OpenFOAM
-    QString dirName = QDir(openFoamPath).dirName();
-    const QRegularExpression foundationRegex("^openfoam\\d{2}$",
-        QRegularExpression::CaseInsensitiveOption);
-    bool isFoundation = foundationRegex.match(dirName).hasMatch();
-
     // Check if mesh configuration files are present
     QStringList meshConfigFiles;
-    if (isFoundation) {
-        meshConfigFiles = {casePath + "/system/blockMeshDict",
-                            casePath + "/system/surfaceFeaturesDict",
-                            casePath + "/system/snappyHexMeshDict"};
-    } else {
-        meshConfigFiles = {casePath + "/system/blockMeshDict",
-                           casePath + "/system/surfaceFeatureExtractDict",
-                           casePath + "/system/snappyHexMeshDict"};
-    }
+    meshConfigFiles << casePath + "/system/blockMeshDict"
+        << (isOpenCFD ? casePath + "/system/surfaceFeatureExtractDict" :
+                        casePath + "/system/surfaceFeaturesDict")
+        << casePath + "/system/snappyHexMeshDict";
     QString meshConfigFileString = meshConfigFiles.join("\n");
     QStringList results = system->processPaths(meshConfigFileString,
                                                PathOperationType::CHECK);
@@ -1081,7 +1097,7 @@ void MainWindow::launchMeshExecutionDialog() {
     // Launch dialog if any config files are present
     if (results.contains("0")) {
         RunMeshDialog dialog(caseName, m_systemMgr, results,
-                             isFoundation, this);
+                             isOpenCFD, this);
 
         // Connect signal
         connect(&dialog, &RunMeshDialog::requestRunMesh, this,
@@ -1190,9 +1206,9 @@ void MainWindow::launchSolverConfigurationWizard() {
         m_boundaryConditions, patchNames, this);
 
     // Parse case files
-    if (wizard.parseFiles()) {
-        connect(&wizard, &SolverWizard::createTextEditor, this,
+    connect(&wizard, &SolverWizard::createTextEditor, this,
             &MainWindow::createTextEditor);
+    if (wizard.parseFiles()) {
         connect(&wizard, &SolverWizard::updatePath, this,
             &MainWindow::updatePath);
         wizard.exec();
@@ -1284,7 +1300,7 @@ std::shared_ptr<RenderData> MainWindow::getResultData(const QString& caseName,
     if (fileData && !fileData.value().isEmpty()) {
         patchNames = CaseIO::getPatches(fileData.value());
     } else {
-        qDebug() << "Couldn't access constant/polyMesh/boundary file.";
+        log("Couldn't access constant/polyMesh/boundary file.");
         return nullptr;
     }
 

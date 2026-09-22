@@ -57,6 +57,37 @@ enum class FieldClass {
 };
 Q_ENUM_NS(FieldClass)
 
+enum class LinearSolver {
+    GAMG = 0,
+    smoothSolver,
+    PBiCGStab,
+    PCG,
+    PBiCG,
+    diagonal,
+    NONE
+};
+Q_ENUM_NS(LinearSolver)
+
+enum class Smoother {
+    symGaussSeidel = 0,
+    GaussSeidel,
+    DICGaussSeidel,
+    DILUGaussSeidel,
+    Jacobi,
+    NONE
+};
+Q_ENUM_NS(Smoother)
+
+enum class Preconditioner {
+    DILU = 0,
+    DIC,
+    GAMG,
+    FDIC,
+    ILU,
+    NONE
+};
+Q_ENUM_NS(Preconditioner)
+
 inline const QStringList patchTypes =
     { "patch", "wall", "empty", "symmetry", "wedge" };
 
@@ -72,10 +103,18 @@ struct FieldDef {
     QString dimensions;
     QString defaultValue;
     FieldClass fieldClass;
+    LinearSolver solver = LinearSolver::NONE;
+    Smoother smoother = Smoother::NONE;
+    Preconditioner preconditioner = Preconditioner::NONE;
+    double absTolerance = 1e-6;
+    double relTolerance = 0.1;
+    double relaxationFactor = 0.7;
+    bool isFieldsRelaxation = false;
 };
 
 struct SolverDef {
     QString name;
+    QString foundationName;
     Algorithm algorithm = Algorithm::PIMPLE;
     QStringList fields;
     QStringList transportProperties;

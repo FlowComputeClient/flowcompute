@@ -23,6 +23,7 @@
 class SolverWizard;
 class QCheckBox;
 class QDoubleSpinBox;
+class QFormLayout;
 class QSpinBox;
 class QTableWidget;
 
@@ -42,6 +43,7 @@ class SimplePage : public QWizardPage {
  private:
     SolverWizard* m_solverWizard;
     CaseIO::MathConfig* m_cfg;
+    QFormLayout* m_layout;
 
     QCheckBox *m_consistentCheck;
     QDoubleSpinBox *m_pRefValueSpin;

@@ -123,6 +123,7 @@ SurfaceLeftPane::SurfaceLeftPane(QWidget* parent): QWidget(parent) {
     // Check box to overwrite file
     m_overwriteCheck = new QCheckBox(tr("Overwrite File"));
     layout->addWidget(m_overwriteCheck, 0, Qt::AlignHCenter);
+    m_overwriteCheck->setChecked(true);
 
     // Button to launch surfaceAutoPatch
     m_patchButton = new QPushButton(tr("Generate Patches"));

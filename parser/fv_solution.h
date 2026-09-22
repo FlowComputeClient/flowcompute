@@ -1,3 +1,20 @@
+// Copyright 2026 FlowCompute LLC
+//
+// This file is part of FlowCompute.
+//
+// FlowCompute is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FlowCompute is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
+
 #ifndef PARSER_FV_SOLUTION_H_
 #define PARSER_FV_SOLUTION_H_
 
@@ -6,6 +23,7 @@
 #include <QMap>
 #include <QObject>
 
+#include "core_types.h"
 #include "open_foam_dictionary.h"
 
 namespace CaseIO {
@@ -34,51 +52,19 @@ struct PisoConfig {
 
 struct PimpleConfig {
     bool momentumPredictor = true;
-    unsigned int nOuterCorrectors = 1;
+    unsigned int nOuterCorrectors = 2;
     unsigned int nCorrectors = 2;
-    unsigned int nNonOrthogonalCorrectors = 2;
+    unsigned int nNonOrthogonalCorrectors = 1;
     unsigned int pRefCell = 0;
     double pRefValue = 0.0;
     std::vector<ResidualControl> resControls;
 };
 
 struct FieldMathConfig {
-    Q_GADGET
-
- public:
-    enum class LinearSolver {
-        GAMG = 0,
-        smoothSolver,
-        PBiCGStab,
-        PCG,
-        PBiCG,
-        diagonal
-    };
-    Q_ENUM(LinearSolver)
-
-    enum class Smoother {
-        symGaussSeidel = 0,
-        GaussSeidel,
-        DICGaussSeidel,
-        DILUGaussSeidel,
-        Jacobi,
-        NONE
-    };
-    Q_ENUM(Smoother)
-
-    enum class Preconditioner {
-        DILU = 0,
-        DIC,
-        GAMG,
-        FDIC,
-        ILU,
-        NONE
-    };
-    Q_ENUM(Preconditioner)
-
-    LinearSolver solver = LinearSolver::GAMG;
-    Smoother smoother = Smoother::NONE;
-    Preconditioner preconditioner = Preconditioner::NONE;
+    FlowCompute::LinearSolver solver = FlowCompute::LinearSolver::GAMG;
+    FlowCompute::Smoother smoother = FlowCompute::Smoother::NONE;
+    FlowCompute::Preconditioner preconditioner =
+        FlowCompute::Preconditioner::NONE;
 
     // Standard tolerances
     double absTolerance = 1e-6;
@@ -103,7 +89,8 @@ void parseFvSolution(std::shared_ptr<OpenFoamDictionary> dict,
                      MathConfig& config);
 
 // Create new fvSolution
-QString createFvSolution(const MathConfig& cfg, const QString& openFoamPath);
+QString createFvSolution(const MathConfig& cfg, const QString& openFoamPath,
+                         bool isCompressible, bool isTransient, bool isOpenCFD);
 };
 
 #endif  // PARSER_FV_SOLUTION_H_

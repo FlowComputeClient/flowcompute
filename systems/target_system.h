@@ -54,6 +54,13 @@ struct FileResponse {
     qint64 mtime = 0;
 };
 
+struct FaceList {
+    std::vector<int32_t> offsets;
+    std::vector<int32_t> connectivity;
+};
+
+enum class FoamFormat { Ascii, Binary, Unknown };
+
 #include "geometry/graphic_data.h"
 
 // Abstract class that represents a target running OpenFOAM

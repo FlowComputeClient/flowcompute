@@ -1,0 +1,30 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  %1|
+|   \\  /    A nd           | Website:  %2|
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      %3;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+thermoType
+{
+    type            %4;
+    mixture         %5;
+    transport       %6;
+    thermo          %7;
+    equationOfState %8;
+    specie          %9;
+    energy          %10;
+}
+
+%11
+
+// ************************************************************************* //

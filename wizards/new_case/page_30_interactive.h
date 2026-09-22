@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_30_INTERACTIVE_H_
-#define PAGE_30_INTERACTIVE_H_
+#ifndef WIZARDS_NEW_CASE_PAGE_30_INTERACTIVE_H_
+#define WIZARDS_NEW_CASE_PAGE_30_INTERACTIVE_H_
 
 #include <QWizardPage>
 
@@ -35,10 +35,12 @@ class InteractivePage : public QWizardPage {
     bool validatePage() override;
 
  private:
-    QButtonGroup *m_flowButtonGroup, *m_timeButtonGroup;
-    QButtonGroup *m_turbulenceButtonGroup;
-    QCheckBox *m_heatCheck, *m_radiationCheck, *m_combustionCheck;
+    QButtonGroup *m_timeButtonGroup, *m_flowButtonGroup, *m_phaseButtonGroup;
+    QButtonGroup *m_turbulenceButtonGroup, *m_heatButtonGroup;
+    QButtonGroup *m_meshButtonGroup;
+    QCheckBox *m_radiationCheck, *m_combustionCheck;
+    QCheckBox *m_buoyancyCheck, *m_particlesCheck;
     QSlider *m_prioritySlider;
 };
 
-#endif  // PAGE_30_INTERACTIVE_H_
+#endif  // WIZARDS_NEW_CASE_PAGE_30_INTERACTIVE_H_

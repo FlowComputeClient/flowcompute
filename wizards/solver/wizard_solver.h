@@ -26,6 +26,7 @@
 #include "parser/field.h"
 #include "parser/function_object.h"
 #include "parser/fv_solution.h"
+#include "parser/thermo_physical_properties.h"
 #include "core_types.h"
 #include "systems/system_manager.h"
 
@@ -35,15 +36,15 @@ class SolverWizard : public QWizard {
  public:
     enum {
         Page_Control = 0,
-        Page_Transient = 1,
-        Page_Physics = 2,
-        Page_Boundary = 3,
-        Page_Algorithm = 4,
-        Page_Simple = 5,
-        Page_Pimple = 6,
-        Page_Piso = 7,
-        Page_Parallel = 8,
-        Page_Tasks = 9
+        Page_Physics,
+        Page_Thermo,
+        Page_Boundary,
+        Page_Algorithm,
+        Page_Simple,
+        Page_Pimple,
+        Page_Piso,
+        Page_Parallel,
+        Page_Tasks
     };
 
     SolverWizard(const QString& caseName, SystemManager& systemMgr,
@@ -57,7 +58,11 @@ class SolverWizard : public QWizard {
 
     bool parseFiles();
     CaseIO::ControlConfig& getControlConfig() { return m_controlConfig; };
-    CaseIO::PhysicsConfig& getPhysicsConfig() { return m_physicsConfig; };
+    CaseIO::TurbulenceConfig& getTurbulenceConfig() {
+        return m_turbulenceConfig; };
+    CaseIO::TransportConfig& getTransportConfig() {
+        return m_transportConfig; };
+    CaseIO::ThermoConfig& getThermoConfig() { return m_thermoConfig; };
     QHash<QString, CaseIO::FieldData>& getBoundaryConfig() {
         return m_boundaryConfig;
     };
@@ -70,10 +75,11 @@ class SolverWizard : public QWizard {
         return m_boundaries;
     };
 
+    bool isThermoRequired();
+    bool isSteadyState() const { return m_isSteadyState; }
+    bool isCompressible() const { return m_isCompressible; }
     void setCaseName(const QString& text) { m_caseName = text; };
-    void setFieldNames(const QStringList& fields) {
-        m_fieldNames = fields;
-    }
+    void setFieldNames(const QStringList& fields) { m_fieldNames = fields; }
     QStringList getFieldNames() const { return m_fieldNames; }
     FlowCompute::Algorithm getSolverAlgorithm();
 
@@ -102,10 +108,14 @@ class SolverWizard : public QWizard {
     QHash<QString, FlowCompute::Algorithm> m_solverAlgorithmMap;
 
     // Solver dictionary structures
+    bool m_isOpenCFD = false, m_isSteadyState = false,
+        m_isThermoRequired = false, m_isCompressible = false;;
     bool showParsingErrorMessage(QString fileName);
     QMap<QString, std::shared_ptr<OpenFoamDictionary>> m_dictMap;
     CaseIO::ControlConfig m_controlConfig;
-    CaseIO::PhysicsConfig m_physicsConfig;
+    CaseIO::TurbulenceConfig m_turbulenceConfig;
+    CaseIO::TransportConfig m_transportConfig;
+    CaseIO::ThermoConfig m_thermoConfig;
     QHash<QString, CaseIO::FieldData> m_boundaryConfig;
     CaseIO::MathConfig m_mathConfig;
     CaseIO::ParallelConfig m_parallelConfig;

@@ -25,7 +25,7 @@ NodeData::NodeData(const QString& name, NodeType type, bool isDisabled) :
     setSizeHint(QSize(0, 24));
 
     // Force the expand arrow to appear
-    if (type == NodeType::Folder) {
+    if ((type == NodeType::CaseFolder) || (type == NodeType::Folder)) {
         if (!isDisabled) {
             QStandardItem* dummy = new QStandardItem(tr("Loading..."));
             dummy->setData(true, Qt::UserRole + 1);

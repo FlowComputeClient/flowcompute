@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#include "wizards/solver/page_30_physics.h"
+#include "wizards/solver/page_20_physics.h"
 
 #include <QComboBox>
 #include <QFormLayout>
@@ -36,16 +36,16 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
         transportProperties,
     QWidget *parent): QWizardPage(parent), m_families(families),
     m_turbModels(turbModels), m_transportProperties(transportProperties) {
-
-    // Set title and style
-    setTitle(tr("Turbulence and Transport Properties"));
-
+    // Set title and layout
+    setTitle(tr("Physical Properties"));
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setSpacing(20);
     setLayout(layout);
 
     QGroupBox* turbulenceGroup =
         new QGroupBox(tr("Turbulence Selection"), this);
+    turbulenceGroup->setSizePolicy(QSizePolicy::Preferred,
+                                   QSizePolicy::Expanding);
     layout->addWidget(turbulenceGroup);
     QFormLayout* turbulenceLayout = new QFormLayout(turbulenceGroup);
 
@@ -55,6 +55,8 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
 
     // Create the tree
     m_turbulenceTree = new QTreeWidget(this);
+    m_turbulenceTree->setSizePolicy(QSizePolicy::Expanding,
+                                    QSizePolicy::Expanding);
     m_turbulenceTree->setHeaderHidden(true);
     m_turbulenceTree->setSelectionMode(QAbstractItemView::SingleSelection);
     turbulenceLayout->addRow(m_turbulenceTree);
@@ -62,7 +64,8 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
             &PhysicsPage::modelChanged);
 
     // Add the Laminar option to the tree
-    QTreeWidgetItem* laminarCategoryNode = new QTreeWidgetItem(m_turbulenceTree);
+    QTreeWidgetItem* laminarCategoryNode =
+        new QTreeWidgetItem(m_turbulenceTree);
     laminarCategoryNode->setText(0, "Laminar");
     laminarCategoryNode->setFlags(laminarCategoryNode->flags() &
                                   ~Qt::ItemIsSelectable);
@@ -106,33 +109,33 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
                              m_deltaModelCombo);
     m_deltaModelCombo->setEnabled(false);
 
+    // Add spacer to the bottom of the layout
+    turbulenceLayout->addItem(
+        new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+
     // Create group box for transport properties
-    QGroupBox* transportGroup = new QGroupBox(tr("Transport Properties"), this);
-    layout->addWidget(transportGroup);
-    QFormLayout* transportLayout = new QFormLayout(transportGroup);
-    transportLayout->setSpacing(10);
+    m_propertyGroup = new QGroupBox(tr("Transport Properties"), this);
+    layout->addWidget(m_propertyGroup);
+    QFormLayout* propertyLayout = new QFormLayout(m_propertyGroup);
+    propertyLayout->setSpacing(10);
 
     // Transport model selector
-    m_transportModelCombo = new QComboBox(transportGroup);
+    m_transportModelCombo = new QComboBox(m_propertyGroup);
     metaEnum = QMetaEnum::fromType<CaseIO::TransportModel>();
     for (int i = 0; i < metaEnum.keyCount(); ++i) {
         m_transportModelCombo->addItem(metaEnum.key(i));
     }
-    transportLayout->addRow(tr("Transport Model:"), m_transportModelCombo);
-
-    // Add space
-    transportLayout->addItem(new QSpacerItem(0, 10, QSizePolicy::Minimum,
-        QSizePolicy::Fixed));
+    propertyLayout->addRow(tr("Transport Model:"), m_transportModelCombo);
 
     // Warning Label
     QLabel* warningLabel =
         new QLabel(tr("<i>Enter the properties required by your solver. "
-        "Leave irrelevant fields blank.</i>"), transportGroup);
+        "Leave irrelevant fields blank.</i>"), m_propertyGroup);
     warningLabel->setWordWrap(true);
-    transportLayout->addRow(warningLabel);
+    propertyLayout->addRow(warningLabel);
 
     // Create the table
-    m_propertiesTable = new QTableWidget(transportGroup);
+    m_propertiesTable = new QTableWidget(m_propertyGroup);
     m_propertiesTable->setColumnCount(4);
     m_propertiesTable->setHorizontalHeaderLabels(
         { "Property", "Variable", "Dimension", "Value" });
@@ -146,21 +149,17 @@ PhysicsPage::PhysicsPage(const std::vector<FlowCompute::SolverFamily>& families,
     m_propertiesTable->horizontalHeader()->
         setSectionResizeMode(3, QHeaderView::Stretch);
     m_propertiesTable->setSelectionMode(QAbstractItemView::NoSelection);
-    transportLayout->addRow(m_propertiesTable);
-
-    transportLayout->addItem(
-        new QSpacerItem(0, 0, QSizePolicy::Minimum, QSizePolicy::Expanding));
+    propertyLayout->addRow(m_propertiesTable);
 }
 
 void PhysicsPage::initializePage() {
-
     // Access the parsed structure
-    m_solverWizard = qobject_cast<SolverWizard*>(this->wizard());    
-    m_cfg = &(m_solverWizard->getPhysicsConfig());
+    m_solverWizard = qobject_cast<SolverWizard*>(this->wizard());
+    m_turbCfg = &(m_solverWizard->getTurbulenceConfig());
 
     // Update tree
     QList<QTreeWidgetItem*> items = m_turbulenceTree->findItems(
-        m_cfg->model, Qt::MatchExactly | Qt::MatchRecursive, 0);
+        m_turbCfg->model, Qt::MatchExactly | Qt::MatchRecursive, 0);
     if (items.isEmpty()) {
         items = m_turbulenceTree->findItems("kOmegaSST",
             Qt::MatchExactly | Qt::MatchRecursive, 0);
@@ -176,21 +175,41 @@ void PhysicsPage::initializePage() {
         parent = parent->parent();
     }
 
-    // Update combo boxes
-    m_transportModelCombo->setCurrentIndex(
-        static_cast<int>(m_cfg->transportModel));
+    // Update delta model combo box
     m_deltaModelCombo->setCurrentIndex(
-        static_cast<int>(m_cfg->deltaModel));
+        static_cast<int>(m_turbCfg->deltaModel));
+
+    m_isThermoRequired = m_solverWizard->isThermoRequired();
+    if (m_isThermoRequired) {
+        m_propertyGroup->hide();
+        return;
+    } else {
+        m_propertyGroup->show();
+    }
+
+    // Update transport model combo box
+    m_transCfg = &(m_solverWizard->getTransportConfig());
+    m_transportModelCombo->setCurrentIndex(
+        static_cast<int>(m_transCfg->transportModel));
+
+    // Get solver name
+    QString solverName;
+    CaseIO::ControlConfig* controlConfig =
+        &(m_solverWizard->getControlConfig());
+    if (controlConfig->application.startsWith("foam")) {
+        solverName = controlConfig->solver;
+    } else {
+        solverName = controlConfig->application;
+    }
 
     // Get transport properties for solver
-    CaseIO::ControlConfig* controlConfig = &(m_solverWizard->getControlConfig());
-    QString solverCategory = controlConfig->solverCategory;
-    QString solverName = controlConfig->solver;
+    QString solverCategory = controlConfig->solverFamily;
     QStringList transportProperties = [&]() -> QStringList {
         for (const auto& family : m_families) {
             if (family.name == solverCategory) {
                 for (const auto& solver : family.solvers) {
-                    if (solver.name == solverName) {
+                    if ((solver.name == solverName) ||
+                        (solver.foundationName == solverName)) {
                         return solver.transportProperties;
                     }
                 }
@@ -261,8 +280,17 @@ void PhysicsPage::initializePage() {
     m_propertiesTable->setFixedHeight(height);
 }
 
+// Set next page of the wizard
+int PhysicsPage::nextId() const {
+    if (m_isThermoRequired) {
+        return SolverWizard::Page_Thermo;
+    }
+    return SolverWizard::Page_Boundary;
+}
+
 bool PhysicsPage::validatePage() {
-    if (!m_cfg) return false;
+    if (!m_turbCfg)
+        return false;
 
     // Set Simulation Type and Model
     QList<QTreeWidgetItem*> selectedItems = m_turbulenceTree->selectedItems();
@@ -273,23 +301,28 @@ bool PhysicsPage::validatePage() {
     }
 
     QTreeWidgetItem* selectedModelItem = selectedItems.first();
-    m_cfg->model = selectedModelItem->text(0);
+    m_turbCfg->model = selectedModelItem->text(0);
 
     // Find the simulation type (RAS, LES, or Laminar)
     QTreeWidgetItem* topLevel = selectedModelItem;
     while (topLevel->parent()) {
         topLevel = topLevel->parent();
     }
-    m_cfg->simulationType = topLevel->text(0);
+    m_turbCfg->simulationType = topLevel->text(0);
 
     // Get data from combo boxes
-    m_cfg->transportModel = static_cast<CaseIO::TransportModel>(
-        m_transportModelCombo->currentIndex());
-    m_cfg->deltaModel = static_cast<CaseIO::DeltaModel>(
+    m_turbCfg->deltaModel = static_cast<CaseIO::DeltaModel>(
         m_deltaModelCombo->currentIndex());
 
+    if (m_isThermoRequired) {
+        return true;
+    }
+
+    m_transCfg->transportModel = static_cast<CaseIO::TransportModel>(
+        m_transportModelCombo->currentIndex());
+
     // Extract Fluid Properties from the Table
-    m_cfg->fluidProperties.clear();
+    m_transCfg->fluidProperties.clear();
     for (int i = 0; i < m_propertiesTable->rowCount(); ++i) {
 
         // Read the variable name from Column 1
@@ -304,7 +337,7 @@ bool PhysicsPage::validatePage() {
 
             // Update the map if the user entered text
             if (!value.isEmpty()) {
-                m_cfg->fluidProperties.insert(varName, value);
+                m_transCfg->fluidProperties.insert(varName, value);
             }
         }
     }

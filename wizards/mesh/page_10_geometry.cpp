@@ -122,18 +122,14 @@ void GeometryPage::caseChanged(const QString& caseName) {
 
     // Get case path
     m_caseName = caseName;
-    QString casePath = m_systemMgr.getData(m_caseName).casePath;
-    QString openFoamPath = m_systemMgr.getData(m_caseName).openFoamPath;
-
-    // Determine which OpenFOAM release is used
-    QString dirName = QDir(openFoamPath).dirName();
-    const QRegularExpression foundationRegex("^openfoam\\d{2}$",
-        QRegularExpression::CaseInsensitiveOption);
-    bool isFoundation = foundationRegex.match(dirName).hasMatch();
+    CaseData caseData = m_systemMgr.getData(m_caseName);
+    QString casePath = caseData.casePath;
+    QString openFoamPath = caseData.openFoamPath;
+    bool isOpenCFD = caseData.caseType.testFlag(IsOpenCFD);
 
     // Read geometry file
     QString subDir =
-        (isFoundation) ? "/constant/geometry" : "/constant/triSurface";
+        (isOpenCFD) ? "/constant/triSurface" : "/constant/geometry";
     QString path = casePath + "/" + m_caseName + subDir;
     QStringList geometryFiles =
         m_systemMgr.getSystem(m_caseName)->processPaths(path,
@@ -185,7 +181,7 @@ bool GeometryPage::validatePage() {
         m_geometryFiles.sort();
     }
 
-    return meshWizard->loadParseFiles();
+    return meshWizard->parseFiles();
 }
 
 int GeometryPage::nextId() const {

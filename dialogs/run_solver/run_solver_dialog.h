@@ -41,19 +41,19 @@ class RunSolverDialog : public QDialog {
 
     const SystemManager& m_systemMgr;
     QString m_solverName;
-    bool m_isFoundation;
+    bool m_isFoundation, m_isMultiPhase, m_isBuoyant, m_isCompressible,
+        m_isTransient;
     QStackedWidget* m_layoutStack;
 
     QCheckBox *m_potentialCheck, *m_updateVelocityCheck, *m_writePressureCheck;
-    QCheckBox *m_runSolverCheck, *m_deleteFilesKeySightCheck, *m_functionCheck,
-        *m_reconstructKeySightCheck, *m_deleteProcessorKeySightCheck,
-        *m_deleteProcessorFoundationCheck, *m_reconstructFoundationCheck,
-        *m_deleteFilesFoundationCheck;
+    QCheckBox *m_runSolverCheck, *m_deleteFilesCheck, *m_functionCheck,
+        *m_reconstructCheck, *m_deleteProcessorCheck;
     QComboBox *m_caseCombo, *m_numCoresFoundationCombo, *m_selectSolverCombo,
-         *m_numCoresKeySightCombo, *m_fileHandlingCombo;
+         *m_numCoresCombo, *m_fileHandlingCombo;
 
  private slots:
     void onOkClicked();
+    QByteArray addPhiBlock(const QByteArray& fvSolutionContent);
     void onCaseChanged(const QString& caseName);
     void potentialCheckToggled(bool enabled);
     void simulationCheckToggled(bool state);

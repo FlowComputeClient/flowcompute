@@ -56,7 +56,8 @@ class OpenFoamDictionary {
     // Clean getters for the UI
     QString getString(const QString& path) const;
     double getNumber(const QString& path) const;
-    void setValue(const QString& path, const QString& newValue);
+    void setValue(const QString& path, const QString& newValue,
+                  bool createIfMissing = false);
     QStringList getList(const QString& path) const;
     QStringList getDictKeys(const QString& path) const;
     bool hasSyntaxErrors() const;

@@ -79,10 +79,6 @@ class MainWindow : public QMainWindow {
     void loadFieldData();
     void loadBoundaryConditions();
 
-    // Check if utilities are available
-    QMap<QString, bool> checkUtilities(const QString& fullPath,
-        const QStringList& utilities);
-
     // Determine the selected case
     QString getSelectedCase();
 
@@ -142,8 +138,11 @@ class MainWindow : public QMainWindow {
     QString checkOpenFoam(int targetId);
     void createCase(const QString& caseName, const QString& casePath,
         const QStringList& caseFiles, int systemId, const QString& openFoamPath,
-        CaseFlags flag, const QString& userName, const QString& hostName,
-        int port);
+        CaseFlags flag, CaseType type, const QString& userName,
+        const QString& hostName, int port);
+
+    // Map OpenFOAM path name to utilities
+    void checkUtilities(const QString& caseName);
 
     // Editor operations
     bool checkExistingEditor(const QString& fullPath);

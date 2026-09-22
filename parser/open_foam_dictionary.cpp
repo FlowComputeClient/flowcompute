@@ -93,12 +93,114 @@ double OpenFoamDictionary::getNumber(const QString& path) const {
     return ok ? val : std::numeric_limits<double>::quiet_NaN();
 }
 
-void OpenFoamDictionary::setValue(const QString& path,
-                                  const QString& newValue) {
+void OpenFoamDictionary::setValue(const QString& path, const QString& newValue,
+                                    bool createIfMissing) {
     TSNode valueNode = findNode(path);
 
     if (ts_node_is_null(valueNode)) {
-        qWarning() << "Cannot set value. Path not found:" << path;
+        if (!createIfMissing) {
+            return;
+        }
+
+        // Split the path to determine the key and hierarchy
+        auto parts = QStringView(path).split('/', Qt::SkipEmptyParts);
+        if (parts.isEmpty()) return;
+
+        QString newKey = parts.last().toString();
+        QString newEntry = QString("\n%1 %2;\n").arg(newKey, newValue);
+
+        if (parts.size() == 1) {
+            // Root-level insertion: Find the optimal location before the footer
+            TSNode rootNode = ts_tree_root_node(m_tree.get());
+            uint32_t childCount = ts_node_child_count(rootNode);
+            int insertPos = -1;
+
+            // 1. Try to insert directly before the "functions" block
+            for (uint32_t i = 0; i < childCount; ++i) {
+                TSNode child = ts_node_child(rootNode, i);
+                if (QString(ts_node_type(child)) == "entry") {
+                    TSNode keyNode =
+                        ts_node_child_by_field_name(child, "key", strlen("key"));
+                    QString keyText =
+                        getNodeText(keyNode, m_sourceText).remove('"');
+                    if (keyText == "functions") {
+                        insertPos = ts_node_start_byte(child);
+                        break;
+                    }
+                }
+            }
+
+            // If 'functions' doesn't exist, insert after the last root-level entry
+            if (insertPos == -1) {
+                for (int i = childCount - 1; i >= 0; --i) {
+                    TSNode child = ts_node_child(rootNode, i);
+                    if (QString(ts_node_type(child)) == "entry") {
+                        insertPos = ts_node_end_byte(child);
+                        break;
+                    }
+                }
+            }
+
+            // Match updateControlDict's exact footer logic
+            if (insertPos == -1) {
+                int spacedFooterPos = m_sourceText.lastIndexOf(
+                    "// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //");
+                int solidFooterPos = m_sourceText.lastIndexOf("// *********");
+                int footerPos = std::max(spacedFooterPos, solidFooterPos);
+
+                // Verify the selected string is actually a footer and not the header
+                int appPos = m_sourceText.indexOf("application");
+                if (footerPos != -1 && appPos != -1 && footerPos < appPos) {
+                    footerPos = -1;
+                }
+
+                if (footerPos != -1) {
+                    insertPos = footerPos;
+                }
+            }
+
+            // Ultimate fallback: append to the end of the byte array
+            if (insertPos == -1) {
+                m_sourceText.append(newEntry.toUtf8());
+            } else {
+                m_sourceText.insert(insertPos, newEntry.toUtf8());
+            }
+        } else {
+            // Nested insertion: locate the parent dictionary node
+            QString parentPath = path.section('/', 0, -2);
+            TSNode parentNode = findNode(parentPath);
+
+            if (ts_node_is_null(parentNode)) {
+                // qWarning() << "Parent dictionary not found:" << parentPath;
+                return;
+            }
+
+            // Find the end byte of the parent dictionary
+            uint32_t parentEndByte = ts_node_end_byte(parentNode);
+            int insertPos = parentEndByte - 1;
+
+            // Backtrack to locate the exact closing '}' character
+            while (insertPos >= 0 && m_sourceText.at(insertPos) != '}') {
+                insertPos--;
+            }
+
+            // Fallback if the closing brace is somehow missing
+            if (insertPos < 0) {
+                insertPos = parentEndByte;
+            }
+
+            // Insert the new entry directly into the byte array
+            m_sourceText.insert(insertPos, newEntry.toUtf8());
+        }
+
+        // Re-parse to keep the AST in sync immediately
+        TSTree* newTree = ts_parser_parse_string(
+            m_parser,
+            nullptr,
+            m_sourceText.constData(),
+            m_sourceText.size());
+
+        m_tree.reset(newTree);
         return;
     }
 

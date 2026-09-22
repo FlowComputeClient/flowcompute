@@ -42,12 +42,13 @@ ForceCoeffsDialog::ForceCoeffsDialog(const QStringList& patches,
 
     // Create layout
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(15);
+    mainLayout->setSpacing(2);
 
     // Timing/output group
     QGroupBox* timingGroup =
         new QGroupBox(tr("Timing and Output Control"), this);
     QFormLayout* timingLayout = new QFormLayout(timingGroup);
+    timingLayout->setSpacing(2);
     mainLayout->addWidget(timingGroup);
 
     // Set name for function object
@@ -111,6 +112,7 @@ ForceCoeffsDialog::ForceCoeffsDialog(const QStringList& patches,
     // Field definitions group
     QGroupBox* fieldGroup = new QGroupBox(tr("Field Definitions"), this);
     QFormLayout* fieldLayout = new QFormLayout(fieldGroup);
+    fieldLayout->setSpacing(2);
     mainLayout->addWidget(fieldGroup);
 
     // Set name for p
@@ -249,7 +251,7 @@ ForceCoeffsDialog::ForceCoeffsDialog(const QStringList& patches,
 
     // Drag
     QHBoxLayout* dragLayout = new QHBoxLayout;
-    dragLayout->setSpacing(10);
+    dragLayout->setSpacing(5);
     dragLayout->setContentsMargins(0, 0, 0, 0);
     for (int i=0; i<3; i++) {
         m_dragSpin[i] = new QDoubleSpinBox(this);
@@ -263,7 +265,7 @@ ForceCoeffsDialog::ForceCoeffsDialog(const QStringList& patches,
 
     // Pitch
     QHBoxLayout* pitchLayout = new QHBoxLayout;
-    pitchLayout->setSpacing(10);
+    pitchLayout->setSpacing(5);
     pitchLayout->setContentsMargins(0, 0, 0, 0);
     for (int i=0; i<3; i++) {
         m_pitchSpin[i] = new QDoubleSpinBox(this);

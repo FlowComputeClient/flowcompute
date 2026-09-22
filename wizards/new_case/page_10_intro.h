@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with FlowCompute. If not, see <https://www.gnu.org/licenses/>.
 
-#ifndef PAGE_10_INTRO_H_
-#define PAGE_10_INTRO_H_
+#ifndef WIZARDS_NEW_CASE_PAGE_10_INTRO_H_
+#define WIZARDS_NEW_CASE_PAGE_10_INTRO_H_
 
 #include <QButtonGroup>
 #include <QWizardPage>
@@ -64,4 +64,4 @@ class IntroPage : public QWizardPage {
     QRadioButton *m_remoteRadio, *m_tutorialRadio, *m_interactiveRadio;
 };
 
-#endif  // PAGE_10_INTRO_H_
+#endif  // WIZARDS_NEW_CASE_PAGE_10_INTRO_H_

@@ -4,6 +4,7 @@
     "solvers": [
       {
         "name": "simpleFoam",
+        "foundationName": "incompressibleFluid",
         "algorithm": "SIMPLE",
         "fields": ["p", "U"],
         "transportProperties": [ "nu" ],
@@ -11,6 +12,7 @@
       },
       {
         "name": "pimpleFoam",
+        "foundationName": "incompressibleFluid",
         "algorithm": "PIMPLE",
         "fields": ["p", "U"],
         "transportProperties": [ "nu" ],
@@ -18,6 +20,7 @@
       },
       {
         "name": "pisoFoam",
+        "foundationName": "incompressibleFluid",
         "algorithm": "PISO",
         "fields": ["p", "U"],
         "transportProperties": [ "nu" ],
@@ -25,6 +28,7 @@
       },
       {
         "name": "icoFoam",
+        "foundationName": "incompressibleFluid",
         "algorithm": "PISO",
         "fields": ["p", "U"],
         "transportProperties": [ "nu" ],
@@ -32,6 +36,7 @@
       },
       {
         "name": "SRFPimpleFoam",
+        "foundationName": "incompressibleFluid",
         "algorithm": "PIMPLE",
         "fields": ["p", "U"],
         "transportProperties": [ "nu" ],
@@ -39,6 +44,7 @@
       },
       {
         "name": "SRFSimpleFoam",
+        "foundationName": "incompressibleFluid",
         "algorithm": "SIMPLE",
         "fields": ["p", "U"],
         "transportProperties": [ "nu" ],
@@ -51,6 +57,7 @@
     "solvers": [
       {
         "name": "interFoam",
+        "foundationName": "incompressibleVoF",
         "algorithm": "PIMPLE",
         "fields": [ "U", "alpha.*", "p_rgh"],
         "transportProperties": [ "sigma" ],
@@ -59,6 +66,7 @@
       },
       {
         "name": "cavitatingFoam",
+        "foundationName": "compressibleVoF",
         "algorithm": "PIMPLE",
         "fields": ["U", "alpha.*", "p_rgh"],
         "transportProperties": [ "sigma", "psat" ],
@@ -67,6 +75,7 @@
       },
       {
         "name": "compressibleInterFoam",
+        "foundationName": "compressibleVoF",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T", "alpha.*", "p_rgh"],
         "transportProperties": [ "sigma" ],
@@ -75,6 +84,7 @@
       },
       {
         "name": "interIsoFoam",
+        "foundationName": "incompressibleVoF",
         "algorithm": "PIMPLE",
         "fields": ["U", "alpha.*", "p_rgh"],
         "transportProperties": [ "sigma" ],
@@ -83,6 +93,7 @@
       },
       {
         "name": "multiphaseInterFoam",
+        "foundationName": "incompressibleMultiphaseVoF",
         "algorithm": "PIMPLE",
         "fields": ["U", "alpha.*", "p_rgh"],
         "transportProperties": [ "sigma" ],
@@ -96,6 +107,7 @@
     "solvers": [
       {
         "name": "rhoSimpleFoam",
+        "foundationName": "fluid",
         "algorithm": "SIMPLE",
         "fields": ["p", "U", "T"],
         "transportProperties": [],
@@ -105,6 +117,7 @@
       },
       {
         "name": "rhoPimpleFoam",
+        "foundationName": "fluid",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T"],
         "transportProperties": [],
@@ -114,6 +127,7 @@
       },
       {
         "name": "rhoCentralFoam",
+        "foundationName": "shockFluid",
         "algorithm": "CENTRAL_UPWIND",
         "fields": ["p", "U", "T"],
         "transportProperties": [],        
@@ -123,6 +137,7 @@
       },
       {
         "name": "sonicFoam",
+        "foundationName": "fluid",
         "algorithm": "PISO",
         "fields": ["p", "U", "T"],
         "transportProperties": [],
@@ -131,12 +146,13 @@
         "is_steady_state": false
       }
     ]
-  },
+  },  
   {
     "category": "Heat Transfer",
     "solvers": [
       {
         "name": "chtMultiRegionFoam",
+        "foundationName": "fluid",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
         "transportProperties": [],
@@ -146,6 +162,7 @@
       },
       {
         "name": "chtMultiRegionSimpleFoam",
+        "foundationName": "fluid",
         "algorithm": "SIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
         "transportProperties": [],
@@ -155,6 +172,7 @@
       },
       {
         "name": "buoyantBoussinesqPimpleFoam",
+        "foundationName": "incompressibleFluid",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
         "transportProperties": [ "nu", "Pr", "TRef", "beta" ],
@@ -163,6 +181,7 @@
       },
       {
         "name": "buoyantBoussinesqSimpleFoam",
+        "foundationName": "incompressibleFluid",
         "algorithm": "SIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
         "transportProperties": [ "nu", "Pr", "TRef", "beta" ],
@@ -171,6 +190,7 @@
       },
       {
         "name": "buoyantPimpleFoam",
+        "foundationName": "fluid",
         "algorithm": "PIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
         "transportProperties": [],
@@ -180,6 +200,7 @@
       },
       {
         "name": "buoyantSimpleFoam",
+        "foundationName": "fluid",
         "algorithm": "SIMPLE",
         "fields": ["p", "U", "T", "p_rgh"],
         "transportProperties": [],
@@ -188,12 +209,13 @@
         "is_steady_state": true
       }
     ]
-  },
+  },  
   {
     "category": "Basic",
     "solvers": [
       {
         "name": "laplacianFoam",
+        "foundationName": "solid",
         "algorithm": "NONE",
         "fields": ["T"],
         "transportProperties": [ "DT" ],
@@ -201,6 +223,7 @@
       },
       {
         "name": "potentialFoam",
+        "foundationName": "functions",
         "algorithm": "NONE",
         "fields": ["p", "U"],
         "transportProperties": [],
@@ -208,6 +231,7 @@
       },
       {
         "name": "scalarTransportFoam",
+        "foundationName": "potentialFoam",
         "algorithm": "NONE",
         "fields": ["U", "T"],
         "transportProperties": [ "DT" ],

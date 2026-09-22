@@ -152,13 +152,13 @@ IntroPage::IntroPage(SystemManager& systemMgr, bool isWslAvailable,
 // Set next page according to radio button selection
 int IntroPage::nextId() const {
     if (m_remoteRadio->isChecked()) {
-        return static_cast<int>(WizardPage::Page_Remote);
+        return static_cast<int>(NewCasePage::Page_Remote);
     } else {
         if (m_tutorialRadio->isChecked()) {
-            return static_cast<int>(WizardPage::Page_Tutorial);
+            return static_cast<int>(NewCasePage::Page_Tutorial);
         }
         else if (m_interactiveRadio->isChecked()) {
-            return static_cast<int>(WizardPage::Page_Interactive);
+            return static_cast<int>(NewCasePage::Page_Interactive);
         }
     }
     return -1;
