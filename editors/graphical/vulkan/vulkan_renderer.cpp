@@ -157,8 +157,8 @@ void VulkanRenderer::startNextFrame() {
 
     // Set clear colors
     VkClearValue clearValues[3] = {};
-    clearValues[0].color = {{ m_clearColor[0], m_clearColor[1],
-                             m_clearColor[2], 1.0f }};
+    clearValues[0].color =
+        {{ m_clearColor[0], m_clearColor[1], m_clearColor[2], 1.0f }};
     clearValues[1].depthStencil = { 1.0f, 0 };
     clearValues[2].color = {{ 0.0f, 0.0f, 0.0f, 1.0f }};
 

@@ -84,9 +84,6 @@ QString CaseIO::createThermophysicalProperties(const ThermoConfig& cfg,
             indent += "    ";
         }
 
-        // Set the thermo block name based on the OpenFOAM version
-        QString thermoKey = isOpenCFD ? "thermodynamics" : "thermo";
-
         // Define OpenFOAM property categories
         QStringList specieKeys = {"molWeight", "nMoles"};
         QStringList
@@ -109,7 +106,7 @@ QString CaseIO::createThermophysicalProperties(const ThermoConfig& cfg,
                 groupedProps["equationOfState"].insert(it.key(), it.value());
             } else {
                 // Default remaining properties to the thermo block
-                groupedProps[thermoKey].insert(it.key(), it.value());
+                groupedProps["thermodynamics"].insert(it.key(), it.value());
             }
         }
 
@@ -144,7 +141,7 @@ QString CaseIO::createThermophysicalProperties(const ThermoConfig& cfg,
         // Write blocks in the standard OpenFOAM order
         writeSubDict("specie");
         writeSubDict("equationOfState");
-        writeSubDict(thermoKey);
+        writeSubDict("thermodynamics");
         writeSubDict("transport");
 
         if (!blockName.isEmpty()) {

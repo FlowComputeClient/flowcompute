@@ -446,17 +446,6 @@ void CaseNavigator::onNodeCollapsed(const QModelIndex &index) {
     if (!node || !node->isEnabled())
         return;
 
-    /*
-    CaseData caseData = m_systemMgr.getData(node->getCase());
-    QStringList folders = caseData.openFolders;
-    for (const auto& folder: folders) {
-        qDebug() << "folder: " << folder;
-    }
-
-    qDebug() << "case: " << node->getCase();
-    qDebug() << "path: " << node->getPath();
-    */
-
     // Update system manager
     m_systemMgr.removeOpenFolder(node->getCase(), node->getPath());
 }
