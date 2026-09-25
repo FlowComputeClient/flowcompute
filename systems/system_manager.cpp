@@ -27,38 +27,92 @@
 #include <QVersionNumber>
 
 #include "dialogs/login/login_dialog.h"
+#include "dialogs/selection/selection_dialog.h"
 
-#include "./wsl_system.h"
-#include "./remote_system.h"
+#include "systems/wsl_system.h"
+#include "systems/remote_system.h"
 
-// Check if WSL can be accessed
-bool SystemManager::checkWsl() {
-    // Check if wsl.exe exists in the system PATH
+// Get WSL distribution
+QString SystemManager::getWslDistribution() {
+    // Check for existing member
+    if (!m_wslDistribution.isEmpty())
+        return m_wslDistribution;
+
+    // Check if wsl.exe exists
     QString wslPath = QStandardPaths::findExecutable("wsl.exe");
     if (wslPath.isEmpty()) {
-        return false;
+        m_wslDistribution = "";
+        return "";
     }
 
-    // List installed distributions
+    // Query installed WSL distributions FIRST
     QProcess process;
-    process.start(wslPath, QStringList() << "-l" << "-q");
+    QStringList distributions;
+    process.start("wsl", QStringList() << "--list" << "--quiet");
+    if (process.waitForFinished(3000)) {
+        QByteArray output = process.readAllStandardOutput();
 
-    // Wait for the process to finish
-    if (!process.waitForFinished(3000)) {
-        process.kill();
-        return false;
+        // wsl.exe outputs in UTF-16LE
+        QString strOutput = QString::fromUtf16(
+            reinterpret_cast<const char16_t*>(output.constData()),
+            output.size() / 2);
+
+        // Split output by newlines
+        QStringList lines =
+            strOutput.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
+
+        for (const QString& line : std::as_const(lines)) {
+            QString dist = line.trimmed();
+            if (!dist.isEmpty()) {
+                distributions.append(dist);
+            }
+        }
+    } else {
+        m_wslDistribution = "";
+        return "";
     }
 
-    // If WSL exited with error, no Linux distributions
-    if (process.exitStatus() != QProcess::NormalExit ||
-        process.exitCode() != 0) {
-        return false;
+    if (distributions.empty()) {
+        m_wslDistribution = "";
+        return "";
     }
 
-    // Check for one distribution
-    QString output =
-        QString::fromUtf8(process.readAllStandardOutput()).trimmed();
-    return !output.isEmpty();
+    // Check settings and validate against installed distributions
+    QSettings settings;
+    settings.beginGroup("Preferences");
+    QString savedDistro = settings.value("wsl_distribution").toString();
+    settings.endGroup();
+
+    if (!savedDistro.isEmpty() && distributions.contains(savedDistro)) {
+        m_wslDistribution = savedDistro;
+        return m_wslDistribution;
+    }
+
+    // Select distribution
+    if (distributions.size() == 1) {
+        m_wslDistribution = distributions[0];
+    } else {
+        QString title = QCoreApplication::translate("SystemManager",
+                            "Multiple WSL Distributions Detected");
+        QString msg = QCoreApplication::translate("SystemManager",
+                            "Select a WSL distribution:");
+        SelectionDialog selectionDialog(title, msg, distributions);
+        if (selectionDialog.exec() == QDialog::Accepted) {
+            m_wslDistribution = selectionDialog.getSelectedItem();
+        }
+    }
+
+    // Check if the user cancelled the dialog
+    if (m_wslDistribution.isEmpty()) {
+        m_wslDistribution = "";
+        return "";
+    }
+
+    // Save the selected distribution to settings
+    settings.beginGroup("Preferences");
+    settings.setValue("wsl_distribution", m_wslDistribution);
+    settings.endGroup();
+    return m_wslDistribution;
 }
 
 // Check WSL server, update if needed
@@ -66,66 +120,102 @@ bool SystemManager::checkWslServer() {
     if (m_wslServerPresent)
         return true;
 
-    // Access WSL target system
+    // Check distribution
+    if (m_wslDistribution.isEmpty()) {
+        m_wslDistribution = getWslDistribution();
+        if (m_wslDistribution.isEmpty()) {
+            return false;
+        }
+    }
+
+    const QString targetDir = "$HOME/.config/flowcompute";
+    const QString targetBin = targetDir + "/wsl_server";
     std::shared_ptr<WslSystem> wslSystem =
         std::static_pointer_cast<WslSystem>(
             m_systems[static_cast<int>(TargetType::LOCAL_WINDOWS)]);
 
-    // Check server version
-    QString installVersion = wslSystem->getVersion();
-    bool serverInstalled = !installVersion.isEmpty();
-    if (serverInstalled) {
-        QVersionNumber v1 = QVersionNumber::fromString(installVersion);
-        QVersionNumber v2 = QVersionNumber::fromString(m_serverVersion);
-        if (v1 < v2) {
-            wslSystem->shutdown();
-        } else {
-            m_wslServerPresent = true;
-            return true;
+    // Check if the executable exists in WSL
+    QString checkScript = QString("test -f %1").arg(targetBin);
+    QProcess checkProcess;
+    checkProcess.start("wsl.exe", QStringList() << "-d" << m_wslDistribution
+                            << "--" << "bash" << "-c" << checkScript);
+
+    // Check if the process is running
+    if (checkProcess.waitForFinished(3000) && checkProcess.exitCode() == 0) {
+        QString pgrepScript = "pgrep -f wsl_server";
+        QProcess pgrepProcess;
+        pgrepProcess.start("wsl.exe", QStringList() << "-d" << m_wslDistribution
+                                << "--" << "bash" << "-c" << pgrepScript);
+
+        bool isRunning = (pgrepProcess.waitForFinished(3000) &&
+                          pgrepProcess.exitCode() == 0);
+
+        // Launch the server if the binary exists but isn't running
+        if (!isRunning) {
+            QString launchScript = QString("%1").arg(targetBin);
+            QStringList launchArgs;
+            launchArgs << "-d" << m_wslDistribution << "--"
+                       << "bash" << "-c" << launchScript;
+            QProcess::startDetached("wsl.exe", launchArgs);
+            QThread::msleep(500);
+        }
+
+        // Check the server version
+        QString installVersion = wslSystem->getVersion();
+        if (!installVersion.isEmpty()) {
+            QVersionNumber v1 = QVersionNumber::fromString(installVersion);
+            QVersionNumber v2 = QVersionNumber::fromString(m_serverVersion);
+
+            if (v1 < v2) {
+                wslSystem->shutdown();
+                QString waitScript =
+                    "while pgrep -f wsl_server > /dev/null; do sleep 0.1; done";
+                QProcess waitProcess;
+                waitProcess.start("wsl.exe", QStringList()
+                    << "-d" << m_wslDistribution
+                    << "--" << "bash" << "-c" << waitScript);
+                waitProcess.waitForFinished(2000);
+            } else {
+                m_wslServerPresent = true;
+                return true;
+            }
         }
     }
 
     // Install latest server
-    if (!m_wslServerPresent) {
-        QString appDir = QCoreApplication::applicationDirPath();
-        QString wslPath = appDir + "/wsl_server";
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString wslPath = appDir + "/wsl_server";
+    if (!QFile::exists(wslPath)) {
+        return false;
+    }
 
-        // Make sure the wsl_server binary is present
-        if (!QFile::exists(wslPath)) {
-            /*
-            QString title = QCoreApplication::translate("SystemManager",
-                                                        "Update Failed");
-            QString msg = QCoreApplication::translate("SystemManager",
-                "The wsl_server binary is missing.\n"
-                "Please reinstall the application.");
-            QMessageBox::critical(nullptr, title, msg);
-            */
-            return false;
-        }
+    // Construct strings
+    QString safeWslPath = wslPath;
+    safeWslPath.replace("'", "'\\''");
 
-        // Install wsl_server
-        QString cmd = QString("mkdir -p ~/.config/flowcompute && "
-              "rm -f ~/.config/flowcompute/wsl_server && "
-              "cp $(wslpath '%1') ~/.config/flowcompute/wsl_server && "
-              "chmod +x ~/.config/flowcompute/wsl_server").arg(wslPath);
-        QString output;
-        int result = wslSystem->launchShortUtility(cmd, output);
+    // Construct the bash script
+    QString installScript =
+        QString("mkdir -p %1 && rm -f %2 && cp \"$(wslpath '%3')\" %2"
+                " && chmod +x %2").arg(targetDir, targetBin, safeWslPath);
 
-        // Check output
-        if (result == 0) {
+    QProcess installProcess;
+    installProcess.start("wsl.exe", QStringList() << "-d" << m_wslDistribution
+                            << "--" << "bash" << "-c" << installScript);
+
+    if (installProcess.waitForFinished(5000) &&
+        installProcess.exitCode() == 0) {
+
+        // Launch the server detached.
+        QString launchScript = QString("%1").arg(targetBin);
+        QStringList launchArgs;
+        launchArgs << "-d" << m_wslDistribution << "--" <<
+            "bash" << "-c" << launchScript;
+
+        bool launchSuccess = QProcess::startDetached("wsl.exe", launchArgs);
+        if (launchSuccess) {
             m_wslServerPresent = true;
             return true;
         }
-        /*
-        else {
-            QString title = QCoreApplication::translate("SystemManager",
-                                            "Server Installation Failed");
-            QString msg = QCoreApplication::translate("SystemManager",
-            "Failed to install the WSL server in ~/config/flowcompute.\n"
-            "Please make sure this directory is accessible.");
-            QMessageBox::critical(nullptr, title, msg);
-        }
-        */
     }
     return false;
 }
@@ -148,7 +238,7 @@ bool SystemManager::checkRemoteServer(const QString& host, int port) {
 
 void SystemManager::setSystems(
     const std::array<std::shared_ptr<TargetSystem>,
-                     static_cast<size_t>(TargetType::COUNT)>& systems) {
+        static_cast<size_t>(TargetType::COUNT)>& systems) {
     m_systems = systems;
 }
 
@@ -205,7 +295,6 @@ void SystemManager::renameCase(const QString& oldName, const QString& newName) {
 
     // Remove the group for the old case
     settings.remove(oldName);
-
     settings.endGroup();
 }
 
@@ -270,54 +359,61 @@ CaseFlags SystemManager::updateFlags(const QString& caseName,
     CaseFlags caseFlags = CaseFlag::Initial;
 
     // Determine fullPath
-    QString fullPath;
-    if (casePath.isEmpty()) {
-        fullPath = getData(caseName).casePath + "/" + caseName;
-    } else {
-        fullPath = casePath + "/" + caseName;
-    }
+    QString fullPath = (casePath.isEmpty())
+        ? getData(caseName).casePath + "/" + caseName
+        : casePath + "/" + caseName;
 
-    // Check if mesh files are present
+    // Check for mesh files
     auto system = getSystem(caseName);
-    QStringList files = {fullPath + "/constant/polyMesh/points",
+    QStringList files = {fullPath + "/system/blockMeshDict",
+                         fullPath + "/system/snappyHexMeshDict",
+                         fullPath + "/system/meshDict",
+                         fullPath + "/constant/polyMesh/points",
                          fullPath + "/constant/polyMesh/faces",
                          fullPath + "/constant/polyMesh/owner",
                          fullPath + "/constant/polyMesh/boundary" };
     QStringList results =
         system->processPaths(files.join("\n"), PathOperationType::CHECK);
-    bool checkResult = !results.contains("-1");
 
-    if (checkResult)
+    // Check if any mesh configuration files are present
+    bool hasMeshConfig = std::any_of(results.cbegin(), results.cbegin() + 3,
+        [](const QString& str) { return str == "0"; });
+    if (hasMeshConfig)
+        caseFlags |= CaseFlag::HasMeshConfigFiles;
+
+    // Check if all of the mesh files are present
+    bool missingMeshFiles = results[3] == "-1" || results[4] == "-1" ||
+        results[5] == "-1" || results[6] == "-1";
+    if (!missingMeshFiles)
         caseFlags |= CaseFlag::HasMeshFiles;
 
     // Check if field files are in 0.orig folder
     results = system->processPaths(
         fullPath + "/0.orig", PathOperationType::LIST);
-    checkResult = !results.isEmpty();
+    bool hasFieldFiles = !results.isEmpty();
 
     // Check if field files are in 0 folder
-    if (!checkResult) {
+    if (!hasFieldFiles) {
         results = system->processPaths(
             fullPath + "/0", PathOperationType::LIST);
-        checkResult = !results.isEmpty();
+        hasFieldFiles = !results.isEmpty();
     }
 
-    if (checkResult)
+    if (hasFieldFiles)
         caseFlags |= CaseFlag::HasFieldFiles;
 
     // Check if time directories are present
-    checkResult = false;
+    bool hasTimeDirs = false;
     results = system->processPaths(fullPath, PathOperationType::LIST);
     for (const QString& result : std::as_const(results)) {
         bool ok = false;
         double value = result.toDouble(&ok);
         if (ok && value > 0) {
-            checkResult = true;
+            hasTimeDirs = true;
             break;
         }
     }
-
-    if (checkResult)
+    if (hasTimeDirs)
         caseFlags |= CaseFlag::HasTimeDirs;
 
     // Return flags

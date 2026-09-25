@@ -21,7 +21,7 @@ add_library(tree_sitter OBJECT third_party/tree_sitter/src/lib.c)
 target_include_directories(tree_sitter PUBLIC third_party/tree_sitter/include)
 
 # Suppress warnings for C code
-set(C_WARNING_SUPPRESSION $<$<CXX_COMPILER_ID:MSVC>:/w> $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-w>)
+set(C_WARNING_SUPPRESSION $<$<C_COMPILER_ID:MSVC>:/w> $<$<NOT:$<C_COMPILER_ID:MSVC>>:-w>)
 target_compile_options(tree_sitter PRIVATE ${C_WARNING_SUPPRESSION})
 
 # Access libssh and zlib
@@ -31,6 +31,9 @@ if(WIN32)
 elseif(UNIX)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(LIBSSH REQUIRED IMPORTED_TARGET libssh)
+    if(TARGET PkgConfig::LIBSSH AND NOT TARGET libssh::libssh)
+        add_library(libssh::libssh ALIAS PkgConfig::LIBSSH)
+    endif()
 endif()
 
 # Find the Vulkan shader compiler
@@ -38,7 +41,7 @@ find_package(Vulkan REQUIRED)
 if(TARGET Vulkan::glslangValidator)
     get_target_property(GLSL_VALIDATOR Vulkan::glslangValidator IMPORTED_LOCATION)
 else()
-    find_program(GLSL_VALIDATOR glslangValidator HINTS $ENV{VULKAN_SDK}/bin)
+    find_program(GLSL_VALIDATOR glslangValidator HINTS "$ENV{VULKAN_SDK}/bin")
 endif()
 
 if(NOT GLSL_VALIDATOR)
@@ -62,7 +65,6 @@ qt_add_executable(FlowCompute
     main_window_slots.cpp
     resources.qrc
     core_types.h
-
 )
 
 if(WIN32)
@@ -95,7 +97,7 @@ target_link_libraries(FlowCompute PRIVATE
     Qt6::Widgets Qt6::Core
 )
 
-# Installation and deployment
+# Common installation rule
 install(TARGETS FlowCompute
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -103,71 +105,18 @@ install(TARGETS FlowCompute
     COMPONENT FlowComputeCore
 )
 
-# Deploy Qt dependencies
+# Deploy Qt runtime dependencies
 qt_generate_deploy_app_script(
     TARGET FlowCompute
     OUTPUT_SCRIPT deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
     NO_TRANSLATIONS
 )
-
-# Link the script to the component
 install(SCRIPT ${deploy_script} COMPONENT FlowComputeCore)
 
+# Platform-specific packaging and dependency management
 if(WIN32)
-    # Install targets
-    install(FILES
-        $<TARGET_RUNTIME_DLLS:FlowCompute>
-        DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT FlowComputeCore
-    )
-
-    # Catch transitive dependencies
-    if(DEFINED VCPKG_TARGET_TRIPLET)
-        set(VCPKG_BIN_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/bin/")
-    else()
-        set(VCPKG_BIN_DIR "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/bin/")
-    endif()
-
-    install(DIRECTORY "${VCPKG_BIN_DIR}"
-        DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT FlowComputeCore
-        FILES_MATCHING PATTERN "*.dll"
-    )
+    include(cmake/PackagingWindows.cmake)
+elseif(UNIX AND NOT APPLE)
+    include(cmake/PackagingLinux.cmake)
 endif()
-
-install(PROGRAMS
-    "${CMAKE_SOURCE_DIR}/server/wsl_server"
-    DESTINATION ${CMAKE_INSTALL_BINDIR}
-    COMPONENT FlowComputeCore
-)
-
-# CPack configuration
-set(CPACK_GENERATOR "IFW")
-set(CPACK_PACKAGE_NAME "FlowCompute")
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "FlowCompute")
-set(CPACK_PACKAGE_VERSION "0.9.0")
-set(CPACK_PACKAGE_VENDOR "FlowCompute LLC")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Open-source client for OpenFOAM.")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-
-# IFW Configuration
-file(TO_CMAKE_PATH "$ENV{IFW_PATH}" CLEAN_IFW_PATH)
-set(CPACK_IFW_ROOT "${CLEAN_IFW_PATH}")
-set(CPACK_IFW_PACKAGE_TITLE "FlowCompute")
-set(CPACK_IFW_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/images/flowcompute.ico")
-set(CPACK_IFW_PACKAGE_STYLE_SHEET "${CMAKE_SOURCE_DIR}/installer_style.qss")
-set(CPACK_IFW_PACKAGE_CONTROL_SCRIPT "${CMAKE_SOURCE_DIR}/control_script.qs")
-set(CPACK_IFW_PACKAGE_WIZARD_STYLE "Classic")
-set(CPACK_IFW_PACKAGE_WIZARD_DEFAULT_WIDTH 700)
-set(CPACK_IFW_PACKAGE_WIZARD_DEFAULT_HEIGHT 400)
-
-include(CPack)
-include(CPackIFW)
-
-cpack_ifw_configure_component(FlowComputeCore
-    DISPLAY_NAME "FlowCompute"
-    DESCRIPTION "The core executable and configuration files."
-    LICENSES "LGPLv3" "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
-    FORCED_INSTALLATION
-)

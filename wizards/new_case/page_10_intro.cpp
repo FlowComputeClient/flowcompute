@@ -153,13 +153,10 @@ IntroPage::IntroPage(SystemManager& systemMgr, bool isWslAvailable,
 int IntroPage::nextId() const {
     if (m_remoteRadio->isChecked()) {
         return static_cast<int>(NewCasePage::Page_Remote);
-    } else {
-        if (m_tutorialRadio->isChecked()) {
-            return static_cast<int>(NewCasePage::Page_Tutorial);
-        }
-        else if (m_interactiveRadio->isChecked()) {
-            return static_cast<int>(NewCasePage::Page_Interactive);
-        }
+    } else if (m_tutorialRadio->isChecked()) {
+        return static_cast<int>(NewCasePage::Page_Tutorial);
+    } else if (m_interactiveRadio->isChecked()) {
+        return static_cast<int>(NewCasePage::Page_Interactive);
     }
     return -1;
 }

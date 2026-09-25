@@ -21,6 +21,7 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QRegularExpression>
+#include <QStandardPaths>
 
 #include "page_10_intro.h"
 #include "page_15_remote.h"
@@ -37,8 +38,8 @@ NewCaseWizard::NewCaseWizard(SystemManager& systemMgr, QWidget *parent):
     setWizardStyle(QWizard::ClassicStyle);
     setWindowTitle("New Case Wizard");
 
-    // Check if WSL is running
-    bool isWslAvailable = systemMgr.checkWsl();
+    // Check if WSL is available
+    bool isWslAvailable = !QStandardPaths::findExecutable("wsl.exe").isEmpty();
 
     // Add pages
     setPage(static_cast<int>(NewCasePage::Page_Intro),
@@ -208,12 +209,13 @@ void NewCaseWizard::accept() {
                     break;
                 }
             }
-            if (!uniqueCase) count += 5;
+            if (!uniqueCase)
+                count += 5;
         }
 
         // Create message box
         QString msg =
-            tr("The folder '%1' already exists in the selected directory.\n"
+            tr("The folder '%1' already exists in the selected location.\n"
             "Create '%2' instead?").arg(m_caseName, m_caseName + "_" + result);
         if (QMessageBox::question(this, tr("Existing Case Detected"), msg,
             QMessageBox::Yes | QMessageBox::No) == QMessageBox::No) {
@@ -308,7 +310,7 @@ void NewCaseWizard::accept() {
 }
 
 bool NewCaseWizard::createCase(const QString& newCasePath) {
-    // Determine the appropriate website based on the fork
+    // Set the website based on the distribution
     QString websiteText = m_isOpenCFD ? "www.openfoam.com" : "www.openfoam.org";
 
     // Create directories
@@ -329,8 +331,7 @@ bool NewCaseWizard::createCase(const QString& newCasePath) {
 }
 
 void NewCaseWizard::createCaseFiles(const QString& newCasePath,
-                                    const QString& versionText,
-                                    const QString& websiteText) {
+        const QString& versionText, const QString& websiteText) {
     // Configuration strings
     QString versionPadded = QString("%1").arg(versionText, -38);
     QString websitePadded = QString("%1").arg(websiteText, -38);
@@ -501,7 +502,6 @@ void NewCaseWizard::createCaseFiles(const QString& newCasePath,
             ddtScheme, fluxField, divPhiU, divPhik, schemeText, orthoScheme };
     configMap["fvSolution"] = { "/system/", versionPadded, websitePadded,
                                pText, alphaText, algoText, relaxText };
-    configMap["blockMeshDict"] = { "/system/", versionPadded, websitePadded };
 
     // Update template files
     QFile templateFile;

@@ -28,6 +28,7 @@
 
 QJsonObject WslSystem::contactServer(const QString& action,
     const QString& message, int opType) {
+    // Check connection status
     QJsonObject result;
 
     // Create socket
@@ -54,29 +55,38 @@ QJsonObject WslSystem::contactServer(const QString& action,
 
                 QJsonParseError parseError;
                 QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+                /*
                 if (parseError.error != QJsonParseError::NoError) {
                     qWarning() << "JSON Parse Error:"
                                << parseError.errorString();
                     continue;
                 }
+                */
 
                 result = doc.object();
                 if (result["status"].toString() == "success") {
                     return result;
+                }
+                /*
                 } else {
                     qWarning() << "Status: " << result["status"].toString();
                     qWarning() << "Server returned error:"
                                << result["message"].toString();
                 }
+                */
             }
         }
-
+        /*
         if (!lineReady) {
             qWarning() << "Timeout: Server never sent a complete response.";
         }
-    } else {
+        */
+    }
+    /*
+        else {
         qWarning() << "Could not connect to WSL server.";
     }
+    */
     return result;
 }
 
@@ -204,7 +214,7 @@ QStringList WslSystem::copyTutorialFolders(const QString& tutPath,
 
     // Copy tutorial files
     emit logMessage("Copying " + tutPath +
-                                   " tutorial to the new case" + projPath);
+        " tutorial to the new case" + projPath);
     QJsonObject result = contactServer(
         "copyTutorialFolders", tutPath + "," + projPath);
 
@@ -232,7 +242,7 @@ bool WslSystem::writeData(const QByteArray& payload,
     socket.connectToHost(QHostAddress::LocalHost, 53626);
 
     if (!socket.waitForConnected(3000)) {
-        qWarning() << "Could not connect to WSL server.";
+        // qWarning() << "Could not connect to WSL server.";
         return false;
     }
 
@@ -252,21 +262,23 @@ bool WslSystem::writeData(const QByteArray& payload,
         qint64 bytesToWrite =
             qMin(chunkSize, payload.size() - bytesWrittenTotal);
         QByteArray chunk = payload.mid(bytesWrittenTotal, bytesToWrite);
-
         qint64 bytesWritten = socket.write(chunk);
-
+        /*
         if (bytesWritten == -1) {
             qWarning() << "Socket write error during data transfer.";
             return false;
         }
+        */
 
         bytesWrittenTotal += bytesWritten;
 
         // Flush the socket buffer
+        /*
         if (!socket.waitForBytesWritten(3000)) {
             qWarning() << "Timeout waiting for socket to flush bytes.";
             return false;
         }
+        */
     }
 
     // Wait for response
@@ -288,25 +300,28 @@ bool WslSystem::writeData(const QByteArray& payload,
 
     if (responseRead && response["status"].toString() == "success") {
         return true;
-    } else {
+    }
+    /*
+    else {
         qWarning() << "Server failed to save data:" <<
             response["message"].toString();
-        return false;
     }
+    */
+    return false;
 }
 
 bool WslSystem::writeData(const QString& localPath,
                           const QString& remoteFilePath) {
     QFile file(localPath);
     if (!file.open(QIODevice::ReadOnly)) {
-        qWarning() << "Could not open local file:" << localPath;
+        // qWarning() << "Could not open local file:" << localPath;
         return false;
     }
 
     QTcpSocket socket;
     socket.connectToHost(QHostAddress::LocalHost, 53626);
     if (!socket.waitForConnected(3000)) {
-        qWarning() << "Could not connect to WSL server.";
+        // qWarning() << "Could not connect to WSL server.";
         return false;
     }
 
@@ -324,13 +339,13 @@ bool WslSystem::writeData(const QString& localPath,
         qint64 bytesWritten = socket.write(chunk);
 
         if (bytesWritten == -1) {
-            qWarning() << "Socket write error during file transfer.";
+            // qWarning() << "Socket write error during file transfer.";
             return false;
         }
 
         // Flush the socket buffer to prevent local memory from exploding
         if (!socket.waitForBytesWritten(3000)) {
-            qWarning() << "Timeout waiting for socket to flush bytes.";
+            // qWarning() << "Timeout waiting for socket to flush bytes.";
             return false;
         }
     }
@@ -345,7 +360,6 @@ bool WslSystem::writeData(const QString& localPath,
             QByteArray data = socket.readLine();
             QJsonParseError parseError;
             QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
-
             if (parseError.error == QJsonParseError::NoError) {
                 response = doc.object();
                 responseRead = true;
@@ -356,8 +370,8 @@ bool WslSystem::writeData(const QString& localPath,
     if (responseRead && response["status"].toString() == "success") {
         return true;
     } else {
-        qWarning() << "Server failed to save geometry file:"
-                   << response["message"].toString();
+        // qWarning() << "Server failed to save geometry file:"
+        //           << response["message"].toString();
         return false;
     }
 }
@@ -442,7 +456,7 @@ std::optional<FileResponse> WslSystem::getFile(const QString& path,
                 qint64 bytesLeft = response.byteSize - response.payload.size();
                 response.payload.append(socket.read(bytesLeft));
             } else {
-                qWarning() << "Timeout: Failed to reach server.";
+                // qWarning() << "Timeout: Failed to reach server.";
                 return std::nullopt;
             }
         }
@@ -486,73 +500,13 @@ std::optional<FileDataAndStats>
     return std::nullopt;
 }
 
-/*
-std::optional<QByteArray> WslSystem::getFileContent(const QString& path) {
-    QTcpSocket socket;
-    socket.connectToHost(QHostAddress::LocalHost, 53626);
-    if (!socket.waitForConnected(3000)) {
-        qWarning() << "Could not connect to WSL server.";
-        return std::nullopt;
-    }
-
-    // Send the JSON Request
-    QJsonObject request;
-    request["action"] = "getFileContent";
-    request["message"] = path;
-    request["requestType"] = static_cast<int>(FileRequestType::CONTENT);
-    socket.write(QJsonDocument(request).toJson(QJsonDocument::Compact) + "\n");
-
-    // Read the JSON Header
-    QJsonObject header;
-    bool headerRead = false;
-
-    while (!headerRead && socket.waitForReadyRead(3000)) {
-        if (socket.canReadLine()) {
-            QByteArray headerData = socket.readLine();
-            QJsonParseError parseError;
-            QJsonDocument doc =
-                QJsonDocument::fromJson(headerData, &parseError);
-            if (parseError.error != QJsonParseError::NoError) {
-                qWarning() << "JSON Parse Error in Header:"
-                           << parseError.errorString();
-                return std::nullopt;
-            }
-            header = doc.object();
-            headerRead = true;
-        }
-    }
-
-    // Explicitly fail if the server did not report success
-    if (!headerRead || header["status"].toString() != "success") {
-        return std::nullopt;
-    }
-
-    // Extract Size and Prepare Buffer
-    qint64 byteSize = header["byteSize"].toInt();
-    QByteArray payload;
-    payload.reserve(byteSize);
-
-    // Read payload in chunks
-    while (payload.size() < byteSize) {
-        if (socket.bytesAvailable() > 0 || socket.waitForReadyRead(3000)) {
-            qint64 bytesLeft = byteSize - payload.size();
-            payload.append(socket.read(bytesLeft));
-        } else {
-            qWarning() << "Timeout: Server disconnected or stalled.";
-            return std::nullopt;
-        }
-    }
-    return payload;
-}
-*/
-
 RenderData WslSystem::getMeshData(const QString& path) {
     RenderData renderData;
     QTcpSocket socket;
     socket.connectToHost(QHostAddress::LocalHost, 53626);
 
     if (!socket.waitForConnected(3000)) {
-        qDebug() << "Could not connect to WSL server on port 53626.";
+        // qDebug() << "Could not connect to WSL server on port 53626.";
         return renderData;
     }
 
@@ -571,14 +525,14 @@ RenderData WslSystem::getMeshData(const QString& path) {
             QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 
             if (parseError.error != QJsonParseError::NoError) {
-                qDebug() << "JSON Parse Error:" << parseError.errorString();
+                // qDebug() << "JSON Parse Error:" << parseError.errorString();
                 return renderData;
             }
 
             QJsonObject responseObj = doc.object();
             if (responseObj["status"].toString() != "success") {
-                qDebug() <<
-                    "Server error:" << responseObj["message"].toString();
+                // qDebug() <<
+                //    "Server error:" << responseObj["message"].toString();
                 return renderData;
             }
             jsonRead = true;
@@ -586,7 +540,7 @@ RenderData WslSystem::getMeshData(const QString& path) {
     }
 
     if (!jsonRead) {
-        qDebug() << "Timeout waiting for JSON response header.";
+        // qDebug() << "Timeout waiting for JSON response header.";
         return renderData;
     }
 
@@ -599,13 +553,12 @@ RenderData WslSystem::getMeshData(const QString& path) {
                 qint64 chunk =
                     socket.read(dest + bytesRead, totalBytes - bytesRead);
                 if (chunk <= 0) {
-                    qDebug() <<
-                        "Socket/disconnect error while reading" << payloadName;
+                    // qDebug() << "Socket error" << payloadName;
                     return false;
                 }
                 bytesRead += chunk;
             } else {
-                qDebug() << "Timeout reading" << payloadName;
+                // qDebug() << "Timeout reading" << payloadName;
                 return false;
             }
         }
@@ -620,7 +573,7 @@ RenderData WslSystem::getMeshData(const QString& path) {
     }
 
     if (binHeader.magicNumber != 0xFEEDBEEF) {
-        qDebug() << "Protocol mismatch: Magic number invalid.";
+        // qDebug() << "Protocol mismatch: Magic number invalid.";
         return renderData;
     }
 
@@ -667,7 +620,7 @@ std::vector<FieldData> WslSystem::getResultData(const QString& msg) {
     socket.connectToHost(QHostAddress::LocalHost, 53626);
 
     if (!socket.waitForConnected(3000)) {
-        qDebug() << "Could not connect to WSL server on port 53626.";
+        // qDebug() << "Could not connect to WSL server on port 53626.";
         return fieldData;
     }
 
@@ -686,13 +639,14 @@ std::vector<FieldData> WslSystem::getResultData(const QString& msg) {
             QJsonDocument doc = QJsonDocument::fromJson(jsonData, &parseError);
 
             if (parseError.error != QJsonParseError::NoError) {
-                qDebug() << "JSON Parse Error:" << parseError.errorString();
+                // qDebug() << "JSON Parse Error:" << parseError.errorString();
                 return fieldData;
             }
 
             QJsonObject responseObj = doc.object();
             if (responseObj["status"].toString() != "success") {
-                qDebug() << "Server error:" << responseObj["message"].toString();
+                // qDebug() <<
+                //     "Server error:" << responseObj["message"].toString();
                 return fieldData;
             }
             jsonRead = true;
@@ -700,7 +654,7 @@ std::vector<FieldData> WslSystem::getResultData(const QString& msg) {
     }
 
     if (!jsonRead) {
-        qDebug() << "Timeout waiting for JSON response header.";
+        // qDebug() << "Timeout waiting for JSON response header.";
         return fieldData;
     }
 
@@ -713,12 +667,12 @@ std::vector<FieldData> WslSystem::getResultData(const QString& msg) {
                 qint64 chunk =
                     socket.read(dest + bytesRead, totalBytes - bytesRead);
                 if (chunk <= 0) {
-                    qDebug() << "Socket error while reading" << payloadName;
+                    // qDebug() << "Socket error while reading" << payloadName;
                     return false;
                 }
                 bytesRead += chunk;
             } else {
-                qDebug() << "Timeout reading" << payloadName;
+                // qDebug() << "Timeout reading" << payloadName;
                 return false;
             }
         }
@@ -733,7 +687,7 @@ std::vector<FieldData> WslSystem::getResultData(const QString& msg) {
     }
 
     if (binHeader.magicNumber != 0xFEEDBEEF) {
-        qDebug() << "Protocol mismatch: Magic number invalid.";
+        // qDebug() << "Protocol mismatch: Magic number invalid.";
         return fieldData;
     }
 
@@ -793,21 +747,18 @@ bool WslSystem::checkDistributions() {
             }
         }
     } else {
-        qWarning() << "Failed to execute wsl --list --quiet.";
         return false;
     }
 
     // Check what we found
     if (distributions.empty()) {
-        qWarning() << "No WSL distributions found.";
         return false;
     } else if (distributions.size() == 1) {
         selectedDistribution = distributions[0];
     } else {
         auto selectionDialog =
         new SelectionDialog(tr("Multiple WSL Distributions Detected"),
-                            tr("Select one of the following:"),
-                            distributions);
+            tr("Select one of the following:"), distributions);
         selectionDialog->exec();
         selectedDistribution = selectionDialog->getSelectedItem();
     }
@@ -819,10 +770,8 @@ bool WslSystem::checkDistributions() {
 
     // Save the selected distribution to settings
     QSettings settings;
-    settings.beginGroup("Environments");
-    settings.beginGroup("WSL");
-    settings.setValue("DISTRIBUTION", selectedDistribution);
-    settings.endGroup();
+    settings.beginGroup("Preferences");
+    settings.setValue("wsl_distribution", selectedDistribution);
     settings.endGroup();
     return true;
 }

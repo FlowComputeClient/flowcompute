@@ -28,7 +28,7 @@
 #include "wizards/mesh/page_70_layercontrol.h"
 
 // Function declarations
-MeshWizard::MeshWizard(const QString& caseName, const SystemManager& systemMgr,
+MeshWizard::MeshWizard(const QString& caseName, SystemManager& systemMgr,
     QWidget *parent): QWizard(parent), m_caseName(caseName),
     m_systemMgr(systemMgr) {
     // Configure the wizard appearance
@@ -240,6 +240,9 @@ void MeshWizard::accept() {
         system->writeData(snappyHexMeshDictText.toUtf8(),
             m_casePath + "/" + m_caseName + "/system/snappyHexMeshDict");
     }
+
+    // Update the case's flags
+    m_systemMgr.updateFlags(m_caseName, m_casePath);
 
     // Refresh the system folder
     emit updatePath(m_caseName, "system");

@@ -26,10 +26,11 @@
 // Store case settings
 enum CaseFlag {
     Initial            = 0,
-    HasMeshFiles       = 1 << 0,
-    HasFieldFiles      = 1 << 1,
-    HasTimeDirs        = 1 << 2,
-    NotChecked         = 1 << 3
+    HasMeshConfigFiles = 1 << 0,
+    HasMeshFiles       = 1 << 1,
+    HasFieldFiles      = 1 << 2,
+    HasTimeDirs        = 1 << 3,
+    NotChecked         = 1 << 4
 };
 Q_DECLARE_FLAGS(CaseFlags, CaseFlag)
 Q_DECLARE_OPERATORS_FOR_FLAGS(CaseFlags)
@@ -88,9 +89,10 @@ class SystemManager {
     SystemManager() {}
 
     // Access server
-    bool checkWsl();
+    QString getWslDistribution();
     bool checkWslServer();
     bool checkRemoteServer(const QString& host, int port = 22);
+    bool isWslUsed() { return !m_wslDistribution.isEmpty(); };
 
     // Assign systems for communication
     void setSystems(
@@ -208,7 +210,8 @@ class SystemManager {
     }
 
  private:
-    QString m_serverVersion = "1.0.0", m_defaultHost, m_defaultUser;
+    QString m_serverVersion = "1.0.0";
+    QString m_wslDistribution, m_defaultHost, m_defaultUser;
     QMap<QString, CaseData> m_caseMap;
     std::array<std::shared_ptr<TargetSystem>,
         static_cast<int>(TargetType::COUNT)> m_systems;

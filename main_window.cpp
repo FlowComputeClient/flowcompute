@@ -214,6 +214,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Read settings
     CaseData data;
+    QStringList disabledCases;
     for (const QString& caseName : std::as_const(caseOrder)) {
         settings.beginGroup(caseName);
         data.casePath = settings.value("casePath").toString();
@@ -233,16 +234,24 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         }
 
         // Check server availability
-        if ((data.targetId == static_cast<int>(TargetType::LOCAL_WINDOWS)) &&
-            (!wslServerCheck)) {
-            wslServerAvailable = m_systemMgr.checkWslServer();
-            wslServerCheck = true;
-        } else if
-            ((data.targetId == static_cast<int>(TargetType::REMOTE_LINUX)) &&
-                (!remoteServerCheck)) {
-            remoteServerAvailable =
-                m_systemMgr.checkRemoteServer(data.hostName, data.port);
-            remoteServerCheck = true;
+        if (data.targetId == static_cast<int>(TargetType::LOCAL_WINDOWS)) {
+            if (!wslServerCheck) {
+                wslServerAvailable = m_systemMgr.checkWslServer();
+                wslServerCheck = true;
+            }
+            if (!wslServerAvailable) {
+                disabledCases.append(caseName);
+            }
+        } else if (data.targetId ==
+                   static_cast<int>(TargetType::REMOTE_LINUX)) {
+            if (!remoteServerCheck) {
+                remoteServerAvailable =
+                    m_systemMgr.checkRemoteServer(data.hostName, data.port);
+                remoteServerCheck = true;
+            }
+            if (!remoteServerAvailable) {
+                disabledCases.append(caseName);
+            }
         }
         bool isServerAvailable =
             ((data.targetId == static_cast<int>(TargetType::LOCAL_WINDOWS)) &&
@@ -335,30 +344,44 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Get order of tabs
     settings.beginGroup("Tabs");
-    QStringList tabOrder = settings.value("tabOrder").toStringList();
-    for (const QString& tabPath : std::as_const(tabOrder)) {
-        settings.beginGroup(tabPath);
+    QStringList originalTabOrder = settings.value("tabOrder").toStringList();
+    QStringList updatedTabOrder;
+    bool orderChanged = false;
 
+    for (const QString& tabPath : std::as_const(originalTabOrder)) {
         // Get case information about the tab
         QStringList segments = tabPath.split("/");
+        if (segments.isEmpty())
+            continue;
+
+        // Check if the case has been disabled
         QString caseName = segments.first();
-        QString fileName = segments.last();
-        CaseData caseData = m_systemMgr.getData(caseName);
+        if (disabledCases.contains(caseName)) {
+            settings.remove(tabPath);
+            orderChanged = true;
+            continue;
+        }
 
         // Update tab data
         TabData data;
+        CaseData caseData = m_systemMgr.getData(caseName);
+
+        settings.beginGroup(tabPath);
         data.type = static_cast<EditorType>(settings.value("type").toInt());
+        settings.endGroup();
         QString fullPath = caseData.casePath + "/" + tabPath;
         data.stats = m_systemMgr.getSystem(caseName)->getFileStats(fullPath);
 
-        // End group for tab
-        settings.endGroup();
         if (m_utilMap[caseData.openFoamPath].empty()) {
+            updatedTabOrder.append(tabPath);
             continue;
         }
 
         // Create tab and editor
         m_tabMap.insert(tabPath, data);
+        updatedTabOrder.append(tabPath);
+
+        QString fileName = segments.last();
         switch(data.type) {
         case EditorType::TEXT:
             createTextEditor(fileName, tabPath, false);
@@ -372,11 +395,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         case EditorType::RESULT:
             createResultEditor(caseName, false);
             break;
+        default:
+            qWarning() << "Unknown EditorType for tab:" << tabPath;
+            break;
         }
     }
 
-    // End group for all tabs
+    // Persist the updated tab order back to QSettings
+    if (orderChanged) {
+        if (updatedTabOrder.empty()) {
+            settings.remove("tabOrder");
+        } else {
+            settings.setValue("tabOrder", updatedTabOrder);
+        }
+    }
     settings.endGroup();
+
     // Create Vulkan instance
     m_vulkanInstance.setLayers({ "VK_LAYER_KHRONOS_validation" });
     m_vulkanInstance.setApiVersion(QVersionNumber(1, 2));
@@ -2137,6 +2171,19 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     for (int i = 0; i < m_tabWidget->count(); ++i) {
         if (!m_tabWidget->promptToSave(i)) {
             return;
+        }
+    }
+
+    // Terminate wsl_server if running
+    if (m_systemMgr.isWslUsed()) {
+        QString distro = m_systemMgr.getWslDistribution();
+        if (!distro.isEmpty()) {
+            QProcess killProcess;
+            QStringList args;
+            args << "-d" << distro << "--" << "bash" <<
+                "-c" << "pkill -f wsl_server";
+            killProcess.start("wsl.exe", args);
+            killProcess.waitForFinished(1000);
         }
     }
 }

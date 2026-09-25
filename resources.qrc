@@ -59,7 +59,6 @@
         <file>licenses/zlib.txt</file>
         <file>template/Allclean</file>
         <file>template/Allrun</file>
-        <file>template/blockMeshDict</file>
         <file>template/controlDict</file>
         <file>template/fvSchemes</file>
         <file>template/fvSolution</file>

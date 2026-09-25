@@ -86,22 +86,48 @@ void CaseNavigator::createActions() {
     connect(m_connectAction, &QAction::triggered, this, [this]() {
         NodeData* node =
             m_connectAction->data().value<NodeData*>();
-        // Create connection
-        if (setupConnection(node->name)) {
-            node->setEnabled(true);
-            emit checkUtilities(node->name);
-            QString host = m_systemMgr.getData(node->name).hostName;
+        int targetId = m_systemMgr.getData(node->getCase()).targetId;
 
-            // Check other cases
-            QStringList cases = getCases();
-            cases.removeOne(node->name);
-            for (auto& caseName: cases) {
-                CaseData caseData = m_systemMgr.getData(caseName);
-                if ((caseData.targetId ==
-                    static_cast<int>(TargetType::REMOTE_LINUX)) &&
-                    (caseData.hostName == host)) {
-                    refresh(findNodeByPath(caseName), false);
+        // Create connection
+        if (targetId == static_cast<int>(TargetType::REMOTE_LINUX)) {
+            if (setupConnection(node->name)) {
+                node->setEnabled(true);
+                emit checkUtilities(node->name);
+                QString host = m_systemMgr.getData(node->name).hostName;
+
+                // Check other cases
+                QStringList cases = getCases();
+                cases.removeOne(node->name);
+                for (auto& caseName: cases) {
+                    CaseData caseData = m_systemMgr.getData(caseName);
+                    if ((caseData.targetId ==
+                        static_cast<int>(TargetType::REMOTE_LINUX)) &&
+                        (caseData.hostName == host)) {
+                        refresh(findNodeByPath(caseName), false);
+                    }
                 }
+            }
+        } else if (targetId == static_cast<int>(TargetType::LOCAL_WINDOWS)) {
+            if (m_systemMgr.checkWslServer()) {
+                node->setEnabled(true);
+                emit checkUtilities(node->name);
+
+                // Check other cases
+                QStringList cases = getCases();
+                cases.removeOne(node->name);
+                for (auto& caseName: cases) {
+                    if (m_systemMgr.getData(caseName).targetId ==
+                         static_cast<int>(TargetType::LOCAL_WINDOWS)) {
+                        refresh(findNodeByPath(caseName), false);
+                    }
+                }
+            } else {
+                QString title = QCoreApplication::translate("SystemManager",
+                                                            "Update Failed");
+                QString msg = QCoreApplication::translate("SystemManager",
+                    "The wsl_server is missing or can't be installed in WSL.\n"
+                    "Please reinstall FlowCompute.");
+                QMessageBox::critical(nullptr, title, msg);
             }
         }
     });
@@ -183,6 +209,7 @@ void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
     m_renameAction->setEnabled(hasSingleSelection);
 
     // Default states for context-dependent actions
+    m_runMeshAction->setEnabled(false);
     m_viewMeshAction->setEnabled(false);
     m_configureSolverAction->setEnabled(false);
     m_runSolverAction->setEnabled(false);
@@ -203,6 +230,7 @@ void CaseNavigator::onSelectionChanged(const QItemSelection &selected,
 
 void CaseNavigator::updateActions(NodeData* node) {
     // Default states for context-dependent actions
+    m_runMeshAction->setEnabled(false);
     m_viewMeshAction->setEnabled(false);
     m_configureSolverAction->setEnabled(false);
     m_runSolverAction->setEnabled(false);
@@ -218,6 +246,9 @@ void CaseNavigator::updateActions(NodeData* node) {
         if (flags == CaseFlag::NotChecked)
             return;
     }
+
+    // Mesh utility execution
+    m_runMeshAction->setEnabled(flags.testFlag(CaseFlag::HasMeshConfigFiles));
 
     // Mesh viewing and solver configuration
     const bool hasMesh = flags.testFlag(CaseFlag::HasMeshFiles);
@@ -681,13 +712,6 @@ void CaseNavigator::showContextMenu(QPoint pos) {
     if (!node) {
         return;
     }
-    /*
-    if (!node->isEnabled()) {
-        QMessageBox::critical(this, tr("Cannot access OpenFOAM"),
-            tr("FlowCompute can't find the installation of OpenFOAM."));
-        return;
-    }
-    */
 
     // Add actions for case folders
     if (node->nodeType == NodeType::CaseFolder) {
@@ -708,6 +732,12 @@ void CaseNavigator::showContextMenu(QPoint pos) {
                 contextMenu.exec(viewport()->mapToGlobal(pos));
                 return;
             }
+        } else if (m_systemMgr.getData(node->name).targetId ==
+            static_cast<int>(TargetType::LOCAL_WINDOWS) && !node->isEnabled()) {
+            m_connectAction->setData(QVariant::fromValue(node));
+            contextMenu.addAction(m_connectAction);
+            contextMenu.exec(viewport()->mapToGlobal(pos));
+            return;
         }
 
         // Set flags for node

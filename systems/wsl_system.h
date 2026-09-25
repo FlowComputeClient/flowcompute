@@ -98,6 +98,7 @@ class WslSystem : public TargetSystem {
     std::vector<FieldData> getResultData(const QString& path) override;
 
  private:
+    bool m_connected = false;
     void terminateProcess();
     QJsonObject contactServer(const QString& action, const QString& message,
                               int opType = -1);

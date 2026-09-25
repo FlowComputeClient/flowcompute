@@ -41,7 +41,7 @@ class MeshWizard : public QWizard {
         Page_SnapControl,
         Page_LayerControl
     };
-    MeshWizard(const QString& caseName, const SystemManager& systemMgr,
+    MeshWizard(const QString& caseName, SystemManager& systemMgr,
         QWidget *parent);
 
     // Load and parse mesh files
@@ -71,7 +71,7 @@ class MeshWizard : public QWizard {
     void accept() override;
 
  private:
-    const SystemManager& m_systemMgr;
+    SystemManager& m_systemMgr;
     QString m_caseName, m_casePath;
     QMap<QString, GeometryMetrics> m_geometryMap;
     QMap<QString, std::shared_ptr<OpenFoamDictionary>> m_dictMap;
