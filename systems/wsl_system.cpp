@@ -20,6 +20,7 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QJsonDocument>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSettings>
