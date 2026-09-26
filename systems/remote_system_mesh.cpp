@@ -17,7 +17,7 @@
 
 #include "remote_system.h"
 
-#include <fstream>
+#include <sstream>
 
 #include "mesh_utils.h"
 

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=FlowCompute
+Comment=Graphical client for OpenFOAM
+Exec=FlowCompute
+Icon=flowcompute
+Terminal=false
+Categories=Science;Engineering;

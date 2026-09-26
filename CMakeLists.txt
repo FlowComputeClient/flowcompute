@@ -65,6 +65,7 @@ qt_add_executable(FlowCompute
     main_window_slots.cpp
     resources.qrc
     core_types.h
+    flowcompute.desktop
 )
 
 if(WIN32)

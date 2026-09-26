@@ -1,7 +1,7 @@
 # Linux Desktop & AppImage Target Setup
 include(GNUInstallDirs)
 
-install(FILES "${CMAKE_SOURCE_DIR}/deploy/flowcompute.desktop"
+install(FILES "${CMAKE_SOURCE_DIR}/flowcompute.desktop"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
     COMPONENT FlowComputeCore
 )
