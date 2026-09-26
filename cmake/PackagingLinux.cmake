@@ -19,10 +19,13 @@ if(LINUXDEPLOYQT_EXECUTABLE)
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/AppDir"
         COMMAND ${CMAKE_COMMAND} -E env DESTDIR="${CMAKE_BINARY_DIR}/AppDir"
                 "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --prefix /usr
-        COMMAND "${LINUXDEPLOYQT_EXECUTABLE}"
+		COMMAND ${CMAKE_COMMAND} -E env 
+                VERSION="${PROJECT_VERSION}" 
+                OUTPUT="FlowCompute-${PROJECT_VERSION}.AppImage"
+                "${LINUXDEPLOYQT_EXECUTABLE}"
                 "${CMAKE_BINARY_DIR}/AppDir/usr/share/applications/flowcompute.desktop"
                 -appimage
-                -updateinformation="gh-releases-zsync|FlowComputeClient|flowcompute|latest|FlowCompute-x86_64.AppImage.zsync"
+                -updateinformation="gh-releases-zsync|FlowComputeClient|flowcompute|latest|FlowCompute-${PROJECT_VERSION}.AppImage.zsync"
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
         DEPENDS FlowCompute
         COMMENT "Building FlowCompute AppImage..."
