@@ -6,8 +6,7 @@
 namespace {
 inline std::vector<std::array<float, 4>> patchColors = {{
     // 0: Strong Purple
-    {0.3686274509803922, 0.20784313725490197, 0.6941176470588235, 1.0 },
-    // { 0.529412f, 0.337255f, 0.572549f, 1.0f },
+    {0.36862745f, 0.207843f, 0.69411764f, 1.0 },
     // 1: Vivid Yellow (#F3C300)
     { 0.952941f, 0.764706f, 0.000000f, 1.0f },
     // 2: Very Light Blue (#A1CAF1)
