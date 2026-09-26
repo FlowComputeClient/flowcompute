@@ -26,6 +26,7 @@
 #include <QGuiApplication>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QProgressBar>
 #include <QProgressDialog>
 #include <QStandardPaths>

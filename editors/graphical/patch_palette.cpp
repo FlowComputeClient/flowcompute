@@ -4,7 +4,7 @@
 #include <mutex>
 
 namespace {
-inline std::vector<std::array<float, 4>> patchColors = {{
+inline std::vector<std::array<float, 4>> patchColors = {
     // 0: Strong Purple
     {0.36862745f, 0.207843f, 0.69411764f, 1.0f },
     // 1: Vivid Yellow (#F3C300)
@@ -49,7 +49,7 @@ inline std::vector<std::array<float, 4>> patchColors = {{
     { 1.000000f, 1.000000f, 1.000000f, 1.0f },
     // 21: Off-Black (#222222) - Slightly lifted
     { 0.133333f, 0.133333f, 0.133333f, 1.0f }
-}};
+};
 
 std::mutex paletteMutex;
 }

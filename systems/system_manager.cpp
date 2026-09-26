@@ -20,9 +20,11 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QFuture>
+#include <QMessageBox>
 #include <QMetaObject>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QTcpSocket>
 #include <QtConcurrent>
 #include <QVersionNumber>
 

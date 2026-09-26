@@ -18,24 +18,6 @@
 #ifndef SYSTEMS_WSL_SYSTEM_H_
 #define SYSTEMS_WSL_SYSTEM_H_
 
-#include <QAbstractButton>
-#include <QButtonGroup>
-#include <QDialog>
-#include <QDialogButtonBox>
-#include <QFile>
-#include <QFileInfo>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QLabel>
-#include <QMessageBox>
-#include <QProcess>
-#include <QRadioButton>
-#include <QRegularExpression>
-#include <QSettings>
-#include <QString>
-#include <QTcpSocket>
-#include <QVBoxLayout>
-
 #include <vector>
 
 #include "./target_system.h"

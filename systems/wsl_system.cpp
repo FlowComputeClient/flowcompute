@@ -17,10 +17,13 @@
 
 #include "./wsl_system.h"
 
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSettings>
-#include <QDebug>
+#include <QTcpSocket>
 
 #include <vector>
 
