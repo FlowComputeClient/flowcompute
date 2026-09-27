@@ -1835,6 +1835,8 @@ void MainWindow::longUtilityFinished(const QString& status,
         break;
     case UtilityType::POSTPROCESS:
         updatePath(caseName, "");
+        updatePath(caseName, "system");
+        updatePath(caseName, "postProcessing");
         break;
     }
 }
