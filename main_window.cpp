@@ -421,7 +421,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     settings.endGroup();
 
     // Create Vulkan instance
-    m_vulkanInstance.setLayers({ "VK_LAYER_KHRONOS_validation" });
+    // m_vulkanInstance.setLayers({ "VK_LAYER_KHRONOS_validation" });
     m_vulkanInstance.setApiVersion(QVersionNumber(1, 2));
     if (!m_vulkanInstance.create()) {
         qFatal("Failed to create Vulkan instance: %d",
