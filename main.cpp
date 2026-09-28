@@ -171,5 +171,6 @@ int main(int argc, char *argv[]) {
     // Create window
     MainWindow mainWindow;
     mainWindow.show();
+    mainWindow.setWindowState(Qt::WindowMaximized);
     QTimer::singleShot(0, &mainWindow, &QMainWindow::showMaximized);    return app.exec();
 }
