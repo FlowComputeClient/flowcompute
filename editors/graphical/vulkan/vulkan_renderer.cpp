@@ -105,9 +105,9 @@ void VulkanRenderer::startNextFrame() {
         // Update colors if necessary
         VkFormat swapchainFormat = m_window->colorFormat();
         if (isSrgbFormat(swapchainFormat)) {
-            m_clearColor[0] = std::pow(m_clearColor[0], 1.9f);
-            m_clearColor[1] = std::pow(m_clearColor[1], 1.9f);
-            m_clearColor[2] = std::pow(m_clearColor[2], 1.9f);
+            m_clearColor[0] = std::pow(m_clearColor[0], 2.0f);
+            m_clearColor[1] = std::pow(m_clearColor[1], 2.0f);
+            m_clearColor[2] = std::pow(m_clearColor[2], 2.0f);
         }
     }
 

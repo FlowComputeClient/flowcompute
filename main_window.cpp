@@ -29,6 +29,7 @@
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QProgressDialog>
+#include <QScrollBar>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QToolBar>
@@ -160,6 +161,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_consoleWidget->setWidget(m_console);
     addDockWidget(Qt::BottomDockWidgetArea, m_consoleWidget);
     m_console->appendPlainText("\nWelcome to FlowCompute!\n");
+
+    // Make sure the console follows text
+    connect(m_console->verticalScrollBar(), &QScrollBar::rangeChanged,
+        this, [this](int min, int max) {
+            m_console->verticalScrollBar()->setValue(max);
+        });
 
     // Access configuration directory
     QString configDirPath =
@@ -451,7 +458,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
 MainWindow::~MainWindow() = default;
 
-/* Create QActions for file operations */
+// Show window maximized
+void MainWindow::showEvent(QShowEvent *event) {
+    QMainWindow::showEvent(event);
+    this->setWindowState(Qt::WindowMaximized);
+}
+
+// Create QActions for file operations
 void MainWindow::createActions() {
     // Create new case
     m_newCaseAction = new QAction(QIcon(":/images/new_case.png"),

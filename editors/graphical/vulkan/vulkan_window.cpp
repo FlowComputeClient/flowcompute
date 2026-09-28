@@ -17,6 +17,8 @@
 
 #include "editors/graphical/vulkan/vulkan_window.h"
 
+#include <QColorSpace>
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -52,8 +54,18 @@ VulkanWindow::VulkanWindow(std::shared_ptr<RenderData> meshData,
 
     m_cameraDistance = maxDim * 3.0f;
 
-    // The initial m_yaw and m_pitch values in your header will
-    // dictate the starting angle automatically.
+    // Set the color format
+    QSurfaceFormat format;
+#if defined(__linux__)
+    format.setColorSpace(QColorSpace(QColorSpace::SRgb));
+#elif defined(_WIN32)
+    format.setColorSpace(QColorSpace(QColorSpace::SRgbLinear));
+#else
+    format.setColorSpace(QColorSpace(QColorSpace::SRgbLinear));
+#endif
+    setFormat(format);
+
+    // Set the view matrix
     updateViewMatrix();
 
     // Set dirty flags

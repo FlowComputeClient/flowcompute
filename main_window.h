@@ -60,6 +60,7 @@ class MainWindow : public QMainWindow {
     void graphicalThemeChanged(const QString& graphicalTheme);
 
  protected:
+    void showEvent(QShowEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
  private:
