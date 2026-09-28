@@ -28,6 +28,7 @@ if(LINUXDEPLOYQT_EXECUTABLE)
                 "${LINUXDEPLOYQT_EXECUTABLE}"
                 "${CMAKE_BINARY_DIR}/AppDir/usr/share/applications/flowcompute.desktop"
                 -appimage
+                -extra-plugins=wayland
                 -updateinformation="gh-releases-zsync|FlowComputeClient|flowcompute|latest|FlowCompute-${PROJECT_VERSION}.AppImage.zsync"
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
         DEPENDS FlowCompute

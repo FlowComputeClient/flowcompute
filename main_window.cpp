@@ -462,7 +462,7 @@ MainWindow::~MainWindow() = default;
 // Show window maximized
 void MainWindow::showEvent(QShowEvent *event) {
     QMainWindow::showEvent(event);
-    this->setWindowState(Qt::WindowMaximized);
+    setWindowState(Qt::WindowMaximized);
 }
 
 // Create QActions for file operations

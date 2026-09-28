@@ -26,6 +26,7 @@
 #include <QStandardPaths>
 #include <QString>
 #include <QStyleFactory>
+#include <QTimer>
 #include <QTranslator>
 
 #include "./main_window.h"
@@ -141,6 +142,7 @@ int main(int argc, char *argv[]) {
         app.setWindowIcon(QIcon(":/images/flowcompute.ico"));
     #else
         app.setWindowIcon(QIcon(":/images/flowcompute.png"));
+        app.setDesktopFileName("flowcompute");
     #endif
 
     /*
@@ -168,6 +170,6 @@ int main(int argc, char *argv[]) {
 
     // Create window
     MainWindow mainWindow;
-    mainWindow.showMaximized();
-    return app.exec();
+    mainWindow.show();
+    QTimer::singleShot(0, &mainWindow, &QMainWindow::showMaximized);    return app.exec();
 }
