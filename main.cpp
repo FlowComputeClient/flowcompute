@@ -125,6 +125,16 @@ void initializeConfig(QApplication& app) {
     }
 }
 
+void customMessageHandler(QtMsgType type, const QMessageLogContext &context,
+                          const QString &msg) {
+    if (msg.contains("qt.qpa.input.events: scroll event")) {
+        return;
+    }
+    // Print other messages normally
+    QByteArray localMsg = msg.toLocal8Bit();
+    fprintf(stderr, "%s\n", localMsg.constData());
+}
+
 int main(int argc, char *argv[]) {
 
     // Set application properties
@@ -132,6 +142,9 @@ int main(int argc, char *argv[]) {
     app.setOrganizationName("FlowCompute");
     app.setApplicationName("FlowCompute");
     app.setApplicationVersion(APP_VERSION);
+
+    // Handle scroll event messages
+    qInstallMessageHandler(customMessageHandler);
 
     // Global defaults
     QApplication::setStyle(QStyleFactory::create("Fusion"));
