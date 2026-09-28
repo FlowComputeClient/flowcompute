@@ -24,6 +24,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QGuiApplication>
+#include <QIcon>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>

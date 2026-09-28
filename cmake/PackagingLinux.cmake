@@ -19,7 +19,10 @@ if(LINUXDEPLOYQT_EXECUTABLE)
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/AppDir"
         COMMAND ${CMAKE_COMMAND} -E env DESTDIR="${CMAKE_BINARY_DIR}/AppDir"
                 "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}" --prefix /usr
-		COMMAND ${CMAKE_COMMAND} -E env 
+        COMMAND ${CMAKE_COMMAND} -E copy
+                "${CMAKE_SOURCE_DIR}/images/flowcompute.png"
+                "${CMAKE_BINARY_DIR}/AppDir/flowcompute.png"
+        COMMAND ${CMAKE_COMMAND} -E env
                 VERSION="${PROJECT_VERSION}" 
                 OUTPUT="FlowCompute-${PROJECT_VERSION}.AppImage"
                 "${LINUXDEPLOYQT_EXECUTABLE}"
