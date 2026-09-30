@@ -67,15 +67,6 @@
         <file>styles/style_template.qss</file>
         <file>themes/light.json</file>
         <file>themes/dark.json</file>
-        <file>translations/qt_de.qm</file>
-        <file>translations/qt_es.qm</file>
-        <file>translations/qt_fr.qm</file>
-        <file>translations/qt_it.qm</file>
-        <file>translations/qt_ja.qm</file>
-        <file>translations/qt_ko.qm</file>
-        <file>translations/qt_pt.qm</file>
-        <file>translations/qt_sv.qm</file>
-        <file>translations/qt_zh.qm</file>
         <file>template/physicalProperties</file>
         <file>images/connect.png</file>
     </qresource>

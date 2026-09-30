@@ -642,37 +642,45 @@ void MainWindow::createActions() {
         }
     });
 
-    // Language
+    // Set language
     m_languageAction = new QAction(QIcon(":/images/language.png"),
-                                tr("Set Language..."), this);
+                                   tr("Set Language..."), this);
     m_languageAction->setStatusTip(tr("Set language"));
-    connect(m_languageAction, &QAction::triggered, this, [this]() {
-        // Create list of languages
-        QStringList languageNames = { "English", "Deutsch",
-            "中文（简体）", "日本語", "Svenska", "Français", "Italiano", "한국어",
-            "Español", "Português" };
-        QStringList languageIds = { "en", "de", "zh_CN", "ja", "sv", "fr",
-            "it", "ko", "es", "pt_BR" };
 
-        // Get settings
+    connect(m_languageAction, &QAction::triggered, this, [this]() {
+        const QStringList languageNames = {
+            "English", "Deutsch", "中文（简体）", "日本語", "Svenska",
+            "Français", "Italiano", "한국어", "Español", "Português (Brasil)"
+        };
+
+        const QStringList languageIds = {
+            "en", "de", "zh_CN", "ja", "sv", "fr", "it", "ko", "es", "pt_BR" };
+
         QSettings settings;
         QString currentLanguage =
             settings.value("Preferences/language").toString();
+
+        // Match exact ID first; fall back to matching base language
         int currentIndex = languageIds.indexOf(currentLanguage);
+        if (currentIndex == -1) {
+            QString baseLang = currentLanguage.section('_', 0, 0);
+            currentIndex = languageIds.indexOf(baseLang);
+        }
         currentIndex = (std::max)(0, currentIndex);
 
         // Create selection dialog
         SelectionDialog selectionDialog(tr("Language Selection"),
-            tr("Select one of the following languages:"), languageNames, this,
-            currentIndex);
+            tr("Select one of the following languages:"),
+            languageNames, this, currentIndex);
+
         if (selectionDialog.exec() == QDialog::Accepted) {
-            QString language = languageIds[selectionDialog.getSelectedIndex()];
-            if (language != currentLanguage) {
-                // Update settings and alert user
-                settings.setValue("Preferences/language", language);
+            QString selectedLanguage =
+                languageIds[selectionDialog.getSelectedIndex()];
+            if (selectedLanguage != currentLanguage) {
+                settings.setValue("Preferences/language", selectedLanguage);
                 QMessageBox::information(this, tr("Restart Required"),
-                tr("Language changed. Please restart FlowCompute for changes "
-                                            "to take effect."));
+                    tr("Language changed. Please restart FlowCompute "
+                                            "for changes to take effect."));
             }
         }
     });

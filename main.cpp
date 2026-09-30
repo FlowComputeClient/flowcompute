@@ -19,6 +19,7 @@
 
 #include <QApplication>
 #include <QDate>
+#include <QLibraryInfo>
 #include <QMessageLogContext>
 #include <QMutex>
 #include <QMutexLocker>
@@ -84,30 +85,35 @@ void initializeConfig(QApplication& app) {
     QSettings settings;
     QString localeCode;
     if (!settings.contains("Preferences/language")) {
+        // Retrieve system locale ("de_DE", "zh_CN", "pt_BR")
         localeCode = QLocale::system().name();
         settings.setValue("Preferences/language", localeCode);
     } else {
         localeCode = settings.value("Preferences/language").toString();
     }
 
-    // Load translation efficiently
-    if (!localeCode.startsWith("en")) {
-        QTranslator* appTranslator = new QTranslator();
-        if (appTranslator->load(localeCode + ".qm", ":/translations")) {
-            appTranslator->setParent(&app);
-            app.installTranslator(appTranslator);
-        } else {
-            qWarning() << "Failed to load translation for" << localeCode;
-            delete appTranslator;
-        }
+    QLocale targetLocale(localeCode);
+
+    // Load application translations from Qt resources
+    auto* appTranslator = new QTranslator(&app);
+    if (appTranslator->load(targetLocale, "flowcompute", "_", ":/i18n")) {
+        app.installTranslator(appTranslator);
+    } else if (targetLocale.language() != QLocale::English) {
+        qWarning() << "Failed to load translation for" << localeCode;
     }
 
+    // Load standard Qt translations
+    auto* qtTranslator = new QTranslator(&app);
+    if (qtTranslator->load(targetLocale, "qtbase", "_",
+            QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
+        app.installTranslator(qtTranslator);
+    }
+
+    // Deploy configuration files
     QStringList configFiles = {
         "solvers.json", "turbulence.json", "fields.json",
         "boundary_conditions.json", "material_properties.json"
     };
-
-    // Deploy configuration files
     for (const auto& configFile : configFiles) {
         QString writableFilePath = configDir.filePath(configFile);
         QFileInfo fileInfo(writableFilePath);

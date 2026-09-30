@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Concurrent)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Concurrent LinguistTools)
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 qt_standard_project_setup()
@@ -115,7 +115,59 @@ qt_generate_deploy_app_script(
 )
 install(SCRIPT ${deploy_script} COMPONENT FlowComputeCore)
 
-# Platform-specific packaging and dependency management
+# Define translation files
+set(TS_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_de.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_es.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_fr.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_it.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_ja.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_ko.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_pt.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_sv.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_zh.ts"
+)
+
+# Explicitly list source directories and files to parse,
+# omitting the 'third_party' directory to speed up lupdate and avoid noise.
+set(TRANSLATION_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/dialogs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/editors"
+    "${CMAKE_CURRENT_SOURCE_DIR}/geometry"
+    "${CMAKE_CURRENT_SOURCE_DIR}/parser"
+    "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
+    "${CMAKE_CURRENT_SOURCE_DIR}/systems"
+    "${CMAKE_CURRENT_SOURCE_DIR}/views"
+    "${CMAKE_CURRENT_SOURCE_DIR}/wizards"
+    "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/main_window.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/main_window.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/main_window_slots.cpp"
+)
+
+# Compile translation files into *.qm files
+qt_add_translations(FlowCompute TS_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_de.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_es.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_fr.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_it.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_ja.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_ko.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_pt.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_sv.ts"
+    "${CMAKE_CURRENT_SOURCE_DIR}/translations/flowcompute_zh.ts"
+    RESOURCE_PREFIX "/i18n"
+)
+
+# Create a manual target to run lupdate
+add_custom_target(extract_translations
+    COMMAND Qt6::lupdate -no-obsolete ${TRANSLATION_SOURCES} -ts ${TS_FILES}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Extracting translatable strings into .ts files..."
+    VERBATIM
+)
+
+# Platform-specific packaging
 if(WIN32)
     include(cmake/PackagingWindows.cmake)
 elseif(UNIX AND NOT APPLE)
