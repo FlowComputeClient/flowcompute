@@ -2,7 +2,7 @@
 
 ![The FlowCompute GUI](images/flowcompute.gif)
 
-FlowCompute is an open-source graphical client for OpenFOAM. Available for Windows and Linux, it lets you create cases, generate meshes, configure simulations, and launch OpenFOAM tools without relying on the command line. FlowCompute can access OpenFOAM running natively on Linux, inside the Windows Subsystem for Linux (WSL), or on a remote Linux server.
+FlowCompute is an open-source, Vulkan-based graphical client for OpenFOAM fluid analysis. Available for Windows and Linux, it lets you create cases, generate meshes, configure simulations, and launch tools without the command line. FlowCompute seamlessly accesses OpenFOAM whether it is running natively on Linux, inside the Windows Subsystem for Linux (WSL), or on a remote SSH server. [Download the latest installers here](https://flowcompute.com/downloads/).
 
 The following YouTube videos demonstrate FlowCompute in action:
 
