@@ -1,4 +1,4 @@
-# FlowCompute: A Cross-Platform Client for OpenFOAM
+# FlowCompute: An Open-Source GUI for OpenFOAM
 
 ![The FlowCompute GUI](images/flowcompute.gif)
 
